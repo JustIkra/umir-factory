@@ -1,0 +1,10 @@
+services:
+  gateway:
+    build: ../umir-gateway
+  serving:
+    build: ../umir-serving
+  warehouse:
+    build: ../umir-warehouse
+  frontend:
+    build: ../umir-frontend
+

@@ -1,0 +1,44 @@
+name: umir
+services:
+  warehouse:
+    image: ghcr.io/justikra/umir-warehouse:sha-fd80057527a1852117eb6254ca9e9cc9ef2cb749
+    environment:
+      TZ: Europe/Moscow
+    restart: unless-stopped
+
+  serving:
+    image: ghcr.io/justikra/umir-serving:sha-68813bcbaedde6e2b0e691ba9c3d9fc1e6383435
+    environment:
+      TZ: Europe/Moscow
+      WAREHOUSE_URL: http://warehouse:8080
+    depends_on:
+      warehouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    image: ghcr.io/justikra/umir-gateway:sha-233a1c1978eaf0f25d3420f4ec7e5357aea64672
+    ports:
+      - "${UMIR_BIND:-127.0.0.1}:${UMIR_API_PORT:-8081}:8080"
+    environment:
+      TZ: Europe/Moscow
+      SERVING_URL: http://serving:8080
+      WAREHOUSE_URL: http://warehouse:8080
+    depends_on:
+      serving:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/justikra/umir-frontend:sha-de271144dfa8f27099c553e3a34751b33d661f4b
+    ports:
+      - "${UMIR_BIND:-127.0.0.1}:${UMIR_WEB_PORT:-8080}:8080"
+    environment:
+      TZ: Europe/Moscow
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
