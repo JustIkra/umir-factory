@@ -24,4 +24,13 @@ jobs:
         run: docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
       - name: Check pinned image identities
         run: python3 scripts/check-images.py
+      - name: Pull pinned images
+        run: docker compose --env-file .env.example pull
+      - name: Start assembly
+        run: docker compose --env-file .env.example up -d --wait --wait-timeout 120
+      - name: Check gateway paths
+        run: python3 scripts/smoke.py
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose --env-file .env.example logs --no-color
 
