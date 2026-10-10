@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +38,7 @@ func runSmoke(ctx context.Context, client *http.Client, targets smokeTargets) er
 	return nil
 }
 
-func verifyHealth(ctx context.Context, client *http.Client, url, service string) error {
+func verifyHealth(ctx context.Context, client *http.Client, url, service string) (result error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -46,7 +47,11 @@ func verifyHealth(ctx context.Context, client *http.Client, url, service string)
 	if err != nil {
 		return fmt.Errorf("request %s: %w", url, err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			result = errors.Join(result, fmt.Errorf("close response body from %s: %w", url, err))
+		}
+	}()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", url, err)
@@ -61,7 +66,7 @@ func verifyHealth(ctx context.Context, client *http.Client, url, service string)
 	return nil
 }
 
-func verifyFrontend(ctx context.Context, client *http.Client, url string) error {
+func verifyFrontend(ctx context.Context, client *http.Client, url string) (result error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -70,7 +75,11 @@ func verifyFrontend(ctx context.Context, client *http.Client, url string) error 
 	if err != nil {
 		return fmt.Errorf("request %s: %w", url, err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			result = errors.Join(result, fmt.Errorf("close response body from %s: %w", url, err))
+		}
+	}()
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", url, err)

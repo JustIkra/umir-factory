@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,6 +22,8 @@ type recordedCall struct {
 type fakeExecutor struct {
 	calls        []recordedCall
 	fail         error
+	stdout       []byte
+	stderr       []byte
 	workContents string
 }
 
@@ -42,7 +45,7 @@ func (f *fakeExecutor) Run(_ context.Context, dir string, env []string, name str
 				f.workContents = string(contents)
 			}
 		}
-		return nil, nil, f.fail
+		return f.stdout, f.stderr, f.fail
 	}
 	return (&osExecutor{}).Run(context.Background(), dir, env, name, args...)
 }
@@ -139,7 +142,11 @@ func TestWorkspaceUsesRealPaths(t *testing.T) {
 	if err := os.Chdir(t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(oldwd) })
+	t.Cleanup(func() {
+		if err := os.Chdir(oldwd); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
 	code := runWithExecutor(context.Background(), []string{"business", "--factory-dir", factory, "--local"}, &bytes.Buffer{}, &bytes.Buffer{}, exec)
 	if code != 0 {
 		t.Fatalf("business returned %d", code)
@@ -210,6 +217,118 @@ func TestReturnsGoFailure(t *testing.T) {
 	if code != 23 {
 		t.Fatalf("run returned %d, want exact child code 23", code)
 	}
+}
+
+func TestFailedCommandCannotReturnSuccessCode(t *testing.T) {
+	if code := processCode(codedError(0)); code == 0 {
+		t.Fatal("failed command with zero exit code was accepted as success")
+	}
+}
+
+func TestChildExitCodeSurvivesCleanupFailure(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	initRepo(t, filepath.Join(parent, "umir-warehouse"))
+	initRepo(t, filepath.Join(parent, "umir-serving"))
+	executor := &fakeExecutor{fail: codedError(23)}
+	var stderr bytes.Buffer
+	code := runBusinessWithCleanup(context.Background(), factory, cliOptions{local: true}, executor, &bytes.Buffer{}, &stderr, os.MkdirTemp, func(path string) error {
+		cleanupErr := errors.New("cleanup failed")
+		if err := os.RemoveAll(path); err != nil {
+			return errors.Join(cleanupErr, fmt.Errorf("remove runner workspace: %w", err))
+		}
+		return cleanupErr
+	})
+	if code != 23 {
+		t.Fatalf("run returned %d, want exact child code 23", code)
+	}
+	if !strings.Contains(stderr.String(), "cleanup failed") {
+		t.Fatalf("cleanup failure was not reported: %q", stderr.String())
+	}
+}
+
+func TestSuccessfulBusinessRunFailsWhenCleanupFails(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	initRepo(t, filepath.Join(parent, "umir-warehouse"))
+	initRepo(t, filepath.Join(parent, "umir-serving"))
+	var stderr bytes.Buffer
+	code := runBusinessWithCleanup(context.Background(), factory, cliOptions{local: true}, &fakeExecutor{}, &bytes.Buffer{}, &stderr, os.MkdirTemp, func(path string) error {
+		cleanupErr := errors.New("cleanup failed")
+		if err := os.RemoveAll(path); err != nil {
+			return errors.Join(cleanupErr, fmt.Errorf("remove runner workspace: %w", err))
+		}
+		return cleanupErr
+	})
+	if code == 0 {
+		t.Fatal("business run succeeded despite cleanup failure")
+	}
+	if !strings.Contains(stderr.String(), "cleanup failed") {
+		t.Fatalf("cleanup failure was not reported: %q", stderr.String())
+	}
+}
+
+func TestSuccessfulBusinessRunFailsOnShortTerminalWrite(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	initRepo(t, filepath.Join(parent, "umir-warehouse"))
+	initRepo(t, filepath.Join(parent, "umir-serving"))
+	code := runBusiness(context.Background(), factory, cliOptions{local: true}, &fakeExecutor{stdout: []byte("ok")}, shortWriter{}, &bytes.Buffer{})
+	if code == 0 {
+		t.Fatal("business run succeeded after a short terminal write")
+	}
+}
+
+func TestTerminalWriterFailuresDoNotRecurse(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	initRepo(t, filepath.Join(parent, "umir-warehouse"))
+	initRepo(t, filepath.Join(parent, "umir-serving"))
+	stdout := &countingShortWriter{}
+	stderr := &countingShortWriter{}
+	code := runBusiness(context.Background(), factory, cliOptions{local: true}, &fakeExecutor{stdout: []byte("ok")}, stdout, stderr)
+	if code == 0 {
+		t.Fatal("business run succeeded after terminal writer failures")
+	}
+	if stdout.calls != 1 || stderr.calls != 1 {
+		t.Fatalf("terminal writes = stdout %d, stderr %d; want one attempt each", stdout.calls, stderr.calls)
+	}
+}
+
+func TestStderrWriteFailureDoesNotTriggerAnotherStderrWrite(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	initRepo(t, filepath.Join(parent, "umir-warehouse"))
+	initRepo(t, filepath.Join(parent, "umir-serving"))
+	stderr := &countingShortWriter{}
+	code := runBusiness(context.Background(), factory, cliOptions{local: true}, &fakeExecutor{stderr: []byte("diagnostic")}, &bytes.Buffer{}, stderr)
+	if code == 0 {
+		t.Fatal("business run succeeded after stderr write failure")
+	}
+	if stderr.calls != 1 {
+		t.Fatalf("stderr writes = %d, want one attempt", stderr.calls)
+	}
+}
+
+type shortWriter struct{}
+
+func (shortWriter) Write(data []byte) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
+	return len(data) - 1, nil
+}
+
+type countingShortWriter struct {
+	calls int
+}
+
+func (w *countingShortWriter) Write(data []byte) (int, error) {
+	w.calls++
+	if len(data) == 0 {
+		return 0, nil
+	}
+	return len(data) - 1, nil
 }
 
 type codedError int

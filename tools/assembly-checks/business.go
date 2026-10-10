@@ -17,17 +17,28 @@ var serviceRepositories = map[string]string{
 }
 
 func runBusiness(ctx context.Context, factoryDir string, options cliOptions, executor commandExecutor, stdout, stderr io.Writer) int {
+	return runBusinessWithCleanup(ctx, factoryDir, options, executor, stdout, stderr, os.MkdirTemp, os.RemoveAll)
+}
+
+func runBusinessWithCleanup(ctx context.Context, factoryDir string, options cliOptions, executor commandExecutor, stdout, stderr io.Writer, createTemp func(string, string) (string, error), removeTemp func(string) error) (code int) {
 	businessDir := filepath.Join(factoryDir, "tests", "business")
 	if _, err := os.Stat(filepath.Join(businessDir, "go.mod")); err != nil {
-		fmt.Fprintf(stderr, "business test module is unavailable: %v\n", err)
+		writeFailure(stderr, "business test module is unavailable: %v\n", err)
 		return 1
 	}
-	tempDir, err := os.MkdirTemp("", "umir-business-checks-")
+	tempDir, err := createTemp("", "umir-business-checks-")
 	if err != nil {
-		fmt.Fprintf(stderr, "create runner workspace: %v\n", err)
+		writeFailure(stderr, "create runner workspace: %v\n", err)
 		return 1
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := removeTemp(tempDir); err != nil {
+			if code == 0 {
+				code = 1
+			}
+			writeFailure(stderr, "remove runner workspace: %v\n", err)
+		}
+	}()
 	paths := map[string]string{}
 	if options.local {
 		parent := filepath.Dir(factoryDir)
@@ -35,11 +46,11 @@ func runBusiness(ctx context.Context, factoryDir string, options cliOptions, exe
 		paths["serving"] = filepath.Join(parent, "umir-serving")
 		for service, path := range paths {
 			if _, err := os.Stat(filepath.Join(path, "go.mod")); err != nil {
-				fmt.Fprintf(stderr, "local %s module is unavailable: %v\n", service, err)
+				writeFailure(stderr, "local %s module is unavailable: %v\n", service, err)
 				return 1
 			}
 			if _, err := verifyHead(ctx, executor, path, ""); err != nil {
-				fmt.Fprintf(stderr, "verify local %s checkout: %v\n", service, err)
+				writeFailure(stderr, "verify local %s checkout: %v\n", service, err)
 				return 1
 			}
 		}
@@ -48,7 +59,7 @@ func runBusiness(ctx context.Context, factoryDir string, options cliOptions, exe
 		for _, service := range []string{"warehouse", "serving"} {
 			path := filepath.Join(tempDir, service)
 			if err := fetchPinned(ctx, executor, path, serviceRepositories[service], refs[service]); err != nil {
-				fmt.Fprintf(stderr, "checkout pinned %s source: %v\n", service, err)
+				writeFailure(stderr, "checkout pinned %s source: %v\n", service, err)
 				return 1
 			}
 			paths[service] = path
@@ -61,18 +72,28 @@ func runBusiness(ctx context.Context, factoryDir string, options cliOptions, exe
 	}
 	content += ")\n"
 	if err := os.WriteFile(workFile, []byte(content), 0o600); err != nil {
-		fmt.Fprintf(stderr, "write temporary go.work: %v\n", err)
+		writeFailure(stderr, "write temporary go.work: %v\n", err)
 		return 1
 	}
 	env := commandEnv("GOWORK=" + workFile)
 	out, errOut, err := executor.Run(ctx, businessDir, env, "go", "test", "-race", "./...")
-	_, _ = stdout.Write(out)
-	_, _ = stderr.Write(errOut)
+	stdoutErr := writeAll(stdout, out)
+	stderrErr := writeAll(stderr, errOut)
 	if err != nil {
-		if code := processCode(err); code != 1 {
-			return code
+		if childCode := processCode(err); childCode != 1 {
+			return childCode
 		}
-		fmt.Fprintf(stderr, "business Go tests failed: %v\n", err)
+		if stderrErr != nil {
+			return 1
+		}
+		writeFailure(stderr, "business Go tests failed: %v\n", err)
+		return 1
+	}
+	if stdoutErr != nil {
+		writeFailure(stderr, "write business test output: %v\n", stdoutErr)
+		return 1
+	}
+	if stderrErr != nil {
 		return 1
 	}
 	return 0

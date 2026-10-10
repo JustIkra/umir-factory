@@ -40,22 +40,22 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Writer, executor commandExecutor) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "expected business, check-images, or smoke command")
+		writeFailure(stderr, "expected business, check-images, or smoke command\n")
 		return 2
 	}
 	command := args[0]
 	if command != "business" && command != "check-images" && command != "smoke" {
-		fmt.Fprintf(stderr, "unknown command %q\n", command)
+		writeFailure(stderr, "unknown command %q\n", command)
 		return 2
 	}
 	options, err := parseOptions(command, args[1:])
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		writeFailure(stderr, "%v\n", err)
 		return 2
 	}
 	factoryDir, err := absoluteFactoryDir(options.factoryDir)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		writeFailure(stderr, "%v\n", err)
 		return 2
 	}
 	switch command {
@@ -64,26 +64,30 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 	case "check-images":
 		images, err := checkImages(ctx, factoryDir, executor)
 		if err != nil {
-			fmt.Fprintln(stderr, err)
+			writeFailure(stderr, "%v\n", err)
 			return 1
 		}
 		if options.githubOutput != "" {
 			if err := writeGitHubOutput(options.githubOutput, images); err != nil {
-				fmt.Fprintln(stderr, err)
+				writeFailure(stderr, "%v\n", err)
 				return 1
 			}
 		}
-		fmt.Fprintln(stdout, "All service images use full commit SHA tags")
+		if err := writeMessage(stdout, "All service images use full commit SHA tags\n"); err != nil {
+			return 1
+		}
 		return 0
 	case "smoke":
 		if err := runSmoke(ctx, defaultHTTPClient(), smokeTargets{
 			Gateways: []string{"http://127.0.0.1:8080", "http://127.0.0.1:8081"},
 			Frontend: "http://127.0.0.1:8080",
 		}); err != nil {
-			fmt.Fprintln(stderr, err)
+			writeFailure(stderr, "%v\n", err)
 			return 1
 		}
-		fmt.Fprintln(stdout, "Smoke checks passed")
+		if err := writeMessage(stdout, "Smoke checks passed\n"); err != nil {
+			return 1
+		}
 		return 0
 	}
 	return 2
@@ -162,9 +166,10 @@ func isSHA(value string) bool {
 		return false
 	}
 	for _, r := range value {
-		if !(r >= '0' && r <= '9') && !(r >= 'a' && r <= 'f') {
-			return false
+		if r >= '0' && r <= '9' || r >= 'a' && r <= 'f' {
+			continue
 		}
+		return false
 	}
 	return true
 }
@@ -176,7 +181,7 @@ func processCode(err error) int {
 	var exitErr interface{ ExitCode() int }
 	if errors.As(err, &exitErr) {
 		code := exitErr.ExitCode()
-		if code >= 0 && code <= 255 {
+		if code > 0 && code <= 255 {
 			return code
 		}
 	}
@@ -204,6 +209,30 @@ func writeGitHubOutput(path string, images map[string]string) error {
 		return fmt.Errorf("open GitHub output: %w", err)
 	}
 	return writeGitHubOutputFile(file, images)
+}
+
+func writeMessage(w io.Writer, format string, values ...any) error {
+	return writeAll(w, []byte(fmt.Sprintf(format, values...)))
+}
+
+func writeFailure(w io.Writer, format string, values ...any) {
+	if err := writeMessage(w, format, values...); err != nil {
+		return
+	}
+}
+
+func writeAll(w io.Writer, data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	written, err := w.Write(data)
+	if err != nil {
+		return err
+	}
+	if written != len(data) {
+		return io.ErrShortWrite
+	}
+	return nil
 }
 
 func writeGitHubOutputFile(file io.WriteCloser, images map[string]string) error {
