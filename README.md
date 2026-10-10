@@ -180,7 +180,7 @@ GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-fi
 
 ## Development standard and releases
 
-Repository instructions are in [AGENTS.md](AGENTS.md). Public compatibility covers documented requests, results, error states and operational interfaces; warehouse/serving also publish their declared Go contract surfaces when implemented. Internal refactoring does not automatically change this contract.
+Repository instructions are in [AGENTS.md](AGENTS.md). Public compatibility covers documented requests, results, error states and operational interfaces. Warehouse and serving publish their Go contract surfaces; internal refactoring does not automatically change those contracts.
 
 The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares both real nested Go modules. `make go-readiness` checks that inventory against the repository; it does not replace their build, lint, architecture or race-test gates. `make check` runs those gates for both modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`; `.quality` retains the reviewed module-specific policy proposals for future consolidation.
 
