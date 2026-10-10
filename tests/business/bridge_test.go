@@ -423,16 +423,20 @@ func (b *bridge) GetDishCatalog(ctx context.Context) (servingcontract.DishCatalo
 	return servingcontract.DishCatalog{EvaluatedAt: dishes.EvaluatedAt, StateVersion: dishes.StateVersion, Items: items}, nil
 }
 
-func (b *bridge) GetDish(ctx context.Context, dishID string) (servingcontract.Dish, error) {
+func (b *bridge) GetDish(ctx context.Context, dishID string) (servingcontract.DishDetails, error) {
 	warehouse, err := b.runtime()
 	if err != nil {
-		return servingcontract.Dish{}, err
+		return servingcontract.DishDetails{}, err
 	}
-	dish, err := warehouse.GetDish(ctx, dishID)
+	details, err := warehouse.GetDish(ctx, dishID)
 	if err != nil {
-		return servingcontract.Dish{}, mapWarehouseError(err)
+		return servingcontract.DishDetails{}, mapWarehouseError(err)
 	}
-	return toServingDish(dish), nil
+	return servingcontract.DishDetails{
+		EvaluatedAt:  details.EvaluatedAt,
+		StateVersion: details.StateVersion,
+		Dish:         toServingDish(details.Dish),
+	}, nil
 }
 
 func (b *bridge) RegisterProduct(ctx context.Context, request servingcontract.RegisterProductRequest) (servingcontract.Product, error) {

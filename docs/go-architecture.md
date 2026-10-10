@@ -34,7 +34,7 @@
 | Warehouse application | SnapshotStore | Проверенный полный снапшот, атомарная монотонная публикация и прежний корректный снапшот при сбое. |
 | Serving application | ProposalStore | Неизменное содержание, pendingCommandID и атомарная замена/supersededBy. |
 | Serving contract | OrdersWarehouse | EvaluateOrder, CommitAcceptedOrder и чтение записанных результатов до загрузки временного предложения. |
-| Serving contract | CatalogWarehouse | GetProducts, GetDishCatalog, GetDish, RegisterProduct и DefineDish. |
+| Serving contract | CatalogWarehouse | GetProducts, GetDishCatalog, GetDish → DishDetails, RegisterProduct и DefineDish. |
 | Serving contract | MenuWarehouse | EvaluateMenu на одной паре evaluatedAt/stateVersion. |
 
 Сами InventoryState и индекс истечения остаются закрытыми проекциями warehouse. Очереди истечения не нужен интерфейс. now и newID передаются функциями. Чистые расчёты получают неизменяемое значение и не вызывают часы повторно. Ошибки хранилищ не преобразуются в дефицит ингредиентов или успешный заказ.
@@ -43,7 +43,7 @@
 
 Warehouse и serving остаются независимыми Go-модулями. Производственные пакеты serving не импортируют warehouse, и warehouse не импортирует serving. Каждый сервис публикует только собственные contract и bootstrap для вызова из проверочной сборки. Общий доменный модуль и шестой репозиторий не добавляются.
 
-Совместные проверки находятся в `umir-factory/tests/business`, отдельном тестовом Go-модуле. Его bridge реализует порты serving, вызывает конкретный warehouse Runtime и явно переводит значения между двумя contract. Перевод сохраняет commandID, proposalID, lineNo, количества, evaluatedAt/stateVersion, результаты и коды ошибок. Он не оценивает наличие продуктов, не выбирает партии и не принимает решения о продаже.
+Совместные проверки находятся в `umir-factory/tests/business`, отдельном тестовом Go-модуле. Его bridge реализует порты serving, вызывает конкретный warehouse Runtime и явно переводит значения между двумя contract. Перевод сохраняет commandID, proposalID, lineNo, количества, evaluatedAt/stateVersion, результаты и коды ошибок. `GetDish` переводит `DishDetails` явно: метаданные захвата остаются на верхнем уровне, а рецепт копируется в поле `Dish`. Bridge не оценивает наличие продуктов, не выбирает партии и не принимает решения о продаже.
 
 Совпадающие по полям именованные Go-типы разных пакетов не делают сигнатуры методов одинаковыми. Поэтому Runtime warehouse не объявляется автоматически реализацией порта serving. Проверка соответствия bridge интерфейсам выполняется компилятором; преобразования проверяются отдельными тестами.
 
@@ -74,7 +74,7 @@ Warehouse и serving остаются независимыми Go-модулям
 
 Параллельная [спецификация передачи gateway/frontend](gateway-frontend-handoff.md) позволяет подготовить эту границу с HTTP-моками и Figma до подключения реальных сервисов. Её transport seams — http.Handler и http.RoundTripper; доменный BFF в gateway не добавляется. Реальное сетевое восстановление требует отдельной приёмки владельца ядра, даже если mock-этап уже завершён.
 
-Dockerfile обоих сервисов копируют go.mod, cmd, contract, bootstrap и internal. Тестовая поддержка не включается. Warehouse cmd/server собирает пустой Runtime, явно запускает таймер истечения и snapshot worker, отменяет и ожидает оба обработчика. Serving cmd/server сохраняет healthz; production-порты потребуют транспортного адаптера. Выбор постоянной базы, HTTP-пути, инструменты observability, численный RPS и долговременное хранение относятся к своим последующим этапам.
+Dockerfile обоих сервисов копируют go.mod, cmd, contract, bootstrap и internal. Тестовая поддержка не включается. Warehouse cmd/server собирает пустой Runtime, явно запускает таймер истечения и snapshot worker, отменяет и ожидает оба обработчика. Ошибка Save логируется; процесс ждёт `EXPIRATION_CHECK_INTERVAL` и повторно запускает worker, сохраняя HTTP и обработку истечения. Неожиданные ошибки lifecycle возвращаются процессу. Serving cmd/server сохраняет healthz; production-порты потребуют транспортного адаптера. Выбор постоянной базы, HTTP-пути, инструменты observability, численный RPS и долговременное хранение относятся к своим последующим этапам.
 
 ## Технические источники
 

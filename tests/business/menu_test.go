@@ -45,8 +45,8 @@ func TestCatalogIncludesProductsAndDishesWithoutDeliveries(t *testing.T) {
 	if !dishes.EvaluatedAt.Equal(system.clock.Now()) || dishes.StateVersion != 2 || len(dishes.Items) != 1 || dishes.Items[0].DishID != "soup" || len(dishes.Items[0].Recipe) != 1 {
 		t.Fatalf("dish catalog = %#v, want the recipe and warehouse metadata", dishes)
 	}
-	if got, err := system.serving.GetDish(context.Background(), "soup"); err != nil || !reflect.DeepEqual(got, dishes.Items[0]) {
-		t.Fatalf("get dish = %#v, error=%v; want the catalog value", got, err)
+	if got, err := system.serving.GetDish(context.Background(), "soup"); err != nil || !got.EvaluatedAt.Equal(system.clock.Now()) || got.StateVersion != 2 || !reflect.DeepEqual(got.Dish, dishes.Items[0]) {
+		t.Fatalf("get dish details = %#v, error=%v; want catalog value and capture metadata", got, err)
 	}
 	if _, err := system.serving.GetDish(context.Background(), "missing"); !errors.Is(err, servingcontract.ErrDishNotFound) {
 		t.Fatalf("unknown dish error = %v, want serving ErrDishNotFound", err)
@@ -134,6 +134,14 @@ func TestBridgeCatalogResultsAreDetachedFromWarehouseState(t *testing.T) {
 		t.Fatalf("get dish catalog: %v", err)
 	}
 	dishes.Items[0].Recipe[0].Quantity = -1
+	details, err := system.bridge.GetDish(context.Background(), "soup")
+	if err != nil {
+		t.Fatalf("get dish details: %v", err)
+	}
+	if !details.EvaluatedAt.Equal(system.clock.Now()) || details.StateVersion != 2 || details.Dish.Recipe[0].Quantity != 1000 {
+		t.Fatalf("dish details = %#v; want warehouse capture metadata and an intact recipe", details)
+	}
+	details.Dish.Recipe[0].Quantity = -2
 	secondProducts, err := system.bridge.GetProducts(context.Background())
 	if err != nil {
 		t.Fatalf("get products again: %v", err)
@@ -142,7 +150,11 @@ func TestBridgeCatalogResultsAreDetachedFromWarehouseState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get dish catalog again: %v", err)
 	}
-	if secondProducts.Items[0].Name != "Sea salt" || secondDishes.Items[0].Recipe[0].Quantity != 1000 {
-		t.Fatalf("bridge caller mutation reached later reads: products=%#v dishes=%#v", secondProducts, secondDishes)
+	secondDetails, err := system.bridge.GetDish(context.Background(), "soup")
+	if err != nil {
+		t.Fatalf("get dish details again: %v", err)
+	}
+	if secondProducts.Items[0].Name != "Sea salt" || secondDishes.Items[0].Recipe[0].Quantity != 1000 || secondDetails.Dish.Recipe[0].Quantity != 1000 {
+		t.Fatalf("bridge caller mutation reached later reads: products=%#v dishes=%#v details=%#v", secondProducts, secondDishes, secondDetails)
 	}
 }
