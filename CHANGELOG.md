@@ -7,6 +7,7 @@
 - Добавлены реальный bridge и совместные бизнес-тесты двух Runtime, локальный runner и проверка фиксированных commit через временный workspace.
 - Добавлены закреплённые gates для обоих вложенных Go-модулей и opt-in business job для реализованных выбранных SHA.
 - Bridge явно переводит DishDetails, сохраняет EvaluatedAt/StateVersion и копирует вложенный Dish.
+- Added Go development, architecture and Git/release rules with pinned quality tooling.
 
 - Локальные сборки используют отдельные dev-теги и больше не перезаписывают SHA-теги GHCR.
 - CI проверяет существование коммитов и успешные задания проверки и публикации сервиса для выбранного SHA.

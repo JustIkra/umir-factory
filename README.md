@@ -178,3 +178,14 @@ GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-fi
 
 Перед PR запускайте проверки затронутого сервиса. Согласовывайте изменения межсервисных контрактов с обеими сторонами. Настоящие `.env`, токены и рабочие данные ресторана в Git не сохраняются.
 
+## Development standard and releases
+
+Repository instructions are in [AGENTS.md](AGENTS.md). Public compatibility covers documented requests, results, error states and operational interfaces; warehouse/serving also publish their declared Go contract surfaces when implemented. Internal refactoring does not automatically change this contract.
+
+The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares both real nested Go modules. `make go-readiness` checks that inventory against the repository; it does not replace their build, lint, architecture or race-test gates. `make check` runs those gates for both modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`; `.quality` retains the reviewed module-specific policy proposals for future consolidation.
+
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Stable incompatible changes increment major, compatible additions minor and fixes patch. Our pre-1.0 convention uses patch for compatible fixes and minor for additions or breaking changes. Mark breaking behavior and migration explicitly.
+
+Release repositories independently. Use annotated `vX.Y.Z` tags for actual releases; published nested Go modules prefix tags with the logical module subdirectory (excluding a trailing major-version directory), and Go v2+ needs the matching major import path. Published tags/versions stay immutable. Record changes under Unreleased before releasing. Preserve Umir `sha-<full-SHA>` image identities and exact factory component pins; SemVer does not replace them with `latest`. API versions and service releases are separate.
+
+Preserve unrelated local edits, stage reviewed paths and check `git diff --cached` and `git diff --check`. Tagging, publishing and shared-history rewrites require the corresponding user instruction. This standard does not create a release or change the current version.
