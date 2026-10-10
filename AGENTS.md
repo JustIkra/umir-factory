@@ -18,10 +18,10 @@
 
 ## Repository boundary
 
-Factory owns reproducible assembly and integration checks. The bridge imports public contract/bootstrap and translates values without business decisions. Preserve image publication/source/OCI/HEALTHCHECK, Compose and smoke checks. The ongoing Go migration owns Python replacement; do not duplicate it or report absent modules as passing.
+Factory owns reproducible assembly and integration checks. The bridge imports public contract/bootstrap and translates values without business decisions. The Go assembly runner replaces the former Python image and smoke scripts; keep those scripts removed. Preserve image publication/source/OCI/HEALTHCHECK, Compose and smoke checks.
 
 ## Verification and readiness
 
-Run make go-readiness for expected Go module availability. A missing module fails readiness. The future modules are tools/assembly-checks and tests/business; their configs live under .quality. Tooling checks use GOWORK=off; business lint/tests need a controlled workspace or the established runner.
+Run `make go-readiness` to verify the two declared nested modules: `tools/assembly-checks` and `tests/business`. Both modules exist and have active build, lint, architecture and race-test gates in `make check`. Tooling checks use GOWORK=off; business lint/tests use a controlled workspace from the established runner. Assembly CI runs the Go tool checks and preserves Compose, image and smoke checks. The business suite remains an explicit manual CI opt-in.
 
-Go CI adoption follows the actual module migration. Until then, existing assembly CI remains the runtime gate. Do not create dummy modules to pass readiness.
+Do not create dummy modules to pass readiness.

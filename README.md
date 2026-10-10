@@ -41,8 +41,8 @@ Warehouse и serving предоставляют независимые Go-мод
 | warehouse | Значения, события, FEFO, единый допуск, in-memory EventStore/SnapshotStore, полные снапшоты | Собственные контрактные и приёмочные Go-тесты. |
 | serving | Потребительские порты, предложения, подтверждение, меню, стоп-лист, рекомендации, in-memory ProposalStore | Собственные Go-тесты сценариев и переходов предложения. |
 | factory | Документация границ и совместные проверки двух Go-модулей в памяти | Реальные сценарии через test bridge; отдельно сохраняются проверки Compose. |
-| gateway | Существующий proxy и healthz; подготовка к будущей схеме API | Текущие тесты маршрутизации без переноса бизнес-логики в gateway. |
-| frontend | Существующая точка входа; ожидание схемы API для экранов | Текущая сборка Vite; браузерные сценарии появятся вместе с экранами. |
+| gateway | Существующий proxy и healthz; OpenAPI v1 draft задаёт целевой бизнес-контракт | Текущие тесты маршрутизации без переноса бизнес-логики в gateway; бизнес HTTP-адаптеры ещё впереди. |
+| frontend | Существующая точка входа; OpenAPI v1 задаёт схему API | Текущая сборка Vite; экраны и браузерные сценарии ещё впереди. |
 
 Совместная проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов и явно переводит значения. Сервисные модули независимы; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` предоставляет команды `business`, `check-images` и `smoke` на Go:
 
@@ -182,7 +182,7 @@ GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-fi
 
 Repository instructions are in [AGENTS.md](AGENTS.md). Public compatibility covers documented requests, results, error states and operational interfaces. Warehouse and serving publish their Go contract surfaces; internal refactoring does not automatically change those contracts.
 
-The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares both real nested Go modules. `make go-readiness` checks that inventory against the repository; it does not replace their build, lint, architecture or race-test gates. `make check` runs those gates for both modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`; `.quality` retains the reviewed module-specific policy proposals for future consolidation.
+The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares both real nested Go modules. `make go-readiness` checks that inventory against the repository; it does not replace their build, lint, architecture or race-test gates. `make check` runs those gates for both modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`. Assembly CI runs the Go tool checks with the Compose, image and smoke checks; the cross-service business suite remains an explicit manual opt-in.
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Stable incompatible changes increment major, compatible additions minor and fixes patch. Our pre-1.0 convention uses patch for compatible fixes and minor for additions or breaking changes. Mark breaking behavior and migration explicitly.
 
