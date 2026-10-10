@@ -203,9 +203,25 @@ func writeGitHubOutput(path string, images map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("open GitHub output: %w", err)
 	}
-	defer file.Close()
+	return writeGitHubOutputFile(file, images)
+}
+
+func writeGitHubOutputFile(file io.WriteCloser, images map[string]string) error {
+	var writeErr error
 	for _, service := range []string{"warehouse", "serving"} {
-		fmt.Fprintf(file, "%s_ref=%s\n", service, strings.TrimPrefix(images[service], "ghcr.io/justikra/umir-"+service+":sha-"))
+		line := fmt.Sprintf("%s_ref=%s\n", service, strings.TrimPrefix(images[service], "ghcr.io/justikra/umir-"+service+":sha-"))
+		written, err := io.WriteString(file, line)
+		if err != nil {
+			writeErr = fmt.Errorf("write GitHub output: %w", err)
+			break
+		}
+		if written != len(line) {
+			writeErr = fmt.Errorf("write GitHub output: %w", io.ErrShortWrite)
+			break
+		}
 	}
-	return nil
+	if err := file.Close(); err != nil {
+		writeErr = errors.Join(writeErr, fmt.Errorf("close GitHub output: %w", err))
+	}
+	return writeErr
 }

@@ -48,11 +48,18 @@ func (f *fakeExecutor) Run(_ context.Context, dir string, env []string, name str
 }
 
 func TestModesExclusive(t *testing.T) {
-	factory := t.TempDir()
+	factory := factoryWithBusinessModule(t)
 	var stdout, stderr bytes.Buffer
-	code := runWithExecutor(context.Background(), []string{"business", "--factory-dir", factory, "--local", "--warehouse-ref", strings.Repeat("a", 40), "--serving-ref", strings.Repeat("b", 40)}, &stdout, &stderr, &fakeExecutor{})
-	if code == 0 {
-		t.Fatal("business accepted both --local and pinned refs")
+	executor := &fakeExecutor{}
+	code := runWithExecutor(context.Background(), []string{"business", "--factory-dir", factory, "--local", "--warehouse-ref", strings.Repeat("a", 40), "--serving-ref", strings.Repeat("b", 40)}, &stdout, &stderr, executor)
+	if code != 2 {
+		t.Fatalf("business returned %d, want usage error 2", code)
+	}
+	if strings.TrimSpace(stderr.String()) != "--local and pinned refs are mutually exclusive" {
+		t.Fatalf("wrong validation error: %q", stderr.String())
+	}
+	if len(executor.calls) != 0 {
+		t.Fatalf("mode validation reached subprocess: %#v", executor.calls)
 	}
 }
 
@@ -68,7 +75,7 @@ func TestRequiresFactoryCheckoutBeforeCommands(t *testing.T) {
 }
 
 func TestRejectsNonSHA(t *testing.T) {
-	factory := t.TempDir()
+	factory := factoryWithBusinessModule(t)
 	for name, flags := range map[string][]string{
 		"missing serving ref": {"--warehouse-ref", strings.Repeat("a", 40)},
 		"short ref":           {"--warehouse-ref", strings.Repeat("a", 39), "--serving-ref", strings.Repeat("b", 40)},
@@ -76,16 +83,38 @@ func TestRejectsNonSHA(t *testing.T) {
 		"non-hex ref":         {"--warehouse-ref", strings.Repeat("g", 40), "--serving-ref", strings.Repeat("b", 40)},
 	} {
 		t.Run(name, func(t *testing.T) {
-			exec := &fakeExecutor{}
+			executor := &fakeExecutor{}
 			args := append([]string{"business", "--factory-dir", factory}, flags...)
-			if code := runWithExecutor(context.Background(), args, &bytes.Buffer{}, &bytes.Buffer{}, exec); code == 0 {
-				t.Fatal("invalid ref selection was accepted")
+			var stderr bytes.Buffer
+			if code := runWithExecutor(context.Background(), args, &bytes.Buffer{}, &stderr, executor); code != 2 {
+				t.Fatalf("invalid ref selection returned %d, want usage error 2", code)
 			}
-			if len(exec.calls) != 0 {
-				t.Fatalf("invalid refs reached subprocess: %#v", exec.calls)
+			wantError := "service refs must be exactly 40 lowercase hexadecimal characters"
+			if name == "missing serving ref" {
+				wantError = "business requires --local or both --warehouse-ref and --serving-ref"
+			}
+			if strings.TrimSpace(stderr.String()) != wantError {
+				t.Fatalf("wrong validation error: %q", stderr.String())
+			}
+			if len(executor.calls) != 0 {
+				t.Fatalf("invalid refs reached subprocess: %#v", executor.calls)
 			}
 		})
 	}
+}
+
+func factoryWithBusinessModule(t *testing.T) string {
+	t.Helper()
+	factory := t.TempDir()
+	initRepo(t, factory)
+	businessDir := filepath.Join(factory, "tests", "business")
+	if err := os.MkdirAll(businessDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(businessDir, "go.mod"), []byte("module example.test/business\n\ngo 1.26.5\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return factory
 }
 
 func TestWorkspaceUsesRealPaths(t *testing.T) {

@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -79,3 +82,67 @@ func TestCheckImagesReadsComposeJSON(t *testing.T) {
 		t.Fatalf("Compose args = %v, want %v", executor.call.args, want)
 	}
 }
+
+func TestWriteGitHubOutputPropagatesWriteFailure(t *testing.T) {
+	wantErr := errors.New("disk full")
+	file := &failingOutput{writeErr: wantErr}
+	if err := writeGitHubOutputFile(file, map[string]string{}); !errors.Is(err, wantErr) {
+		t.Fatalf("write error = %v, want wrapped disk-full error", err)
+	}
+	if !file.closed {
+		t.Fatal("output file was not closed after write failure")
+	}
+}
+
+func TestWriteGitHubOutputPropagatesCloseFailure(t *testing.T) {
+	wantErr := errors.New("close failed")
+	file := &failingOutput{closeErr: wantErr}
+	if err := writeGitHubOutputFile(file, map[string]string{}); !errors.Is(err, wantErr) {
+		t.Fatalf("close error = %v, want wrapped close error", err)
+	}
+	if !file.closed {
+		t.Fatal("output file was not closed")
+	}
+}
+
+func TestCheckImagesDoesNotSucceedWhenGitHubOutputCannotOpen(t *testing.T) {
+	factory := t.TempDir()
+	initRepo(t, factory)
+	services := make(map[string]composeService)
+	for _, service := range []string{"gateway", "serving", "warehouse", "frontend"} {
+		services[service] = composeService{Image: fmt.Sprintf("ghcr.io/justikra/umir-%s:sha-%s", service, strings.Repeat("a", 40))}
+	}
+	composeJSON, err := json.Marshal(map[string]any{"services": services})
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := &composeExecutor{output: composeJSON}
+	var stdout, stderr strings.Builder
+	code := runWithExecutor(context.Background(), []string{"check-images", "--factory-dir", factory, "--github-output", filepath.Join(factory, "missing", "output")}, &stdout, &stderr, executor)
+	if code == 0 || stdout.Len() != 0 {
+		t.Fatalf("check-images returned %d and stdout %q after output open failure", code, stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "open GitHub output") {
+		t.Fatalf("missing output file error was not reported: %q", stderr.String())
+	}
+}
+
+type failingOutput struct {
+	writeErr error
+	closeErr error
+	closed   bool
+}
+
+func (f *failingOutput) Write(value []byte) (int, error) {
+	if f.writeErr != nil {
+		return 0, f.writeErr
+	}
+	return len(value), nil
+}
+
+func (f *failingOutput) Close() error {
+	f.closed = true
+	return f.closeErr
+}
+
+var _ io.WriteCloser = (*failingOutput)(nil)
