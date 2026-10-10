@@ -24,12 +24,20 @@ jobs:
         run: docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
       - name: Check pinned image identities
         run: python3 scripts/check-images.py
+      - name: Test image verification
+        run: bash tests/infra/image-checks.sh
+      - name: Verify service commits and successful publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/check-image-sources.sh --env-file .env.example
       - name: Pull pinned images
         run: docker compose --env-file .env.example pull
+      - name: Verify pulled image metadata and healthchecks
+        run: bash scripts/check-pulled-images.sh --env-file .env.example
       - name: Start assembly
         run: docker compose --env-file .env.example up -d --wait --wait-timeout 120
       - name: Check gateway paths
-        run: python3 scripts/smoke.py
+        run: python3 scripts/smoke.py --env-file .env.example
       - name: Show service logs on failure
         if: failure()
         run: docker compose --env-file .env.example logs --no-color

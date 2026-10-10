@@ -44,6 +44,8 @@ docker compose ps
 
 Healthz проверяет работоспособность процессов. Serving и warehouse не публикуют порты хоста в этой сборке.
 
+Compose наследует `HEALTHCHECK` из Dockerfile каждого сервиса. Go-образы выполняют `/server healthcheck`, frontend выполняет `wget` к своему `/healthz`. Проверки запускаются каждые 10 секунд с timeout 3 секунды и start period 5 секунд; три последовательные ошибки дают статус unhealthy. Эти проверки нужны для `depends_on: service_healthy` и `up --wait`; новый образ должен сохранить рабочий HEALTHCHECK. CI проверяет его наличие в скачанном образе до запуска контейнеров.
+
 Настройки запуска задаются в `.env`:
 
 | Переменная | Значение по умолчанию |
@@ -76,7 +78,9 @@ workspace/
 └── umir-frontend/
 ```
 
-Файл `compose.dev.yaml` использует соседние каталоги как контексты сборки. Порты и сеть остаются такими же, как у опубликованной сборки.
+Файл `compose.dev.yaml` использует соседние каталоги как контексты сборки. Локальные образы получают отдельные теги `umir-<service>:dev`; `pull_policy: build` выбирает сборку из исходников. Порты и сеть остаются такими же, как у опубликованной сборки.
+
+Чтобы переключиться на опубликованную сборку, выполните `docker compose up -d --wait --wait-timeout 120` без dev-файла. Он выберет закреплённые GHCR-образы. Если вы собирали исходники прежней версией dev-файла, сначала выполните `docker compose pull`: старый dev-файл мог перезаписать локальные SHA-теги.
 
 ## CI/CD и обновление образов
 
@@ -92,16 +96,36 @@ workspace/
 4. Дождитесь успешного CI фабрики и merge от `JustIkra`.
 5. Выполните `docker compose pull` и `docker compose up -d --wait --wait-timeout 120` на целевом хосте.
 
-CI фабрики проверяет Compose и соответствие SHA тегов сервисам, скачивает выбранные образы, запускает четыре контейнера и проверяет frontend и оба маршрута gateway. Команды проверки:
+CI фабрики выполняет следующие проверки:
+
+1. Проверяет обе конфигурации Compose. `scripts/check-images.py` проверяет только набор сервисов, имя образа каждого сервиса и формат полного SHA в теге.
+2. Запускает тесты проверок образов. `scripts/check-image-sources.sh` через GitHub API проверяет существование каждого коммита и успешный запуск `.github/workflows/ci.yml` в main для этого SHA. В том же запуске задания `Check` и `Publish image` должны завершиться успешно. Одного успешного PR или пропущенной публикации недостаточно.
+3. Скачивает закреплённые образы. `scripts/check-pulled-images.sh` проверяет совпадение OCI source/revision с репозиторием и SHA тега, а также наличие включённого HEALTHCHECK.
+4. Запускает все четыре контейнера через `up --wait`. `scripts/smoke.py` проверяет frontend и оба маршрута gateway через frontend и напрямую через API-порт.
+
+Pull подтверждает доступность образа, smoke — его работу в сборке. Наличие коммита и результаты CI проверяются отдельным обращением к GitHub API. Для проверки источников локально нужны Bash, jq и GitHub CLI (`gh` с действующей авторизацией). Проверка скачанных образов требует Bash, jq и Docker. Эти инструменты уже доступны на runner фабрики; workflow передаёт штатный GitHub token только шагу проверки источников.
+
+Замена `scripts/check-images.py` и `scripts/smoke.py` на Go запланирована вместе с runner проверок фабрики. До переноса эти Python-скрипты не запускать при выполнении плана бизнес-ядра. Доступные проверки без Python из каталога фабрики:
 
 ```sh
 docker compose --env-file .env.example config --quiet
 docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
-python3 scripts/check-images.py
-python3 scripts/smoke.py
+bash tests/infra/image-checks.sh
+bash scripts/check-image-sources.sh --env-file .env.example
+docker compose --env-file .env.example pull
+bash scripts/check-pulled-images.sh --env-file .env.example
 ```
 
-Smoke-проверка требует запущенной сборки со штатными портами 8080 и 8081.
+После реализации tools/assembly-checks проверки образов и smoke будут запускаться из каталога фабрики так:
+
+```sh
+GOWORK=off go -C tools/assembly-checks run . check-images --factory-dir "$PWD"
+GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD"
+```
+
+Smoke требует запущенной сборки. Текущая проверка получает адреса frontend и gateway командой `docker compose port <service> 8080`, поэтому использует фактические опубликованные порты и адрес привязки. По умолчанию Compose читает `.env`; `--env-file <path>` выбирает другой файл. Для wildcard-привязки `0.0.0.0` или `::` проверка обращается к соответствующему loopback-адресу. `--web-url` и `--api-url` позволяют явно задать адреса, например для удалённой сборки. Запускайте smoke из каталога фабрики с тем же `COMPOSE_PROJECT_NAME`, если запуск использует отдельное имя проекта. CI передаёт `--env-file .env.example` при запуске и проверке.
+
+Go-версия должна сохранить это поведение и параметры. При переключении CI обе проверки будут вызывать собранный Go-бинарник; прежние Python-скрипты будут удалены. Проверки источников и метаданных образов сохраняются отдельными шагами CI.
 
 Фабрика не публикует собственный контейнер. Автоматический деплой на сервер пока не настроен.
 
