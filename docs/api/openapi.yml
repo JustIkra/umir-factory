@@ -1,0 +1,3160 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Umir gateway API
+  version: 1.0.0-draft.1
+  description: "Target wire contract v1 for frontend → gateway → scenario HTTP mocks. Business HTTP adapters are
+    not implemented by the current core; only health routes are available. Production integration requires
+    authoritative resolution, protection against late writes and restart recovery. Definitions are immutable;
+    editing, history pagination, document upload/OCR, auth, roles and multiple restaurants are outside this
+    version. All request/response business bodies use application/json. Unknown tagged results and invalid
+    response bodies are protocol failures, never proof of a sale. API revision is separate from service
+    releases and exact factory image SHA pins. Source rules: [gateway
+    handoff](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gate\
+    way-frontend-handoff.md) and [business
+    core](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/busines\
+    s-core.md)."
+servers:
+  - url: /
+    description: Same-origin gateway via frontend reverse proxy.
+  - url: http://127.0.0.1:8081
+    description: Default local gateway address. Business paths are targets until mocks/adapters are installed.
+security: []
+tags:
+  - name: Catalog
+    description: Immutable product and dish definitions.
+  - name: Availability
+    description: Independent warehouse evaluations, with captured time and version.
+  - name: Orders
+    description: Immutable proposals and explicit confirmation.
+  - name: Warehouse
+    description: Atomic delivery intake, prepared stock and recorded history.
+  - name: Health
+    description: Process health only.
+x-wire-version: 1
+x-timezone: Europe/Moscow
+x-core-source-revisions:
+  warehouse: a4dccd27453fad62efb3df1f929aa720521b0c78
+  serving: 6ddcfbceedf7df82e1deed7700a4a52c635bef62
+x-adapter-rules:
+  - Normalize serving Recipe to wire ingredients and serving Order.Positions to acceptedPositions. History
+    uses recorded fields, not enriched DTOs.
+  - Convert int/int64 to canonical decimal strings with checked range conversion. Omitted optional ingredient
+    baseUnit maps to the empty Go hint.
+  - Encode all required empty collections as []; do not emit null. Reject unknown/inactive payload fields.
+  - Gateway strips /api/serving or /api/warehouse and preserves method, remaining path, query, body,
+    end-to-end headers and received upstream status/body. Gateway does not calculate business decisions,
+    fingerprints or command IDs.
+  - Service error codes are stable PascalCase wire values, not Go error text. Inspect payload and explicit
+    outcome. Only the operation owner may establish not_committed; transport failure remains unknown for every
+    POST.
+  - A schema cannot prove relational business invariants, product uniqueness by key, time ordering, aggregate
+    overflow, FEFO or late-write prevention. Owners must check these documented conditions.
+paths:
+  /api/serving/products:
+    get:
+      tags:
+        - Catalog
+      operationId: getProducts
+      summary: List all registered products
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Products"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                items:
+                  - productID: сыр/+ &?
+                    name: Сыр
+                    baseUnit: g
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+    post:
+      tags:
+        - Catalog
+      operationId: registerProduct
+      summary: Register an immutable product
+      x-implementation-status: target-http-contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterProductRequest"
+            example:
+              commandID: register-1
+              productID: сыр/+ &?
+              name: Сыр
+              baseUnit: g
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+              example:
+                productID: сыр/+ &?
+                name: Сыр
+                baseUnit: g
+        "400":
+          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+                outcome: not_committed
+        "409":
+          description: Definite identity, immutable definition or unique delivery conflict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductConflictError"
+              example:
+                code: CommandIdentityConflict
+                message: Definite identity, immutable definition or unique delivery conflict.
+                outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+  /api/serving/dish-catalog:
+    get:
+      tags:
+        - Catalog
+      operationId: getDishCatalog
+      summary: List all dish definitions, including unavailable dishes
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DishCatalog"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                items:
+                  - dishID: паста/+ &?
+                    name: Паста
+                    ingredients:
+                      - productID: сыр/+ &?
+                        quantity: "40000"
+                        baseUnit: g
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+  /api/serving/dish:
+    get:
+      tags:
+        - Catalog
+      operationId: getDish
+      summary: Get a dish and its one-portion recipe
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DishDetails"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                dish:
+                  dishID: паста/+ &?
+                  name: Паста
+                  ingredients:
+                    - productID: сыр/+ &?
+                      quantity: "40000"
+                      baseUnit: g
+        "400":
+          description: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
+                outcome: unavailable
+        "404":
+          description: DishNotFound.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadNotFoundError"
+              example:
+                code: DishNotFound
+                message: DishNotFound.
+                outcome: unavailable
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+      parameters:
+        - name: dishID
+          in: query
+          required: true
+          style: form
+          explode: true
+          allowReserved: false
+          schema:
+            $ref: "#/components/schemas/ID"
+          description: Percent-encoded opaque ID. Preserve Unicode and reserved characters.
+  /api/serving/dishes:
+    post:
+      tags:
+        - Catalog
+      operationId: defineDish
+      summary: Define an immutable dish
+      x-implementation-status: target-http-contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DefineDishRequest"
+            example:
+              commandID: define-1
+              dishID: паста/+ &?
+              name: Паста
+              ingredients:
+                - productID: сыр/+ &?
+                  quantity: "40000"
+                  baseUnit: g
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dish"
+              example:
+                dishID: паста/+ &?
+                name: Паста
+                ingredients:
+                  - productID: сыр/+ &?
+                    quantity: "40000"
+                    baseUnit: g
+        "400":
+          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+                outcome: not_committed
+        "404":
+          description: Referenced product or dish does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductNotFoundError"
+              example:
+                code: ProductNotFound
+                message: Referenced product or dish does not exist.
+                outcome: not_committed
+        "409":
+          description: Definite identity, immutable definition or unique delivery conflict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DishConflictError"
+              example:
+                code: CommandIdentityConflict
+                message: Definite identity, immutable definition or unique delivery conflict.
+                outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+  /api/serving/menu:
+    get:
+      tags:
+        - Availability
+      operationId: getMenu
+      summary: List dishes available for one portion
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Menu"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                dishes:
+                  - dishID: паста/+ &?
+                    name: Паста
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+  /api/serving/stop-list:
+    get:
+      tags:
+        - Availability
+      operationId: getStopList
+      summary: List unavailable dishes and one-portion deficits
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopList"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740994"
+                dishes:
+                  - dishID: паста/+ &?
+                    name: Паста
+                    deficits:
+                      - productID: сыр/+ &?
+                        requiredQuantity: "40000"
+                        availableQuantity: "0"
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+  /api/serving/recommendations:
+    get:
+      tags:
+        - Availability
+      operationId: getRecommendations
+      summary: Rank independently available dishes by FEFO expiry
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recommendations"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                items:
+                  - dishID: паста/+ &?
+                    dishName: Паста
+                    priorityExpiresAt: 2026-10-11T12:00:00+03:00
+                    reasons:
+                      - productID: сыр/+ &?
+                        productName: Сыр
+                        batchID: batch-1
+                        quantityPerPortion: "20000"
+                        baseUnit: g
+                        expiresAt: 2026-10-11T12:00:00+03:00
+                      - productID: сыр/+ &?
+                        productName: Сыр
+                        batchID: batch-2
+                        quantityPerPortion: "20000"
+                        baseUnit: g
+                        expiresAt: 2026-10-11T12:00:00+03:00
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+  /api/serving/order-proposals:
+    post:
+      tags:
+        - Orders
+      operationId: prepareOrder
+      summary: Prepare an immutable order proposal without reservation
+      x-implementation-status: target-http-contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrepareOrderRequest"
+            example:
+              positions:
+                - dishID: паста/+ &?
+                  portions: "1"
+                - dishID: паста/+ &?
+                  portions: "2"
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderProposal"
+              example:
+                proposalID: proposal-1
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                requestedPositions:
+                  - lineNo: "1"
+                    dishID: паста/+ &?
+                    portions: "1"
+                acceptedPositions:
+                  - lineNo: "1"
+                    dishID: паста/+ &?
+                    portions: "1"
+                changes: []
+        "400":
+          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+                outcome: not_committed
+        "404":
+          description: Referenced product or dish does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DishNotFoundError"
+              example:
+                code: DishNotFound
+                message: Referenced product or dish does not exist.
+                outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+      description: No sale is committed by preparation. Warehouse preparation may record due expiry facts. Gateway
+        treats a failed POST as unknown; do not infer an empty proposal.
+  /api/serving/order-confirmations:
+    post:
+      tags:
+        - Orders
+      operationId: confirmOrder
+      summary: Confirm the accepted composition of a saved proposal
+      x-implementation-status: target-http-contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmOrderRequest"
+            example:
+              commandID: confirm-1
+              proposalID: proposal-1
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmCompleted"
+              examples:
+                OrderConfirmed:
+                  value:
+                    kind: OrderConfirmed
+                    order:
+                      orderID: order-1
+                      proposalID: proposal-1
+                      acceptedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      allocations:
+                        - productID: сыр/+ &?
+                          batchID: batch-1
+                          quantity: "40000"
+                      placedAt: 2026-10-10T12:00:00+03:00
+                RequiresConfirmation:
+                  value:
+                    kind: RequiresConfirmation
+                    proposal:
+                      proposalID: proposal-1
+                      evaluatedAt: 2026-10-10T12:00:00+03:00
+                      stateVersion: "9007199254740993"
+                      requestedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      acceptedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      changes: []
+                EmptyOrder:
+                  value:
+                    kind: EmptyOrder
+        "202":
+          description: Original attempt remains pending; no new sale is started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmationPending"
+              example:
+                kind: ConfirmationPending
+        "400":
+          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+                outcome: not_committed
+        "404":
+          description: Proposal not found. This does not prove absence of an earlier sale.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProposalNotFoundError"
+              example:
+                code: ProposalNotFound
+                message: Proposal not found. This does not prove absence of an earlier sale.
+                outcome: not_committed
+        "409":
+          description: Superseded proposal with replacement ID, or a definite command identity conflict.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ProposalSuperseded"
+                  - $ref: "#/components/schemas/CommandConflictError"
+              examples:
+                superseded:
+                  value:
+                    kind: ProposalSuperseded
+                    supersededBy: proposal-2
+                conflict:
+                  value:
+                    code: CommandIdentityConflict
+                    message: Identity conflict
+                    outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+      description: Return a recorded order before current expiry preparation. Recheck only saved accepted positions.
+        Stock growth never increases the proposal. A reduction produces a complete replacement and
+        RequiresConfirmation; the replacement requires a new explicit user action. Known success remains
+        success after queue/proposal cleanup failure. Pending and lost responses require the original
+        identifiers; an HTTP 2xx alone does not prove OrderConfirmed.
+  /api/serving/order-confirmations/resolve:
+    post:
+      tags:
+        - Orders
+      operationId: resolveOrderConfirmation
+      summary: Resolve the original confirmation attempt
+      x-implementation-status: requires-authoritative-network-resolution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmOrderRequest"
+            example:
+              commandID: confirm-1
+              proposalID: proposal-1
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmCompleted"
+              examples:
+                OrderConfirmed:
+                  value:
+                    kind: OrderConfirmed
+                    order:
+                      orderID: order-1
+                      proposalID: proposal-1
+                      acceptedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      allocations:
+                        - productID: сыр/+ &?
+                          batchID: batch-1
+                          quantity: "40000"
+                      placedAt: 2026-10-10T12:00:00+03:00
+                RequiresConfirmation:
+                  value:
+                    kind: RequiresConfirmation
+                    proposal:
+                      proposalID: proposal-1
+                      evaluatedAt: 2026-10-10T12:00:00+03:00
+                      stateVersion: "9007199254740993"
+                      requestedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      acceptedPositions:
+                        - lineNo: "1"
+                          dishID: паста/+ &?
+                          portions: "1"
+                      changes: []
+                EmptyOrder:
+                  value:
+                    kind: EmptyOrder
+        "202":
+          description: Original attempt remains pending; no new sale is started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmationPending"
+              example:
+                kind: ConfirmationPending
+        "400":
+          description: Invalid resolution input; the original attempt remains unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Invalid resolution input; the original attempt remains unknown.
+                outcome: unknown
+        "404":
+          description: Proposal not found. This does not prove absence of an earlier sale.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveNotFoundError"
+              example:
+                code: ProposalNotFound
+                message: Proposal not found. This does not prove absence of an earlier sale.
+                outcome: unknown
+        "409":
+          description: Superseded proposal with replacement ID, or a definite command identity conflict.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ProposalSuperseded"
+                  - $ref: "#/components/schemas/CommandConflictError"
+              examples:
+                superseded:
+                  value:
+                    kind: ProposalSuperseded
+                    supersededBy: proposal-2
+                conflict:
+                  value:
+                    code: CommandIdentityConflict
+                    message: Identity conflict
+                    outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+      description: Target mock/network operation; not implemented by the current in-memory core. It does not create
+        a new sale command. Return the recorded result, ConfirmationPending, or a terminal owner error with
+        outcome=not_committed. A terminal refusal requires preventing late writes. Lookup alone is
+        insufficient. Production also requires pending recovery after serving restart.
+  /api/warehouse/inventory:
+    get:
+      tags:
+        - Warehouse
+      operationId: getInventory
+      summary: Read prepared inventory and batch facts
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inventory"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                products:
+                  - productID: сыр/+ &?
+                    baseUnit: g
+                    quantity: "9007199254740993"
+                    batches:
+                      - batchID: batch-1
+                        deliveryID: delivery-1
+                        lineNo: "1"
+                        productID: сыр/+ &?
+                        manufacturedAt: 2026-10-10T12:00:00+03:00
+                        shelfLife:
+                          value: "1"
+                          unit: day
+                        receivedAt: 2026-10-10T12:00:00+03:00
+                        expiresAt: 2026-10-11T12:00:00+03:00
+                        receivedQuantity: "9007199254740993"
+                        remainingQuantity: "9007199254740993"
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+  /api/warehouse/expiring-batches:
+    get:
+      tags:
+        - Warehouse
+      operationId: getExpiringBatches
+      summary: List positive batches expiring by an explicit cutoff
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpiringBatches"
+              example:
+                evaluatedAt: 2026-10-10T12:00:00+03:00
+                stateVersion: "9007199254740993"
+                items:
+                  - batchID: batch-1
+                    productID: сыр/+ &?
+                    remainingQuantity: "9007199254740993"
+                    baseUnit: g
+                    expiresAt: 2026-10-11T12:00:00+03:00
+                    remainingSeconds: "86400"
+                    isExpired: false
+        "400":
+          description: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
+                outcome: unavailable
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+      parameters:
+        - name: cutoffAt
+          in: query
+          required: true
+          style: form
+          explode: true
+          allowReserved: false
+          schema:
+            $ref: "#/components/schemas/MoscowTimestamp"
+          description: Must be >= evaluatedAt captured by warehouse. Percent-encode + as %2B. No hidden warning window.
+  /api/warehouse/history:
+    get:
+      tags:
+        - Warehouse
+      operationId: getHistory
+      summary: Read recorded events in sequence order
+      x-implementation-status: target-http-contract
+      responses:
+        "200":
+          description: Typed successful result. Empty collections remain JSON arrays.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/History"
+              example:
+                evaluatedAt: 2026-10-11T12:00:00+03:00
+                stateVersion: "5"
+                events:
+                  - eventID: event-1
+                    streamID: inventory
+                    sequence: "1"
+                    schemaVersion: 1
+                    commandID: command-1
+                    commandFingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    recordedAt: 2026-10-10T12:00:00+03:00
+                    type: ProductRegistered
+                    payload:
+                      product:
+                        productID: сыр/+ &?
+                        name: Сыр
+                        baseUnit: g
+                  - eventID: event-2
+                    streamID: inventory
+                    sequence: "2"
+                    schemaVersion: 1
+                    commandID: command-2
+                    commandFingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    recordedAt: 2026-10-10T12:00:00+03:00
+                    type: DishDefined
+                    payload:
+                      dish:
+                        dishID: паста/+ &?
+                        name: Паста
+                        ingredients:
+                          - productID: сыр/+ &?
+                            quantity: "40000"
+                  - eventID: event-3
+                    streamID: inventory
+                    sequence: "3"
+                    schemaVersion: 1
+                    commandID: command-3
+                    commandFingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    recordedAt: 2026-10-10T12:00:00+03:00
+                    type: DeliveryReceived
+                    payload:
+                      delivery:
+                        deliveryID: delivery-1
+                        number: Поставка 42
+                        createdAt: 2026-10-10T12:00:00+03:00
+                        lines:
+                          - productID: сыр/+ &?
+                            manufacturedAt: 2026-10-10T12:00:00+03:00
+                            shelfLife:
+                              value: "1"
+                              unit: day
+                            receivedAt: 2026-10-10T12:00:00+03:00
+                            quantity: "9007199254740993"
+                      batches:
+                        - batchID: batch-1
+                          deliveryID: delivery-1
+                          lineNo: "1"
+                          productID: сыр/+ &?
+                          manufacturedAt: 2026-10-10T12:00:00+03:00
+                          shelfLife:
+                            value: "1"
+                            unit: day
+                          receivedAt: 2026-10-10T12:00:00+03:00
+                          expiresAt: 2026-10-11T12:00:00+03:00
+                          receivedQuantity: "9007199254740993"
+                          remainingQuantity: "9007199254740993"
+                  - eventID: event-4
+                    streamID: inventory
+                    sequence: "4"
+                    schemaVersion: 1
+                    commandID: command-4
+                    commandFingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    recordedAt: 2026-10-10T12:00:00+03:00
+                    type: OrderPlaced
+                    payload:
+                      order:
+                        orderID: order-1
+                        proposalID: proposal-1
+                        acceptedPositions:
+                          - lineNo: "1"
+                            dishID: паста/+ &?
+                            portions: "1"
+                        allocations:
+                          - productID: сыр/+ &?
+                            batchID: batch-1
+                            quantity: "40000"
+                        placedAt: 2026-10-10T12:00:00+03:00
+                  - eventID: event-5
+                    streamID: inventory
+                    sequence: "5"
+                    schemaVersion: 1
+                    commandID: expiration/batch-1
+                    commandFingerprint: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                    recordedAt: 2026-10-11T12:00:00+03:00
+                    type: BatchExpired
+                    payload:
+                      expiry:
+                        batchID: batch-1
+                        productID: сыр/+ &?
+                        writtenOffQuantity: "9007199254700993"
+                        reason: EXPIRATION
+                        expiresAt: 2026-10-11T12:00:00+03:00
+                        processedAt: 2026-10-11T12:00:00+03:00
+        "500":
+          description: Unexpected service failure; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadTechnicalError"
+              example:
+                code: InternalError
+                message: Unexpected service failure; no successful query result.
+                outcome: unavailable
+        "502":
+          description: Upstream unavailable or transport/protocol failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport/protocol failure.
+                outcome: unavailable
+        "503":
+          description: Current inventory/definition version cannot be prepared or read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: Current inventory/definition version cannot be prepared or read.
+                outcome: unavailable
+        "504":
+          description: Finite upstream timeout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Finite upstream timeout.
+                outcome: unavailable
+      description: No pagination in v1. Does not trigger due expiry preparation. Each event is a typed immutable
+        recorded fact.
+  /api/warehouse/deliveries:
+    post:
+      tags:
+        - Warehouse
+      operationId: receiveDelivery
+      summary: Receive all delivery lines atomically
+      x-implementation-status: target-http-contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiveDeliveryRequest"
+            example:
+              commandID: receive-1
+              deliveryID: delivery-1
+              number: Поставка 42
+              createdAt: 2026-10-10T12:00:00+03:00
+              lines:
+                - productID: сыр/+ &?
+                  manufacturedAt: 2026-10-10T12:00:00+03:00
+                  shelfLife:
+                    value: "1"
+                    unit: day
+                  receivedAt: 2026-10-10T12:00:00+03:00
+                  quantity: "9007199254740993"
+      responses:
+        "200":
+          description: Typed completed result, including exact idempotent replay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryReceipt"
+              example:
+                deliveryID: delivery-1
+                batchIDs:
+                  - batch-1
+        "400":
+          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+                outcome: not_committed
+        "404":
+          description: Referenced product or dish does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductNotFoundError"
+              example:
+                code: ProductNotFound
+                message: Referenced product or dish does not exist.
+                outcome: not_committed
+        "409":
+          description: Definite identity, immutable definition or unique delivery conflict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryConflictError"
+              example:
+                code: CommandIdentityConflict
+                message: Definite identity, immutable definition or unique delivery conflict.
+                outcome: not_committed
+        "500":
+          description: Technical failure with unknown write outcome.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTechnicalError"
+              example:
+                code: InternalError
+                message: Technical failure with unknown write outcome.
+                outcome: unknown
+        "502":
+          description: Upstream unavailable or transport failure; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: Upstream unavailable or transport failure; outcome unknown.
+                outcome: unknown
+        "503":
+          description: InventoryUnavailable; use explicit outcome, not status alone.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryUnavailableError"
+              example:
+                code: InventoryUnavailable
+                message: InventoryUnavailable; use explicit outcome, not status alone.
+                outcome: not_committed
+        "504":
+          description: Upstream timeout; outcome unknown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: Upstream timeout; outcome unknown.
+                outcome: unknown
+  /healthz:
+    get:
+      tags:
+        - Health
+      operationId: getGatewayHealth
+      summary: Gateway process health
+      x-implementation-status: implemented-success-response
+      responses:
+        "200":
+          description: Healthy process. This does not establish business API or inventory readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - status
+                  - service
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: umir-gateway
+              example:
+                status: ok
+                service: umir-gateway
+  /api/serving/healthz:
+    get:
+      tags:
+        - Health
+      operationId: getServingHealth
+      summary: Serving process health through gateway
+      x-implementation-status: implemented-success-response
+      responses:
+        "200":
+          description: Healthy process. This does not establish business API or inventory readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - status
+                  - service
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: umir-serving
+              example:
+                status: ok
+                service: umir-serving
+        "502":
+          description: Target gateway JSON transport error. Current proxy can return plain text.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Target gateway JSON transport error. Current proxy can return plain text.
+                outcome: unavailable
+          x-implementation-status: target-http-contract
+        "504":
+          description: Target gateway JSON timeout error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Target gateway JSON timeout error.
+                outcome: unavailable
+          x-implementation-status: target-http-contract
+  /api/warehouse/healthz:
+    get:
+      tags:
+        - Health
+      operationId: getWarehouseHealth
+      summary: Warehouse process health through gateway
+      x-implementation-status: implemented-success-response
+      responses:
+        "200":
+          description: Healthy process. This does not establish business API or inventory readiness.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - status
+                  - service
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: umir-warehouse
+              example:
+                status: ok
+                service: umir-warehouse
+        "502":
+          description: Target gateway JSON transport error. Current proxy can return plain text.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamUnavailable
+                message: Target gateway JSON transport error. Current proxy can return plain text.
+                outcome: unavailable
+          x-implementation-status: target-http-contract
+        "504":
+          description: Target gateway JSON timeout error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayReadError"
+              example:
+                code: UpstreamTimeout
+                message: Target gateway JSON timeout error.
+                outcome: unavailable
+          x-implementation-status: target-http-contract
+components:
+  schemas:
+    ID:
+      type: string
+      minLength: 1
+      description: Opaque identifier. Unicode and reserved characters are allowed. Percent-encode query values; do
+        not require UUID syntax.
+    ClientCommandID:
+      type: string
+      minLength: 1
+      not:
+        pattern: ^expiration/
+      description: Caller-generated command identity. Preserve the same value and identical input on retry. The
+        expiration/ namespace belongs to warehouse.
+    PositiveInt64:
+      type: string
+      minLength: 1
+      maxLength: 19
+      pattern: ^(?:[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$
+      description: Canonical decimal integer from 1 through 9223372036854775807. No sign, leading zero, exponent or
+        fractional part. Keep as a string or BigInt in JavaScript.
+      examples:
+        - "1"
+        - "9007199254740993"
+        - "9223372036854775807"
+    NonNegativeInt64:
+      type: string
+      minLength: 1
+      maxLength: 19
+      pattern: ^(?:0|[1-9][0-9]{0,17}|[1-8][0-9]{18}|9[0-1][0-9]{17}|92[0-1][0-9]{16}|922[0-2][0-9]{15}|9223[0-2][0-9]{14}|92233[0-6][0-9]{13}|922337[0-1][0-9]{12}|92233720[0-2][0-9]{10}|922337203[0-5][0-9]{9}|9223372036[0-7][0-9]{8}|92233720368[0-4][0-9]{7}|922337203685[0-3][0-9]{6}|9223372036854[0-6][0-9]{5}|92233720368547[0-6][0-9]{4}|922337203685477[0-4][0-9]{3}|9223372036854775[0-7][0-9]{2}|922337203685477580[0-6]|9223372036854775807)$
+      description: Canonical decimal integer from 0 through 9223372036854775807. Preserve exact precision.
+      examples:
+        - "0"
+        - "9007199254740993"
+        - "9223372036854775807"
+    PositiveQuantity:
+      $ref: "#/components/schemas/PositiveInt64"
+      description: Positive thousandths of the product base unit. "40000" is 40 g/ml/pcs; "500" is 0.5 g/ml/pcs.
+    Quantity:
+      $ref: "#/components/schemas/NonNegativeInt64"
+      description: Nonnegative thousandths of the product base unit. "10000000" is 10 kg for baseUnit=g.
+    MoscowTimestamp:
+      type: string
+      format: date-time
+      pattern: ^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.[0-9]{1,9})?\+03:00$
+      description: Full RFC3339 timestamp with seconds and the +03:00 Moscow offset. Calendar dates must be valid.
+        Date-only, Z, other offsets and leap seconds are rejected. Explicit midnight is valid.
+      examples:
+        - 2026-10-10T12:00:00+03:00
+        - 2026-10-10T00:00:00+03:00
+    BaseUnit:
+      type: string
+      enum:
+        - g
+        - ml
+        - pcs
+    ShelfLife:
+      type: object
+      description: day is exactly 24 hours. month uses the Moscow calendar and clips the day to the end of the
+        target month. Warehouse calculates expiresAt once; duration/date overflow is InvalidArgument.
+      additionalProperties: false
+      required:
+        - value
+        - unit
+      properties:
+        value:
+          $ref: "#/components/schemas/PositiveInt64"
+        unit:
+          type: string
+          enum:
+            - day
+            - month
+    Product:
+      type: object
+      additionalProperties: false
+      required:
+        - productID
+        - name
+        - baseUnit
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+    IngredientInput:
+      type: object
+      additionalProperties: false
+      required:
+        - productID
+        - quantity
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        quantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+          description: Optional assertion. If supplied, it must match the registered product. Omission lets warehouse
+            obtain its base unit.
+    Ingredient:
+      type: object
+      additionalProperties: false
+      required:
+        - productID
+        - quantity
+        - baseUnit
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        quantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+    RecordedIngredient:
+      type: object
+      additionalProperties: false
+      required:
+        - productID
+        - quantity
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        quantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+    Dish:
+      type: object
+      description: Immutable definition. Ingredients remain in recipe order. Each productID occurs once. Wire
+        ingredients maps to serving Recipe and warehouse Ingredients.
+      additionalProperties: false
+      required:
+        - dishID
+        - name
+        - ingredients
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+          minItems: 1
+    RecordedDish:
+      type: object
+      description: Definition stored in the event. Base units belong to ProductRegistered facts; history does not
+        enrich or reinterpret recorded data.
+      additionalProperties: false
+      required:
+        - dishID
+        - name
+        - ingredients
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordedIngredient"
+          minItems: 1
+    RegisterProductRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - commandID
+        - productID
+        - name
+        - baseUnit
+      properties:
+        commandID:
+          $ref: "#/components/schemas/ClientCommandID"
+        productID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+    DefineDishRequest:
+      type: object
+      description: Creates a definition without replacing an existing dish. Ingredient productID values must be
+        distinct and refer to registered products.
+      additionalProperties: false
+      required:
+        - commandID
+        - dishID
+        - name
+        - ingredients
+      properties:
+        commandID:
+          $ref: "#/components/schemas/ClientCommandID"
+        dishID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientInput"
+          minItems: 1
+    MenuDish:
+      type: object
+      additionalProperties: false
+      required:
+        - dishID
+        - name
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+    Deficit:
+      type: object
+      description: Required and available quantities at this position evaluation. availableQuantity is less than
+        requiredQuantity.
+      additionalProperties: false
+      required:
+        - productID
+        - requiredQuantity
+        - availableQuantity
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        requiredQuantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        availableQuantity:
+          $ref: "#/components/schemas/Quantity"
+    StopListDish:
+      type: object
+      additionalProperties: false
+      required:
+        - dishID
+        - name
+        - deficits
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        name:
+          type: string
+          minLength: 1
+        deficits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deficit"
+          minItems: 1
+    RequestedPosition:
+      type: object
+      description: Input position. Serving assigns lineNo=1,2,... in array order. Repeated dishID values are allowed.
+      additionalProperties: false
+      required:
+        - dishID
+        - portions
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        portions:
+          $ref: "#/components/schemas/PositiveInt64"
+    Position:
+      type: object
+      description: Position with the original service-assigned line number. Do not renumber reductions or replacements.
+      additionalProperties: false
+      required:
+        - lineNo
+        - dishID
+        - portions
+      properties:
+        lineNo:
+          $ref: "#/components/schemas/PositiveInt64"
+        dishID:
+          $ref: "#/components/schemas/ID"
+        portions:
+          $ref: "#/components/schemas/PositiveInt64"
+    Change:
+      type: object
+      description: One reduction or removal. acceptedPortions is less than requestedPortions; zero denotes removal.
+        Changes retain input order.
+      additionalProperties: false
+      required:
+        - lineNo
+        - dishID
+        - requestedPortions
+        - acceptedPortions
+        - deficits
+      properties:
+        lineNo:
+          $ref: "#/components/schemas/PositiveInt64"
+        dishID:
+          $ref: "#/components/schemas/ID"
+        requestedPortions:
+          $ref: "#/components/schemas/PositiveInt64"
+        acceptedPortions:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        deficits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deficit"
+          minItems: 1
+    Allocation:
+      type: object
+      description: Exact committed debit. Contains only recorded product/batch identity and quantity, without
+        display enrichment.
+      additionalProperties: false
+      required:
+        - productID
+        - batchID
+        - quantity
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        batchID:
+          $ref: "#/components/schemas/ID"
+        quantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+    Order:
+      type: object
+      description: Authoritative recorded order. Wire acceptedPositions maps to serving Order.Positions and
+        warehouse Order.AcceptedPositions.
+      additionalProperties: false
+      required:
+        - orderID
+        - proposalID
+        - acceptedPositions
+        - allocations
+        - placedAt
+      properties:
+        orderID:
+          $ref: "#/components/schemas/ID"
+        proposalID:
+          $ref: "#/components/schemas/ID"
+        acceptedPositions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Position"
+          minItems: 1
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Allocation"
+          minItems: 1
+        placedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+    OrderProposal:
+      type: object
+      description: Immutable proposal; preparation does not reserve or debit inventory. Empty acceptedPositions is
+        valid. Replacements use the preceding acceptedPositions as requestedPositions, retain lineNo and never
+        increase portions or restore removed positions.
+      additionalProperties: false
+      required:
+        - proposalID
+        - evaluatedAt
+        - stateVersion
+        - requestedPositions
+        - acceptedPositions
+        - changes
+      properties:
+        proposalID:
+          $ref: "#/components/schemas/ID"
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        requestedPositions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Position"
+          minItems: 0
+        acceptedPositions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Position"
+          minItems: 0
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Change"
+          minItems: 0
+    PrepareOrderRequest:
+      type: object
+      description: Process positions in source order. An empty list produces an empty proposal. Do not send lineNo
+        or an accepted composition.
+      additionalProperties: false
+      required:
+        - positions
+      properties:
+        positions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RequestedPosition"
+          minItems: 0
+    ConfirmOrderRequest:
+      type: object
+      description: Confirm only the saved accepted composition. Preserve both identities and the same JSON values
+        after an unknown outcome. A replacement requires explicit user confirmation and a new commandID.
+      additionalProperties: false
+      required:
+        - commandID
+        - proposalID
+      properties:
+        commandID:
+          $ref: "#/components/schemas/ClientCommandID"
+        proposalID:
+          $ref: "#/components/schemas/ID"
+    DeliveryLine:
+      type: object
+      description: One source line creates one batch. manufacturedAt <= receivedAt <= operation time. Line numbers
+        and batchIDs are assigned by warehouse; expiresAt is not caller input.
+      additionalProperties: false
+      required:
+        - productID
+        - manufacturedAt
+        - shelfLife
+        - receivedAt
+        - quantity
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        manufacturedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        shelfLife:
+          $ref: "#/components/schemas/ShelfLife"
+        receivedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        quantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+    ReceiveDeliveryRequest:
+      type: object
+      description: Validate the entire delivery before intake facts. deliveryID is unique independently of
+        commandID. Exact retries return the original receipt; a new commandID for the same deliveryID is a
+        conflict. Already expired intake is atomically received and written off.
+      additionalProperties: false
+      required:
+        - commandID
+        - deliveryID
+        - number
+        - createdAt
+        - lines
+      properties:
+        commandID:
+          $ref: "#/components/schemas/ClientCommandID"
+        deliveryID:
+          $ref: "#/components/schemas/ID"
+        number:
+          type: string
+          minLength: 1
+          description: Delivery number, displayed as Номер поставки. It is not unique.
+        createdAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+          description: Date and time of delivery creation (Дата и время создания поставки). Required and no later than
+            operation time.
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryLine"
+          minItems: 1
+    Delivery:
+      type: object
+      additionalProperties: false
+      required:
+        - deliveryID
+        - number
+        - createdAt
+        - lines
+      properties:
+        deliveryID:
+          $ref: "#/components/schemas/ID"
+        number:
+          type: string
+          minLength: 1
+        createdAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryLine"
+          minItems: 1
+    DeliveryReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - deliveryID
+        - batchIDs
+      properties:
+        deliveryID:
+          $ref: "#/components/schemas/ID"
+        batchIDs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ID"
+          minItems: 1
+          description: One batch ID per delivery line, in the same order.
+    Batch:
+      type: object
+      additionalProperties: false
+      required:
+        - batchID
+        - deliveryID
+        - lineNo
+        - productID
+        - manufacturedAt
+        - shelfLife
+        - receivedAt
+        - expiresAt
+        - receivedQuantity
+        - remainingQuantity
+      properties:
+        batchID:
+          $ref: "#/components/schemas/ID"
+        deliveryID:
+          $ref: "#/components/schemas/ID"
+        lineNo:
+          $ref: "#/components/schemas/PositiveInt64"
+        productID:
+          $ref: "#/components/schemas/ID"
+        manufacturedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        shelfLife:
+          $ref: "#/components/schemas/ShelfLife"
+        receivedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        expiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        receivedQuantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        remainingQuantity:
+          $ref: "#/components/schemas/Quantity"
+    ProductInventory:
+      type: object
+      description: Prepared inventory. quantity equals the sum of current batch remainingQuantity. This core-backed
+        DTO has no product name; read the product catalog for display names.
+      additionalProperties: false
+      required:
+        - productID
+        - baseUnit
+        - quantity
+        - batches
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+        quantity:
+          $ref: "#/components/schemas/Quantity"
+        batches:
+          type: array
+          items:
+            $ref: "#/components/schemas/Batch"
+          minItems: 0
+    ExpiringBatch:
+      type: object
+      description: Only positive prepared stock with expiresAt <= cutoffAt, sorted by expiresAt then batchID. Due
+        expiry facts have already been applied. remainingSeconds=max(0,floor((expiresAt-evaluatedAt)/1s)).
+      additionalProperties: false
+      required:
+        - batchID
+        - productID
+        - remainingQuantity
+        - baseUnit
+        - expiresAt
+        - remainingSeconds
+        - isExpired
+      properties:
+        batchID:
+          $ref: "#/components/schemas/ID"
+        productID:
+          $ref: "#/components/schemas/ID"
+        remainingQuantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+        expiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        remainingSeconds:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        isExpired:
+          type: boolean
+          const: false
+    RecommendationReason:
+      type: object
+      additionalProperties: false
+      required:
+        - productID
+        - productName
+        - batchID
+        - quantityPerPortion
+        - baseUnit
+        - expiresAt
+      properties:
+        productID:
+          $ref: "#/components/schemas/ID"
+        productName:
+          type: string
+          minLength: 1
+        batchID:
+          $ref: "#/components/schemas/ID"
+        quantityPerPortion:
+          $ref: "#/components/schemas/PositiveQuantity"
+        baseUnit:
+          $ref: "#/components/schemas/BaseUnit"
+        expiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+    Recommendation:
+      type: object
+      description: One independently available portion. priorityExpiresAt is the earliest expiry among its actual
+        FEFO allocations. Include each allocation at that expiry with its actual quantity; sort reasons by
+        productID then batchID.
+      additionalProperties: false
+      required:
+        - dishID
+        - dishName
+        - priorityExpiresAt
+        - reasons
+      properties:
+        dishID:
+          $ref: "#/components/schemas/ID"
+        dishName:
+          type: string
+          minLength: 1
+        priorityExpiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecommendationReason"
+          minItems: 1
+    ExpiryResult:
+      type: object
+      additionalProperties: false
+      required:
+        - batchID
+        - productID
+        - writtenOffQuantity
+        - reason
+        - expiresAt
+        - processedAt
+      properties:
+        batchID:
+          $ref: "#/components/schemas/ID"
+        productID:
+          $ref: "#/components/schemas/ID"
+        writtenOffQuantity:
+          $ref: "#/components/schemas/PositiveQuantity"
+        reason:
+          type: string
+          const: EXPIRATION
+        expiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        processedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+    Products:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - items
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+          minItems: 0
+    DishCatalog:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - items
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dish"
+          minItems: 0
+    Menu:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - dishes
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        dishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MenuDish"
+          minItems: 0
+      description: Dishes available for one portion, sorted by dishID. No available-portion count. Each dish is
+        evaluated independently; this list does not promise joint order availability.
+    StopList:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - dishes
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        dishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StopListDish"
+          minItems: 0
+      description: Dishes unavailable for one portion. Menu and stop-list complement each other only for the same
+        evaluatedAt/stateVersion. Independent requests may capture different versions.
+    Recommendations:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - items
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+          minItems: 0
+      description: All independently available dishes, ordered by priorityExpiresAt then dishID. No urgency window
+        or stock threshold.
+    Inventory:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - products
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductInventory"
+          minItems: 0
+    ExpiringBatches:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - items
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExpiringBatch"
+          minItems: 0
+    History:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - events
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryEvent"
+          minItems: 0
+      description: Recorded facts in contiguous sequence order, without pagination. Does not require current expiry
+        preparation. Empty history has stateVersion="0" and events=[].
+    DishDetails:
+      type: object
+      additionalProperties: false
+      required:
+        - evaluatedAt
+        - stateVersion
+        - dish
+      properties:
+        evaluatedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        stateVersion:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        dish:
+          $ref: "#/components/schemas/Dish"
+    OrderConfirmed:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - order
+      properties:
+        kind:
+          type: string
+          const: OrderConfirmed
+        order:
+          $ref: "#/components/schemas/Order"
+    RequiresConfirmation:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - proposal
+      properties:
+        kind:
+          type: string
+          const: RequiresConfirmation
+        proposal:
+          $ref: "#/components/schemas/OrderProposal"
+    EmptyOrder:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: EmptyOrder
+    ProposalSuperseded:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - supersededBy
+      properties:
+        kind:
+          type: string
+          const: ProposalSuperseded
+        supersededBy:
+          $ref: "#/components/schemas/ID"
+    ConfirmationPending:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: ConfirmationPending
+      description: The original attempt remains unresolved. It does not establish a sale or terminal refusal. A
+        different commandID must not start a competing sale.
+    ConfirmCompleted:
+      oneOf:
+        - $ref: "#/components/schemas/OrderConfirmed"
+        - $ref: "#/components/schemas/RequiresConfirmation"
+        - $ref: "#/components/schemas/EmptyOrder"
+      discriminator:
+        propertyName: kind
+        mapping:
+          OrderConfirmed: "#/components/schemas/OrderConfirmed"
+          RequiresConfirmation: "#/components/schemas/RequiresConfirmation"
+          EmptyOrder: "#/components/schemas/EmptyOrder"
+    ConfirmResult:
+      oneOf:
+        - $ref: "#/components/schemas/OrderConfirmed"
+        - $ref: "#/components/schemas/RequiresConfirmation"
+        - $ref: "#/components/schemas/EmptyOrder"
+        - $ref: "#/components/schemas/ProposalSuperseded"
+        - $ref: "#/components/schemas/ConfirmationPending"
+      discriminator:
+        propertyName: kind
+        mapping:
+          OrderConfirmed: "#/components/schemas/OrderConfirmed"
+          RequiresConfirmation: "#/components/schemas/RequiresConfirmation"
+          EmptyOrder: "#/components/schemas/EmptyOrder"
+          ProposalSuperseded: "#/components/schemas/ProposalSuperseded"
+          ConfirmationPending: "#/components/schemas/ConfirmationPending"
+      description: Only the active payload is allowed. Unknown kind, absent required payload, extra inactive
+        payload, wrong content type or malformed JSON is a protocol error. For a modifying request its outcome
+        remains unknown.
+    ProductRegisteredEvent:
+      type: object
+      description: Immutable journal fact. No nullable or unrelated payload fields. Replay uses recorded facts
+        without recalculation.
+      additionalProperties: false
+      required:
+        - eventID
+        - streamID
+        - sequence
+        - schemaVersion
+        - commandID
+        - commandFingerprint
+        - recordedAt
+        - type
+        - payload
+      properties:
+        eventID:
+          $ref: "#/components/schemas/ID"
+        streamID:
+          type: string
+          const: inventory
+        sequence:
+          $ref: "#/components/schemas/PositiveInt64"
+        schemaVersion:
+          type: integer
+          const: 1
+        commandID:
+          $ref: "#/components/schemas/ID"
+        commandFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        recordedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        type:
+          type: string
+          const: ProductRegistered
+        payload:
+          type: object
+          additionalProperties: false
+          required:
+            - product
+          properties:
+            product:
+              $ref: "#/components/schemas/Product"
+    DishDefinedEvent:
+      type: object
+      description: Immutable journal fact. No nullable or unrelated payload fields. Replay uses recorded facts
+        without recalculation.
+      additionalProperties: false
+      required:
+        - eventID
+        - streamID
+        - sequence
+        - schemaVersion
+        - commandID
+        - commandFingerprint
+        - recordedAt
+        - type
+        - payload
+      properties:
+        eventID:
+          $ref: "#/components/schemas/ID"
+        streamID:
+          type: string
+          const: inventory
+        sequence:
+          $ref: "#/components/schemas/PositiveInt64"
+        schemaVersion:
+          type: integer
+          const: 1
+        commandID:
+          $ref: "#/components/schemas/ID"
+        commandFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        recordedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        type:
+          type: string
+          const: DishDefined
+        payload:
+          type: object
+          additionalProperties: false
+          required:
+            - dish
+          properties:
+            dish:
+              $ref: "#/components/schemas/RecordedDish"
+    DeliveryReceivedEvent:
+      type: object
+      description: Immutable journal fact. No nullable or unrelated payload fields. Replay uses recorded facts
+        without recalculation.
+      additionalProperties: false
+      required:
+        - eventID
+        - streamID
+        - sequence
+        - schemaVersion
+        - commandID
+        - commandFingerprint
+        - recordedAt
+        - type
+        - payload
+      properties:
+        eventID:
+          $ref: "#/components/schemas/ID"
+        streamID:
+          type: string
+          const: inventory
+        sequence:
+          $ref: "#/components/schemas/PositiveInt64"
+        schemaVersion:
+          type: integer
+          const: 1
+        commandID:
+          $ref: "#/components/schemas/ID"
+        commandFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        recordedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        type:
+          type: string
+          const: DeliveryReceived
+        payload:
+          type: object
+          additionalProperties: false
+          required:
+            - delivery
+            - batches
+          properties:
+            delivery:
+              $ref: "#/components/schemas/Delivery"
+            batches:
+              type: array
+              items:
+                $ref: "#/components/schemas/Batch"
+              minItems: 1
+    OrderPlacedEvent:
+      type: object
+      description: Immutable journal fact. No nullable or unrelated payload fields. Replay uses recorded facts
+        without recalculation.
+      additionalProperties: false
+      required:
+        - eventID
+        - streamID
+        - sequence
+        - schemaVersion
+        - commandID
+        - commandFingerprint
+        - recordedAt
+        - type
+        - payload
+      properties:
+        eventID:
+          $ref: "#/components/schemas/ID"
+        streamID:
+          type: string
+          const: inventory
+        sequence:
+          $ref: "#/components/schemas/PositiveInt64"
+        schemaVersion:
+          type: integer
+          const: 1
+        commandID:
+          $ref: "#/components/schemas/ID"
+        commandFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        recordedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        type:
+          type: string
+          const: OrderPlaced
+        payload:
+          type: object
+          additionalProperties: false
+          required:
+            - order
+          properties:
+            order:
+              $ref: "#/components/schemas/Order"
+    BatchExpiredEvent:
+      type: object
+      description: Immutable journal fact. No nullable or unrelated payload fields. Replay uses recorded facts
+        without recalculation.
+      additionalProperties: false
+      required:
+        - eventID
+        - streamID
+        - sequence
+        - schemaVersion
+        - commandID
+        - commandFingerprint
+        - recordedAt
+        - type
+        - payload
+      properties:
+        eventID:
+          $ref: "#/components/schemas/ID"
+        streamID:
+          type: string
+          const: inventory
+        sequence:
+          $ref: "#/components/schemas/PositiveInt64"
+        schemaVersion:
+          type: integer
+          const: 1
+        commandID:
+          $ref: "#/components/schemas/ID"
+        commandFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        recordedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+        type:
+          type: string
+          const: BatchExpired
+        payload:
+          type: object
+          additionalProperties: false
+          required:
+            - expiry
+          properties:
+            expiry:
+              $ref: "#/components/schemas/ExpiryResult"
+    HistoryEvent:
+      oneOf:
+        - $ref: "#/components/schemas/ProductRegisteredEvent"
+        - $ref: "#/components/schemas/DishDefinedEvent"
+        - $ref: "#/components/schemas/DeliveryReceivedEvent"
+        - $ref: "#/components/schemas/OrderPlacedEvent"
+        - $ref: "#/components/schemas/BatchExpiredEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          ProductRegistered: "#/components/schemas/ProductRegisteredEvent"
+          DishDefined: "#/components/schemas/DishDefinedEvent"
+          DeliveryReceived: "#/components/schemas/DeliveryReceivedEvent"
+          OrderPlaced: "#/components/schemas/OrderPlacedEvent"
+          BatchExpired: "#/components/schemas/BatchExpiredEvent"
+    InvalidArgumentError:
+      type: object
+      description: Invalid request rejected before writing this attempt. Arithmetic overflow and unsupported units
+        are invalid arguments. Does not resolve a separate earlier unknown attempt.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidArgument
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    ReadInvalidArgumentError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidArgument
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unavailable
+    ProductNotFoundError:
+      type: object
+      description: The referenced product does not exist; this input is rejected before a new write.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - ProductNotFound
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    DishNotFoundError:
+      type: object
+      description: The referenced dish does not exist; no proposal is created. Due expiry preparation may still
+        record expiry facts.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - DishNotFound
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    ProposalNotFoundError:
+      type: object
+      description: A missing proposal is not evidence that an earlier unknown write cannot complete. Only the owner
+        may declare this attempt not_committed.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - ProposalNotFound
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+            - unknown
+    ReadNotFoundError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - DishNotFound
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unavailable
+    InventoryUnavailableError:
+      type: object
+      description: not_committed requires an established refusal before new OrderPlaced/intake/definition. Failure
+        to read an older attempt leaves its outcome unknown. No replacement or shortage result is inferred.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InventoryUnavailable
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+            - unknown
+    ReadUnavailableError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InventoryUnavailable
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unavailable
+    WriteTechnicalError:
+      type: object
+      description: The owner has not established an outcome. Preserve original identifiers and input.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InternalError
+            - UnknownWriteOutcome
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unknown
+    ReadTechnicalError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InternalError
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unavailable
+    GatewayReadError:
+      type: object
+      description: Gateway-generated transport error only. Received upstream status and body are passed through.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - UpstreamUnavailable
+            - UpstreamTimeout
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unavailable
+    GatewayWriteError:
+      type: object
+      description: Gateway cannot prove absence of a write after transport failure. It does not retry modifying
+        requests automatically.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - UpstreamUnavailable
+            - UpstreamTimeout
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unknown
+    ResolveNotFoundError:
+      type: object
+      description: Lookup 404, read failure and absence in one selection do not establish not_committed.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - ProposalNotFound
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unknown
+    ResolveInvalidArgumentError:
+      type: object
+      description: An invalid resolution query does not resolve the original write attempt.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidArgument
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - unknown
+    CommandConflictError:
+      type: object
+      description: This input is definitely rejected. Preserve any separate pending attempt.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - CommandIdentityConflict
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    ProductConflictError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - CommandIdentityConflict
+            - ProductAlreadyExists
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    DishConflictError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - CommandIdentityConflict
+            - DishAlreadyExists
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+    DeliveryConflictError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - outcome
+      properties:
+        code:
+          type: string
+          enum:
+            - CommandIdentityConflict
+            - DeliveryAlreadyReceived
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code. Do not expose credentials or internal
+            upstream URLs.
+        outcome:
+          type: string
+          enum:
+            - not_committed
+externalDocs:
+  description: Published target HTTP handoff and production integration requirements.
+  url: https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gateway-frontend-handoff.md

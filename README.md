@@ -20,6 +20,12 @@
 
 Работают каркасы сервисов, healthz, gateway, сборка и публикация контейнеров, запуск всей сборки в CI. React имеет точку входа и пока отображает пустой корневой элемент. Бизнес-команды и экраны ещё предстоит реализовать.
 
+## Gateway OpenAPI
+
+[OpenAPI v1](docs/api/openapi.yml) defines the target gateway contract for HTTP mocks and clients. It includes 15 business operations, three health routes, typed results, errors and JSON examples. All int64 business values use bounded decimal strings; timestamps include the Moscow `+03:00` offset. Wire DTOs use `ingredients` and `acceptedPositions` across services. Business HTTP adapters are not implemented yet. The resolve operation requires authoritative resolution, prevention of late writes and pending recovery after restart before production integration. The document revision is `1.0.0-draft.1`; it does not change service releases or selected images.
+
+Contract sources are the published [gateway handoff](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gateway-frontend-handoff.md) and [business rules](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/business-core.md), pinned to documentation revision `2a60ea2`.
+
 ## Запуск опубликованной сборки
 
 Требуются Git, Docker Engine и Docker Compose v2. Образы публичные; для скачивания из GHCR вход не требуется.
