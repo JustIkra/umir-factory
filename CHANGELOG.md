@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Added Go development, architecture and Git/release rules with pinned quality tooling.
+
 - Локальные сборки используют отдельные dev-теги и больше не перезаписывают SHA-теги GHCR.
 - CI проверяет существование коммитов и успешные задания проверки и публикации сервиса для выбранного SHA.
 - После pull проверяются OCI source/revision и наличие HEALTHCHECK во всех четырёх образах.
