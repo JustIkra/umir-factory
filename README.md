@@ -44,14 +44,15 @@
 | gateway | Существующий proxy и healthz; подготовка к будущей схеме API | Текущие тесты маршрутизации без переноса бизнес-логики в gateway. |
 | frontend | Существующая точка входа; ожидание схемы API для экранов | Текущая сборка Vite; браузерные сценарии появятся вместе с экранами. |
 
-Планируемая проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов. Он только переводит значения и вызывает сценарии. Сервисные модули остаются независимыми; приложение serving не импортирует warehouse. Runner в автономном Go-модуле `tools/assembly-checks` и тестовый модуль ещё не созданы. Python не используется при выполнении нового этапа. Будущие команды из каталога фабрики после реализации:
+Совместная проверочная сборка будет находиться в `tests/business`; её bridge свяжет публичные contract/bootstrap двух сервисов, переведёт значения и вызовет сценарии. Сервисные модули останутся независимыми; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` уже собирает команды `business`, `check-images` и `smoke` без Python. Команда `business` заработает после добавления тестового модуля и bridge из отдельной задачи ядра:
 
 ```sh
-GOWORK=off go -C tools/assembly-checks run . business --factory-dir "$PWD" --local
-GOWORK=off go -C tools/assembly-checks run . business --factory-dir "$PWD" --warehouse-ref <full-commit-sha> --serving-ref <full-commit-sha>
+GOWORK=off go -C tools/assembly-checks build -o /tmp/umir-checks
+/tmp/umir-checks business --factory-dir "$PWD" --local
+/tmp/umir-checks business --factory-dir "$PWD" --warehouse-ref <full-commit-sha> --serving-ref <full-commit-sha>
 ```
 
-Вторая команда будет проверять фиксированную пару исходников. После подключения runner к CI тот будет передавать SHA выбранных образов из compose.yaml. Локальная команда будет использовать соседние checkout. Обязательный factory-dir должен быть абсолютным; shell подставляет "$PWD" до смены каталога командой go -C. Runner должен создавать временный Go workspace без изменения сервисных go.mod. CI будет вызывать собранный бинарник для сохранения кода дочерней проверки; go run сообщает только успех/ошибку. Эти тесты не потребуют работающих контейнеров. Они не заменят существующий smoke и не утверждают сетевое восстановление pending.
+Каждая команда требует существующий абсолютный `--factory-dir`. Локальный режим использует соседние checkout `umir-warehouse` и `umir-serving`; режим фиксированных источников клонирует полные SHA из публичных репозиториев и проверяет `HEAD`. Runner создаёт временный `go.work` и удаляет только свои временные файлы. Он не меняет сервисные `go.mod` и не выполняет `go work sync`. Совместная бизнес-проверка работает в памяти и не требует контейнеров; она не проверяет сетевое восстановление pending. CI собирает бинарник и вызывает его для сохранения точного кода дочернего процесса. Ручной запуск бизнес-suite выключен по умолчанию: включайте его, когда выбранные warehouse и serving SHA содержат публичные `contract` и `bootstrap`.
 
 Перед PR сверяйте изменения с business-core, запускайте проверки владельца и обновляйте его README. Фикстуры хранятся в тестах; настройки и worker собираются в точке запуска. Новые production-пакеты нужно включить в Dockerfile перед подключением к cmd/server. Смена закреплённых образов остаётся отдельным изменением сборки.
 
@@ -127,21 +128,17 @@ workspace/
 4. Дождитесь успешного CI фабрики и merge от `JustIkra`.
 5. Выполните `docker compose pull` и `docker compose up -d --wait --wait-timeout 120` на целевом хосте.
 
-CI фабрики проверяет Compose и соответствие SHA тегов сервисам, скачивает выбранные образы, запускает четыре контейнера и проверяет frontend и оба маршрута gateway. Текущий workflow вызывает scripts/check-images.py и scripts/smoke.py. Их перенос на Go входит в следующий этап; до переноса эти Python-скрипты не запускать при выполнении плана. Доступные проверки без Python:
+CI фабрики устанавливает Go 1.26.5, собирает `umir-checks` во временный каталог, проверяет Compose и SHA тегов, скачивает выбранные образы, запускает четыре контейнера и проверяет frontend и маршруты gateway на портах 8080 и 8081. Шаг показа логов остаётся включённым при сбое. Проверки `check-images` и `smoke` работают на Go. Проверку совместного бизнес-suite можно запустить вручную после публикации выбранных реализаций; она извлекает SHA serving и warehouse из Compose через Go. Доступные локальные команды без Python:
 
 ```sh
 docker compose --env-file .env.example config --quiet
 docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
-```
-
-После реализации tools/assembly-checks проверки образов и smoke будут запускаться из каталога фабрики так:
-
-```sh
+GOWORK=off go -C tools/assembly-checks test ./...
 GOWORK=off go -C tools/assembly-checks run . check-images --factory-dir "$PWD"
 GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD"
 ```
 
-Smoke-проверка требует запущенной сборки со штатными портами 8080 и 8081. При переключении CI обе проверки будут вызывать собранный Go-бинарник; прежние скрипты будут удалены.
+`check-images` читает JSON от `docker compose config`; `smoke` требует запущенную сборку со штатными портами 8080 и 8081. Для CI используйте собранный бинарник, чтобы сохранить точный код возврата проверки.
 
 Фабрика не публикует собственный контейнер. Автоматический деплой на сервер пока не настроен.
 

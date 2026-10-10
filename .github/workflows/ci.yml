@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_business_suite:
+        description: Run the cross-service in-memory suite against the selected image commits
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -18,19 +24,61 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+      - name: Build assembly checks
+        env:
+          GOWORK: 'off'
+        run: |
+          mkdir -p "$RUNNER_TEMP/umir-checks"
+          go -C tools/assembly-checks build -o "$RUNNER_TEMP/umir-checks/umir-checks"
       - name: Validate production Compose
         run: docker compose --env-file .env.example config --quiet
       - name: Validate development Compose
         run: docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
       - name: Check pinned image identities
-        run: python3 scripts/check-images.py
+        run: |
+          "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE"
       - name: Pull pinned images
         run: docker compose --env-file .env.example pull
       - name: Start assembly
         run: docker compose --env-file .env.example up -d --wait --wait-timeout 120
       - name: Check gateway paths
-        run: python3 scripts/smoke.py
+        run: |
+          "$RUNNER_TEMP/umir-checks/umir-checks" smoke --factory-dir "$GITHUB_WORKSPACE"
       - name: Show service logs on failure
         if: failure()
         run: docker compose --env-file .env.example logs --no-color
+
+  business-core:
+    name: Cross-service business suite (manual opt-in)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_business_suite == true
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.26.5'
+          check-latest: false
+      - name: Build assembly checks
+        env:
+          GOWORK: 'off'
+        run: |
+          mkdir -p "$RUNNER_TEMP/umir-checks"
+          go -C tools/assembly-checks build -o "$RUNNER_TEMP/umir-checks/umir-checks"
+      - name: Read selected service commits from Compose
+        id: selected
+        run: |
+          "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE" --github-output "$GITHUB_OUTPUT"
+      - name: Run cross-service suite against selected commits
+        run: >-
+          "$RUNNER_TEMP/umir-checks/umir-checks" business
+          --factory-dir "$GITHUB_WORKSPACE"
+          --warehouse-ref "${{ steps.selected.outputs.warehouse_ref }}"
+          --serving-ref "${{ steps.selected.outputs.serving_ref }}"
 
