@@ -1,10 +1,18 @@
 services:
   gateway:
+    image: umir-gateway:dev
+    pull_policy: build
     build: ../umir-gateway
   serving:
+    image: umir-serving:dev
+    pull_policy: build
     build: ../umir-serving
   warehouse:
+    image: umir-warehouse:dev
+    pull_policy: build
     build: ../umir-warehouse
   frontend:
+    image: umir-frontend:dev
+    pull_policy: build
     build: ../umir-frontend
 

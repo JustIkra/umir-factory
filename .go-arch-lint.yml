@@ -1,0 +1,11 @@
+version: 3
+workdir: .
+allow:
+  deepScan: false
+  depOnAnyVendor: false
+  ignoreNotFoundComponents: false
+components:
+  assembly-checks: {in: "."}
+deps:
+  assembly-checks:
+    mayDependOn: [assembly-checks]
