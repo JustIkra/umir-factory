@@ -1,0 +1,17 @@
+version: 3
+workdir: .
+allow:
+  deepScan: false
+  depOnAnyVendor: false
+  ignoreNotFoundComponents: false
+components:
+  business-bridge: {in: "."}
+vendors:
+  warehouse-contract: {in: "github.com/JustIkra/umir-warehouse/contract"}
+  serving-contract: {in: "github.com/JustIkra/umir-serving/contract"}
+  warehouse-bootstrap: {in: "github.com/JustIkra/umir-warehouse/bootstrap"}
+  serving-bootstrap: {in: "github.com/JustIkra/umir-serving/bootstrap"}
+deps:
+  business-bridge:
+    mayDependOn: [business-bridge]
+    canUse: [warehouse-contract, serving-contract, warehouse-bootstrap, serving-bootstrap]

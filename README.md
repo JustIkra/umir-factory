@@ -8,23 +8,70 @@
 | --- | --- |
 | [umir-factory](https://github.com/JustIkra/umir-factory) | Compose, версии образов, запуск и проверка сборки. |
 | [umir-gateway](https://github.com/JustIkra/umir-gateway) | Единый API-вход; маршрутизация к serving и warehouse. |
-| [umir-serving](https://github.com/JustIkra/umir-serving) | MenuService, OrdersService, StopListService и RecommendationsService. |
-| [umir-warehouse](https://github.com/JustIkra/umir-warehouse) | DeliveryService, InventoryService, ExpirationService и MonitoringService. |
+| [umir-serving](https://github.com/JustIkra/umir-serving) | OrdersService, MenuService (включая стоп-лист) и RecommendationsService. |
+| [umir-warehouse](https://github.com/JustIkra/umir-warehouse) | Единый владелец склада: каталог, поставки, оценки, оформление, просрочка и запросы. |
 | [umir-frontend](https://github.com/JustIkra/umir-frontend) | React и раздача интерфейса; запросы API через gateway. |
 
-Планируемая бизнес-логика: поставки и партии, приготовление по FEFO, подтверждение сокращённого состава заказа, списание просрочки, стоп-лист и рекомендации по продаже. Warehouse владеет остатками и атомарно фиксирует окончательную продажу вместе с расходом ингредиентов. Serving хранит предложения заказа и координирует подтверждение через склад.
+Бизнес-ядро в памяти реализует поставки и партии, приготовление по FEFO, подтверждение сокращённого состава заказа, списание просрочки, стоп-лист и рекомендации по продаже. Warehouse владеет остатками и атомарно фиксирует окончательную продажу вместе с расходом ингредиентов. Serving хранит предложения заказа и координирует подтверждение через склад.
+
+Продукты, блюда и рецептуры хранятся в warehouse вместе с событиями. MenuService в serving работает с ними через порт склада. Мониторинг показывает остатки и сроки партий; отчёт для закупок находится вне текущей версии.
+
+Перед новым оформлением и запросами актуальных остатков warehouse восстанавливает очередь и применяет записанные события наступивших списаний. При невозможности подготовки возвращается техническая ошибка InventoryUnavailable. Оформление подтверждается только записанным OrderPlaced; неизвестный исход записи разрешается повтором исходной попытки.
+
+Остатки и индекс истечения публикуются вместе после полной команды; полная сверка нужна при восстановлении или известном сбое. Чистые расчёты используют захваченное неизменяемое состояние. GetMenu показывает только доступные блюда без количества порций. Снапшоты сохраняются в фоне после полных команд; точка восстановления меняется только после успешного сохранения.
 
 Решение рассчитано на один ресторан. Время — `Europe/Moscow`. Регистрация пользователей, роли приложения и несколько ресторанов находятся вне базовой версии.
 
+Основной документ бизнес-контрактов — [docs/business-core.md](docs/business-core.md). При расхождении описаний контрактов в README и docs приоритет имеет docs. Согласованные правила сохранены в документе; отдельно обозначенные предложения остаются на рассмотрении.
+
+[Проект observability](docs/observability.md) описывает JSON-логи операций, связь запросов между сервисами, метрики зависаний и трассировку. Он подготовлен для рассмотрения; инструментация и стек мониторинга ещё не подключены.
+
 ## Текущее состояние
 
-Работают каркасы сервисов, healthz, gateway, сборка и публикация контейнеров, запуск всей сборки в CI. React имеет точку входа и пока отображает пустой корневой элемент. Бизнес-команды и экраны ещё предстоит реализовать.
+Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Warehouse cmd/server собирает пустой Runtime, таймер истечения и snapshot worker; сбой Save повторяется с заданным интервалом, пока HTTP и обработка просрочки продолжаются. Serving cmd/server сохраняет healthz до подключения транспортного адаптера. Бизнес-HTTP, постоянные хранилища и экраны относятся к следующему этапу. Выбранные в compose.yaml опубликованные образы не меняются вместе с исходным кодом рабочих веток.
+
+## Бизнес-ядро и разработка
+
+Начните с [business-core](docs/business-core.md), затем прочитайте [архитектуру Go](docs/go-architecture.md) и README изменяемого сервиса. Эти документы задают поведение и границы исходного ядра; сетевую интеграцию контейнеров нужно проверить отдельно.
+
+Отдельный разработчик может параллельно выполнять [задачу gateway/frontend](docs/gateway-frontend-handoff.md) на сценарных HTTP-моках. Эта спецификация определяет интерфейсы gateway, wire contract и границу подключения реальных сервисов. [Задание на Figma](docs/frontend-design-brief.md) описывает дизайн и evidence; [проектный review-skill](skills/umir-pr-review/SKILL.md) хранит особенности будущих PR. Порядок начала работы и список задач находятся в связанных GitHub issues. Моки не подменяют приёмку реального бизнес-ядра или сетевого восстановления.
+
+| Репозиторий | Работа первого этапа | Свидетельство результата |
+| --- | --- | --- |
+| warehouse | Значения, события, FEFO, единый допуск, in-memory EventStore/SnapshotStore, полные снапшоты | Собственные контрактные и приёмочные Go-тесты. |
+| serving | Потребительские порты, предложения, подтверждение, меню, стоп-лист, рекомендации, in-memory ProposalStore | Собственные Go-тесты сценариев и переходов предложения. |
+| factory | Документация границ и совместные проверки двух Go-модулей в памяти | Реальные сценарии через test bridge; отдельно сохраняются проверки Compose. |
+| gateway | Существующий proxy и healthz; подготовка к будущей схеме API | Текущие тесты маршрутизации без переноса бизнес-логики в gateway. |
+| frontend | Существующая точка входа; ожидание схемы API для экранов | Текущая сборка Vite; браузерные сценарии появятся вместе с экранами. |
+
+Совместная проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов и явно переводит значения. Сервисные модули независимы; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` предоставляет команды `business`, `check-images` и `smoke` на Go:
+
+```sh
+GOWORK=off go -C tools/assembly-checks build -o /tmp/umir-checks
+/tmp/umir-checks business --factory-dir "$PWD" --local
+/tmp/umir-checks business --factory-dir "$PWD" --warehouse-ref <full-commit-sha> --serving-ref <full-commit-sha>
+```
+
+Каждая команда требует существующий абсолютный `--factory-dir`. Локальный режим использует соседние checkout `umir-warehouse` и `umir-serving`; режим фиксированных источников клонирует полные SHA из публичных репозиториев и проверяет `HEAD`. Runner создаёт временный `go.work` и удаляет только свои временные файлы. Он не меняет сервисные `go.mod` и не выполняет `go work sync`. Совместная бизнес-проверка работает в памяти и не требует контейнеров; она не проверяет сетевое восстановление pending. CI собирает бинарник и вызывает его для сохранения точного кода дочернего процесса. Ручной запуск бизнес-suite выключен по умолчанию: включайте его, когда выбранные warehouse и serving SHA содержат публичные `contract` и `bootstrap`.
+
+Перед PR сверяйте изменения с business-core, запускайте проверки владельца и обновляйте его README. Фикстуры хранятся в тестах; настройки и worker собираются в точке запуска. Смена закреплённых образов остаётся отдельным изменением сборки.
+
+Полный Go gate фабрики проверяет оба вложенных модуля из `.go-quality-modules`:
+
+```sh
+make tools
+make check-tools
+make check-business
+make check
+```
+
+`check-tools` проверяет автономный runner с GOWORK=off. `check-business` создаёт временный workspace с соседними сервисами; другие пути задаются через WAREHOUSE_DIR/SERVING_DIR. Gates включают форматирование, сборку, закреплённые linters, архитектуру и полные race-тесты. Для test-only business модуля build компилирует тестовый бинарник в временный каталог. Версии и правила находятся в `.go-quality-versions`, `.golangci.yml` и `.go-arch-*.yml`. Необъявленный или отсутствующий вложенный модуль вызывает ошибку. Для форматирования отдельных файлов выберите QUALITY_MODULE=tools или business и передайте FILES как список путей с разделением новой строкой.
 
 ## Gateway OpenAPI
 
 [OpenAPI v1](docs/api/openapi.yml) defines the target gateway contract for HTTP mocks and clients. It includes 15 business operations, three health routes, typed results, errors and JSON examples. All int64 business values use bounded decimal strings; timestamps include the Moscow `+03:00` offset. Wire DTOs use `ingredients` and `acceptedPositions` across services. Business HTTP adapters are not implemented yet. The resolve operation requires authoritative resolution, prevention of late writes and pending recovery after restart before production integration. The document revision is `1.0.0-draft.1`; it does not change service releases or selected images.
 
-Contract sources are the published [gateway handoff](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gateway-frontend-handoff.md) and [business rules](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/business-core.md), pinned to documentation revision `2a60ea2`.
+Contract sources are the local [gateway handoff](docs/gateway-frontend-handoff.md) and [business rules](docs/business-core.md), updated with the reviewed delivery form fields and timestamp semantics.
 
 ## Запуск опубликованной сборки
 
@@ -84,13 +131,11 @@ workspace/
 └── umir-frontend/
 ```
 
-Файл `compose.dev.yaml` использует соседние каталоги как контексты сборки. Локальные образы получают отдельные теги `umir-<service>:dev`; `pull_policy: build` выбирает сборку из исходников. Порты и сеть остаются такими же, как у опубликованной сборки.
-
-Чтобы переключиться на опубликованную сборку, выполните `docker compose up -d --wait --wait-timeout 120` без dev-файла. Он выберет закреплённые GHCR-образы. Если вы собирали исходники прежней версией dev-файла, сначала выполните `docker compose pull`: старый dev-файл мог перезаписать локальные SHA-теги.
+Файл `compose.dev.yaml` использует соседние каталоги как контексты сборки, отдельные локальные теги `umir-<service>:dev` и pull_policy=build. Он не перезаписывает выбранные SHA-теги. Порты и сеть остаются такими же, как у опубликованной сборки.
 
 ## CI/CD и обновление образов
 
-Сервисные workflows проверяют push в ветки, PR в main и ручные запуски. Go-сервисы проходят gofmt, go test с race detector и go vet; frontend проходит npm ci и сборку Vite. Все сервисы проверяют Docker-сборку.
+Сервисные workflows проверяют push в ветки, PR в main и ручные запуски. Warehouse и serving проходят закреплённый make check с форматированием, build, lint, архитектурой и race-тестами; frontend проходит npm ci и сборку Vite. Сервисы проверяют Docker-сборку.
 
 После успешной проверки main публикуется образ `ghcr.io/justikra/umir-<service>:sha-<полный SHA коммита>` для `linux/amd64` и `linux/arm64`. Публикация использует штатный `GITHUB_TOKEN`; разрешение `packages:write` задано только заданию публикации. Это правило действует и для коммитов с изменением документации.
 
@@ -102,38 +147,26 @@ workspace/
 4. Дождитесь успешного CI фабрики и merge от `JustIkra`.
 5. Выполните `docker compose pull` и `docker compose up -d --wait --wait-timeout 120` на целевом хосте.
 
-CI фабрики выполняет следующие проверки:
-
-1. Проверяет обе конфигурации Compose. `scripts/check-images.py` проверяет только набор сервисов, имя образа каждого сервиса и формат полного SHA в теге.
-2. Запускает тесты проверок образов. `scripts/check-image-sources.sh` через GitHub API проверяет существование каждого коммита и успешный запуск `.github/workflows/ci.yml` в main для этого SHA. В том же запуске задания `Check` и `Publish image` должны завершиться успешно. Одного успешного PR или пропущенной публикации недостаточно.
-3. Скачивает закреплённые образы. `scripts/check-pulled-images.sh` проверяет совпадение OCI source/revision с репозиторием и SHA тега, а также наличие включённого HEALTHCHECK.
-4. Запускает все четыре контейнера через `up --wait`. `scripts/smoke.py` проверяет frontend и оба маршрута gateway через frontend и напрямую через API-порт.
-
-Pull подтверждает доступность образа, smoke — его работу в сборке. Наличие коммита и результаты CI проверяются отдельным обращением к GitHub API. Для проверки источников локально нужны Bash, jq и GitHub CLI (`gh` с действующей авторизацией). Проверка скачанных образов требует Bash, jq и Docker. Эти инструменты уже доступны на runner фабрики; workflow передаёт штатный GitHub token только шагу проверки источников.
-
-Замена `scripts/check-images.py` и `scripts/smoke.py` на Go запланирована вместе с runner проверок фабрики. До переноса эти Python-скрипты не запускать при выполнении плана бизнес-ядра. Доступные проверки без Python из каталога фабрики:
+CI фабрики устанавливает Go 1.26.5, проверяет runner, собирает umir-checks, проверяет оба Compose и SHA-теги. До pull он проверяет существование выбранных commit и успешные Check/Publish image на main. После pull он проверяет OCI source/revision и HEALTHCHECK. Затем запускает четыре контейнера и проверяет frontend и маршруты gateway через опубликованные порты. При сбое показывает логи. Совместный business job включается вручную после публикации выбранных реализаций; два SHA извлекаются из Compose через Go. Проверки сборки выполняются командами:
 
 ```sh
 docker compose --env-file .env.example config --quiet
 docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
+make check-tools
 bash tests/infra/image-checks.sh
-bash scripts/check-image-sources.sh --env-file .env.example
-docker compose --env-file .env.example pull
-bash scripts/check-pulled-images.sh --env-file .env.example
-```
-
-После реализации tools/assembly-checks проверки образов и smoke будут запускаться из каталога фабрики так:
-
-```sh
 GOWORK=off go -C tools/assembly-checks run . check-images --factory-dir "$PWD"
-GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD"
+GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-file .env.example
 ```
 
-Smoke требует запущенной сборки. Текущая проверка получает адреса frontend и gateway командой `docker compose port <service> 8080`, поэтому использует фактические опубликованные порты и адрес привязки. По умолчанию Compose читает `.env`; `--env-file <path>` выбирает другой файл. Для wildcard-привязки `0.0.0.0` или `::` проверка обращается к соответствующему loopback-адресу. `--web-url` и `--api-url` позволяют явно задать адреса, например для удалённой сборки. Запускайте smoke из каталога фабрики с тем же `COMPOSE_PROJECT_NAME`, если запуск использует отдельное имя проекта. CI передаёт `--env-file .env.example` при запуске и проверке.
-
-Go-версия должна сохранить это поведение и параметры. При переключении CI обе проверки будут вызывать собранный Go-бинарник; прежние Python-скрипты будут удалены. Проверки источников и метаданных образов сохраняются отдельными шагами CI.
+`check-images` читает JSON от `docker compose config` с .env.example. `smoke` требует запущенную сборку; он определяет адреса через Compose port frontend/gateway 8080. --env-file задаёт файл относительно factory-dir; по умолчанию Compose читает .env. Для других адресов используйте --web-url и --api-url. Оба явных URL позволяют обойти Docker discovery. Для CI используйте собранный бинарник, чтобы сохранить точный код возврата проверки.
 
 Фабрика не публикует собственный контейнер. Автоматический деплой на сервер пока не настроен.
+
+## Совместимость и версии
+
+Публичная поверхность фабрики — Compose-настройки, точные identities выбранных образов и CLI umir-checks (аргументы, проверки и код выхода). Business suite использует только публичные пакеты сервисов. Данные Runtime существуют в памяти процесса; такая сборка не проверяет HTTP, позднюю запись по сети или восстановление pending после перезапуска.
+
+Используется SemVer. До 1.0 исправления получают patch, добавления или несовместимые изменения — minor с описанием миграции. После 1.0 несовместимые изменения требуют major. До выпуска изменения остаются в CHANGELOG под «Не выпущено». Корневые теги имеют вид vX.Y.Z; независимо публикуемые вложенные модули используют префиксы tools/assembly-checks/vX.Y.Z и tests/business/vX.Y.Z. При v2+ import path содержит /v2; завершающий каталог major не дублируется в префиксе тега. Выпущенные теги неизменны. SemVer не заменяет точные SHA образов фабрики.
 
 ## Доступ и совместная работа
 
