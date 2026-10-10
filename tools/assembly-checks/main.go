@@ -78,10 +78,12 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 		}
 		return 0
 	case "smoke":
-		if err := runSmoke(ctx, defaultHTTPClient(), smokeTargets{
-			Gateways: []string{"http://127.0.0.1:8080", "http://127.0.0.1:8081"},
-			Frontend: "http://127.0.0.1:8080",
-		}); err != nil {
+		targets, err := discoverSmokeTargets(ctx, factoryDir, options, executor)
+		if err != nil {
+			writeFailure(stderr, "%v\n", err)
+			return 1
+		}
+		if err := runSmoke(ctx, defaultHTTPClient(), targets); err != nil {
 			writeFailure(stderr, "%v\n", err)
 			return 1
 		}
@@ -95,6 +97,9 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 
 type cliOptions struct {
 	factoryDir   string
+	envFile      string
+	webURL       string
+	apiURL       string
 	local        bool
 	warehouse    string
 	serving      string
@@ -113,6 +118,11 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	}
 	if command == "check-images" {
 		flags.StringVar(&options.githubOutput, "github-output", "", "append selected service refs to a GitHub Actions output file")
+	}
+	if command == "smoke" {
+		flags.StringVar(&options.envFile, "env-file", "", "Compose environment file, relative to the factory checkout")
+		flags.StringVar(&options.webURL, "web-url", "", "override the frontend URL")
+		flags.StringVar(&options.apiURL, "api-url", "", "override the gateway URL")
 	}
 	if err := flags.Parse(args); err != nil {
 		return options, err
@@ -138,6 +148,18 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		}
 		if !isSHA(options.warehouse) || !isSHA(options.serving) {
 			return options, errors.New("service refs must be exactly 40 lowercase hexadecimal characters")
+		}
+	}
+	if command == "smoke" {
+		if options.webURL != "" {
+			if _, err := parseSmokeURL(options.webURL); err != nil {
+				return options, fmt.Errorf("invalid --web-url: %w", err)
+			}
+		}
+		if options.apiURL != "" {
+			if _, err := parseSmokeURL(options.apiURL); err != nil {
+				return options, fmt.Errorf("invalid --api-url: %w", err)
+			}
 		}
 	}
 	return options, nil
