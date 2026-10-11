@@ -2,23 +2,22 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Umir gateway API
-  version: 1.0.0-draft.1
-  description: "Target wire contract v1 for frontend → gateway → scenario HTTP mocks. Business HTTP adapters are
-    not implemented by the current core; only health routes are available. Production integration requires
-    authoritative resolution, protection against late writes and restart recovery. Definitions are immutable;
-    editing, history pagination, document upload/OCR, auth, roles and multiple restaurants are outside this
-    version. All request/response business bodies use application/json. Unknown tagged results and invalid
-    response bodies are protocol failures, never proof of a sale. API revision is separate from service
-    releases and exact factory image SHA pins. Source rules: [gateway
-    handoff](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gate\
-    way-frontend-handoff.md) and [business
-    core](https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/busines\
-    s-core.md)."
+  version: 1.0.0-draft.2
+  description: "Public wire contract v1 for frontend → gateway → serving/warehouse HTTP. This revision
+    describes the implemented local HTTP sources; the selected factory images serve the
+    HTTP API. Use the factory README development build instructions for the current checkouts.
+    Business state and confirmation attempts are process-local; restart recovery and durable storage are
+    outside this stage. Definitions are immutable. Editing, history pagination, document upload/OCR,
+    authentication, roles and multiple restaurants are outside this version. All business bodies use
+    application/json. Unknown tagged results and invalid response bodies are protocol failures, never
+    proof of a sale. API revision is separate from service releases and exact factory image SHA pins.
+    Source rules: [gateway handoff](../gateway-frontend-handoff.md) and [business
+    core](../business-core.md)."
 servers:
   - url: /
     description: Same-origin gateway via frontend reverse proxy.
   - url: http://127.0.0.1:8081
-    description: Default local gateway address. Business paths are targets until mocks/adapters are installed.
+    description: Default local gateway address.
 security: []
 tags:
   - name: Catalog
@@ -34,8 +33,8 @@ tags:
 x-wire-version: 1
 x-timezone: Europe/Moscow
 x-core-source-revisions:
-  warehouse: a4dccd27453fad62efb3df1f929aa720521b0c78
-  serving: 6ddcfbceedf7df82e1deed7700a4a52c635bef62
+  warehouse: 3e37af2f74a498c425c2dcb561be1bd3c9c01160
+  serving: 0fb867e7ff58e3106fa819355fc1ee298da58074
 x-adapter-rules:
   - Normalize serving Recipe to wire ingredients and serving Order.Positions to acceptedPositions. History
     uses recorded fields, not enriched DTOs.
@@ -50,6 +49,19 @@ x-adapter-rules:
     POST.
   - A schema cannot prove relational business invariants, product uniqueness by key, time ordering, aggregate
     overflow, FEFO or late-write prevention. Owners must check these documented conditions.
+  - Business query keys are case-sensitive. Reject undeclared, duplicate or malformed query values and
+    raw semicolon separators. Serving also rejects an empty forced query. Percent-encode reserved
+    characters in opaque IDs and the +03:00 offset.
+  - POST bodies require application/json and strict UTF-8 JSON with exact case-sensitive fields. Reject
+    duplicate keys, null, unknown fields, inactive payloads and a second JSON value. The default
+    request-body limit is 1 MiB. Invalid media type or an oversized body receives 400 InvalidArgument
+    when a response can be delivered.
+  - A read validation error has outcome unavailable. Rejected modifying input has outcome not_committed
+    for that input only. Invalid Resolve input has outcome unknown for the original confirmation; a
+    separately saved owner refusal can still be replayed as not_committed.
+  - Order preparation first evaluates stock through the non-mutating warehouse POST /order-evaluations.
+    Its authoritative read errors use unavailable; no proposal is created. Transport failure remains
+    unknown. Repeating a successful preparation creates a new proposal ID.
 paths:
   /api/serving/products:
     get:
@@ -57,7 +69,7 @@ paths:
         - Catalog
       operationId: getProducts
       summary: List all registered products
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -112,12 +124,22 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
     post:
       tags:
         - Catalog
       operationId: registerProduct
       summary: Register an immutable product
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -181,15 +203,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Inventory is unavailable; the operation outcome remains unknown. This status does not
+            establish a terminal refusal.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventoryUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Inventory is unavailable; the operation outcome remains unknown.
+                outcome: unknown
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -206,7 +229,7 @@ paths:
         - Catalog
       operationId: getDishCatalog
       summary: List all dish definitions, including unavailable dishes
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -264,13 +287,23 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/serving/dish:
     get:
       tags:
         - Catalog
       operationId: getDish
       summary: Get a dish and its one-portion recipe
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -364,7 +397,7 @@ paths:
         - Catalog
       operationId: defineDish
       summary: Define an immutable dish
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -444,15 +477,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Inventory is unavailable; the operation outcome remains unknown. This status does not
+            establish a terminal refusal.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventoryUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Inventory is unavailable; the operation outcome remains unknown.
+                outcome: unknown
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -469,7 +503,7 @@ paths:
         - Availability
       operationId: getMenu
       summary: List dishes available for one portion
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -523,13 +557,23 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/serving/stop-list:
     get:
       tags:
         - Availability
       operationId: getStopList
       summary: List unavailable dishes and one-portion deficits
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -587,13 +631,23 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/serving/recommendations:
     get:
       tags:
         - Availability
       operationId: getRecommendations
       summary: Rank independently available dishes by FEFO expiry
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -661,13 +715,23 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/serving/order-proposals:
     post:
       tags:
         - Orders
       operationId: prepareOrder
       summary: Prepare an immutable order proposal without reservation
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -682,7 +746,8 @@ paths:
                   portions: "2"
       responses:
         "200":
-          description: Typed completed result, including exact idempotent replay.
+          description: New immutable proposal. Preparation does not reserve or debit inventory. Repeating
+            this request creates a new proposal ID; it is not an idempotent confirmation retry.
           content:
             application/json:
               schema:
@@ -695,31 +760,47 @@ paths:
                   - lineNo: "1"
                     dishID: паста/+ &?
                     portions: "1"
+                  - lineNo: "2"
+                    dishID: паста/+ &?
+                    portions: "2"
                 acceptedPositions:
                   - lineNo: "1"
                     dishID: паста/+ &?
                     portions: "1"
+                  - lineNo: "2"
+                    dishID: паста/+ &?
+                    portions: "2"
                 changes: []
         "400":
-          description: "InvalidArgument: invalid fields, units, precision, dates or overflow."
+          description: Invalid public input is rejected as not_committed. A warehouse evaluation rejection is
+            a read result with outcome unavailable; neither resolves a separate earlier confirmation.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvalidArgumentError"
-              example:
-                code: InvalidArgument
-                message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
-                outcome: not_committed
+                oneOf:
+                  - $ref: "#/components/schemas/InvalidArgumentError"
+                  - $ref: "#/components/schemas/ReadInvalidArgumentError"
+              examples:
+                invalidInput:
+                  value:
+                    code: InvalidArgument
+                    message: Preparation input is invalid.
+                    outcome: not_committed
+                evaluationRefusal:
+                  value:
+                    code: InvalidArgument
+                    message: Warehouse evaluation input is invalid.
+                    outcome: unavailable
         "404":
-          description: Referenced product or dish does not exist.
+          description: A dish definition is absent during warehouse evaluation. No proposal is prepared.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DishNotFoundError"
+                $ref: "#/components/schemas/ReadNotFoundError"
               example:
                 code: DishNotFound
-                message: Referenced product or dish does not exist.
-                outcome: not_committed
+                message: Dish is unavailable during evaluation.
+                outcome: unavailable
         "500":
           description: Technical failure with unknown write outcome.
           content:
@@ -741,15 +822,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Warehouse evaluation is unavailable. This is an authoritative read error; no proposal
+            is prepared. Transport failures still keep outcome unknown.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                $ref: "#/components/schemas/ReadUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Warehouse evaluation is unavailable.
+                outcome: unavailable
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -760,15 +842,15 @@ paths:
                 code: UpstreamTimeout
                 message: Upstream timeout; outcome unknown.
                 outcome: unknown
-      description: No sale is committed by preparation. Warehouse preparation may record due expiry facts. Gateway
-        treats a failed POST as unknown; do not infer an empty proposal.
+      description: No sale is committed by preparation. Warehouse preparation may record due expiry
+        facts. Gateway treats a failed POST as unknown; do not infer an empty proposal.
   /api/serving/order-confirmations:
     post:
       tags:
         - Orders
       operationId: confirmOrder
       summary: Confirm the accepted composition of a saved proposal
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -805,21 +887,30 @@ paths:
                   value:
                     kind: RequiresConfirmation
                     proposal:
-                      proposalID: proposal-1
+                      proposalID: proposal-2
                       evaluatedAt: 2026-10-10T12:00:00+03:00
-                      stateVersion: "9007199254740993"
+                      stateVersion: "9007199254740994"
                       requestedPositions:
                         - lineNo: "1"
                           dishID: паста/+ &?
                           portions: "1"
-                      acceptedPositions:
+                      acceptedPositions: []
+                      changes:
                         - lineNo: "1"
                           dishID: паста/+ &?
-                          portions: "1"
-                      changes: []
+                          requestedPortions: "1"
+                          acceptedPortions: "0"
+                          deficits:
+                            - productID: сыр/+ &?
+                              requiredQuantity: "40000"
+                              availableQuantity: "0"
                 EmptyOrder:
                   value:
                     kind: EmptyOrder
+                ProposalSuperseded:
+                  value:
+                    kind: ProposalSuperseded
+                    supersededBy: proposal-2
         "202":
           description: Original attempt remains pending; no new sale is started.
           content:
@@ -839,33 +930,36 @@ paths:
                 message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
                 outcome: not_committed
         "404":
-          description: Proposal not found. This does not prove absence of an earlier sale.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProposalNotFoundError"
-              example:
-                code: ProposalNotFound
-                message: Proposal not found. This does not prove absence of an earlier sale.
-                outcome: not_committed
-        "409":
-          description: Superseded proposal with replacement ID, or a definite command identity conflict.
+          description: Missing proposal with unknown outcome, or a saved owner refusal because a dish is absent
+            from warehouse state.
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/ProposalSuperseded"
-                  - $ref: "#/components/schemas/CommandConflictError"
+                  - $ref: "#/components/schemas/ProposalNotFoundError"
+                  - $ref: "#/components/schemas/DishNotFoundError"
               examples:
-                superseded:
+                missingProposal:
                   value:
-                    kind: ProposalSuperseded
-                    supersededBy: proposal-2
-                conflict:
+                    code: ProposalNotFound
+                    message: Proposal outcome is unknown.
+                    outcome: unknown
+                savedRefusal:
                   value:
-                    code: CommandIdentityConflict
-                    message: Identity conflict
+                    code: DishNotFound
+                    message: The attempted dish does not exist in warehouse state.
                     outcome: not_committed
+        "409":
+          description: Definite command identity conflict for this input. Preserve any separate earlier unknown
+            attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandConflictError"
+              example:
+                code: CommandIdentityConflict
+                message: Command identity conflicts with an existing attempt.
+                outcome: not_committed
         "500":
           description: Technical failure with unknown write outcome.
           content:
@@ -887,15 +981,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Inventory is unavailable; the operation outcome remains unknown. This status does not
+            establish a terminal refusal.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventoryUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Inventory is unavailable; the operation outcome remains unknown.
+                outcome: unknown
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -906,18 +1001,21 @@ paths:
                 code: UpstreamTimeout
                 message: Upstream timeout; outcome unknown.
                 outcome: unknown
-      description: Return a recorded order before current expiry preparation. Recheck only saved accepted positions.
-        Stock growth never increases the proposal. A reduction produces a complete replacement and
-        RequiresConfirmation; the replacement requires a new explicit user action. Known success remains
-        success after queue/proposal cleanup failure. Pending and lost responses require the original
-        identifiers; an HTTP 2xx alone does not prove OrderConfirmed.
+      description: Return a recorded order before current expiry preparation. Recheck only saved accepted
+        positions. Stock growth never increases the proposal. A reduction produces a complete replacement
+        and RequiresConfirmation; the replacement requires a new explicit user action. Known success
+        remains success after queue/proposal cleanup failure. Pending and lost responses require the
+        original identifiers; an HTTP 2xx alone does not prove OrderConfirmed. An exact retry returns its
+        saved outcome. A new commandID is required after a saved terminal refusal; an exact retry of that
+        ID replays the same refusal. A superseded proposal returns 200 ProposalSuperseded with its
+        replacement ID.
   /api/serving/order-confirmations/resolve:
     post:
       tags:
         - Orders
       operationId: resolveOrderConfirmation
       summary: Resolve the original confirmation attempt
-      x-implementation-status: requires-authoritative-network-resolution
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -954,21 +1052,30 @@ paths:
                   value:
                     kind: RequiresConfirmation
                     proposal:
-                      proposalID: proposal-1
+                      proposalID: proposal-2
                       evaluatedAt: 2026-10-10T12:00:00+03:00
-                      stateVersion: "9007199254740993"
+                      stateVersion: "9007199254740994"
                       requestedPositions:
                         - lineNo: "1"
                           dishID: паста/+ &?
                           portions: "1"
-                      acceptedPositions:
+                      acceptedPositions: []
+                      changes:
                         - lineNo: "1"
                           dishID: паста/+ &?
-                          portions: "1"
-                      changes: []
+                          requestedPortions: "1"
+                          acceptedPortions: "0"
+                          deficits:
+                            - productID: сыр/+ &?
+                              requiredQuantity: "40000"
+                              availableQuantity: "0"
                 EmptyOrder:
                   value:
                     kind: EmptyOrder
+                ProposalSuperseded:
+                  value:
+                    kind: ProposalSuperseded
+                    supersededBy: proposal-2
         "202":
           description: Original attempt remains pending; no new sale is started.
           content:
@@ -978,43 +1085,56 @@ paths:
               example:
                 kind: ConfirmationPending
         "400":
-          description: Invalid resolution input; the original attempt remains unknown.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResolveInvalidArgumentError"
-              example:
-                code: InvalidArgument
-                message: Invalid resolution input; the original attempt remains unknown.
-                outcome: unknown
-        "404":
-          description: Proposal not found. This does not prove absence of an earlier sale.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResolveNotFoundError"
-              example:
-                code: ProposalNotFound
-                message: Proposal not found. This does not prove absence of an earlier sale.
-                outcome: unknown
-        "409":
-          description: Superseded proposal with replacement ID, or a definite command identity conflict.
+          description: Invalid Resolve input leaves the original confirmation unknown. A valid lookup can instead
+            replay a saved owner InvalidArgument refusal as not_committed.
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "#/components/schemas/ProposalSuperseded"
-                  - $ref: "#/components/schemas/CommandConflictError"
+                  - $ref: "#/components/schemas/ResolveInvalidArgumentError"
+                  - $ref: "#/components/schemas/InvalidArgumentError"
               examples:
-                superseded:
+                invalidLookup:
                   value:
-                    kind: ProposalSuperseded
-                    supersededBy: proposal-2
-                conflict:
+                    code: InvalidArgument
+                    message: Resolution request is invalid; the original outcome is unknown.
+                    outcome: unknown
+                savedRefusal:
                   value:
-                    code: CommandIdentityConflict
-                    message: Identity conflict
+                    code: InvalidArgument
+                    message: Saved warehouse refusal of the original confirmation.
                     outcome: not_committed
+        "404":
+          description: Missing proposal with unknown outcome, or a saved owner refusal because a dish is absent
+            from warehouse state.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ProposalNotFoundError"
+                  - $ref: "#/components/schemas/DishNotFoundError"
+              examples:
+                missingProposal:
+                  value:
+                    code: ProposalNotFound
+                    message: Proposal outcome is unknown.
+                    outcome: unknown
+                savedRefusal:
+                  value:
+                    code: DishNotFound
+                    message: The attempted dish does not exist in warehouse state.
+                    outcome: not_committed
+        "409":
+          description: Definite command identity conflict for this input. Preserve any separate earlier unknown
+            attempt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandConflictError"
+              example:
+                code: CommandIdentityConflict
+                message: Command identity conflicts with an existing attempt.
+                outcome: not_committed
         "500":
           description: Technical failure with unknown write outcome.
           content:
@@ -1036,15 +1156,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Inventory is unavailable; the operation outcome remains unknown. This status does not
+            establish a terminal refusal.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventoryUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Inventory is unavailable; the operation outcome remains unknown.
+                outcome: unknown
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -1055,17 +1176,17 @@ paths:
                 code: UpstreamTimeout
                 message: Upstream timeout; outcome unknown.
                 outcome: unknown
-      description: Target mock/network operation; not implemented by the current in-memory core. It does not create
-        a new sale command. Return the recorded result, ConfirmationPending, or a terminal owner error with
-        outcome=not_committed. A terminal refusal requires preventing late writes. Lookup alone is
-        insufficient. Production also requires pending recovery after serving restart.
+      description: Passively resolve the original attempt. This operation never starts a commit. Return the
+        recorded result, ConfirmationPending, or a terminal owner error. Unseen/Pending and lookup failures
+        remain unknown; only a saved definite refusal can return not_committed. A process restart loses the
+        serving proposal and attempt state, so a missing proposal returns outcome=unknown.
   /api/warehouse/inventory:
     get:
       tags:
         - Warehouse
       operationId: getInventory
       summary: Read prepared inventory and batch facts
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1133,13 +1254,23 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/warehouse/expiring-batches:
     get:
       tags:
         - Warehouse
       operationId: getExpiringBatches
       summary: List positive batches expiring by an explicit cutoff
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1224,7 +1355,7 @@ paths:
         - Warehouse
       operationId: getHistory
       summary: Read recorded events in sequence order
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1375,6 +1506,16 @@ paths:
                 code: UpstreamTimeout
                 message: Finite upstream timeout.
                 outcome: unavailable
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
       description: No pagination in v1. Does not trigger due expiry preparation. Each event is a typed immutable
         recorded fact.
   /api/warehouse/deliveries:
@@ -1383,7 +1524,7 @@ paths:
         - Warehouse
       operationId: receiveDelivery
       summary: Receive all delivery lines atomically
-      x-implementation-status: target-http-contract
+      x-implementation-status: implemented-http
       requestBody:
         required: true
         content:
@@ -1465,15 +1606,16 @@ paths:
                 message: Upstream unavailable or transport failure; outcome unknown.
                 outcome: unknown
         "503":
-          description: InventoryUnavailable; use explicit outcome, not status alone.
+          description: Inventory is unavailable; the operation outcome remains unknown. This status does not
+            establish a terminal refusal.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventoryUnavailableError"
               example:
                 code: InventoryUnavailable
-                message: InventoryUnavailable; use explicit outcome, not status alone.
-                outcome: not_committed
+                message: Inventory is unavailable; the operation outcome remains unknown.
+                outcome: unknown
         "504":
           description: Upstream timeout; outcome unknown.
           content:
@@ -1490,7 +1632,7 @@ paths:
         - Health
       operationId: getGatewayHealth
       summary: Gateway process health
-      x-implementation-status: implemented-success-response
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Healthy process. This does not establish business API or inventory readiness.
@@ -1518,7 +1660,7 @@ paths:
         - Health
       operationId: getServingHealth
       summary: Serving process health through gateway
-      x-implementation-status: implemented-success-response
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Healthy process. This does not establish business API or inventory readiness.
@@ -1541,34 +1683,44 @@ paths:
                 status: ok
                 service: umir-serving
         "502":
-          description: Target gateway JSON transport error. Current proxy can return plain text.
+          description: Gateway JSON transport error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatewayReadError"
               example:
                 code: UpstreamUnavailable
-                message: Target gateway JSON transport error. Current proxy can return plain text.
+                message: Gateway JSON transport error.
                 outcome: unavailable
-          x-implementation-status: target-http-contract
+          x-implementation-status: implemented-http
         "504":
-          description: Target gateway JSON timeout error.
+          description: Gateway JSON timeout error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatewayReadError"
               example:
                 code: UpstreamTimeout
-                message: Target gateway JSON timeout error.
+                message: Gateway JSON timeout error.
                 outcome: unavailable
-          x-implementation-status: target-http-contract
+          x-implementation-status: implemented-http
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
   /api/warehouse/healthz:
     get:
       tags:
         - Health
       operationId: getWarehouseHealth
       summary: Warehouse process health through gateway
-      x-implementation-status: implemented-success-response
+      x-implementation-status: implemented-http
       responses:
         "200":
           description: Healthy process. This does not establish business API or inventory readiness.
@@ -1591,27 +1743,37 @@ paths:
                 status: ok
                 service: umir-warehouse
         "502":
-          description: Target gateway JSON transport error. Current proxy can return plain text.
+          description: Gateway JSON transport error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatewayReadError"
               example:
                 code: UpstreamUnavailable
-                message: Target gateway JSON transport error. Current proxy can return plain text.
+                message: Gateway JSON transport error.
                 outcome: unavailable
-          x-implementation-status: target-http-contract
+          x-implementation-status: implemented-http
         "504":
-          description: Target gateway JSON timeout error.
+          description: Gateway JSON timeout error.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GatewayReadError"
               example:
                 code: UpstreamTimeout
-                message: Target gateway JSON timeout error.
+                message: Gateway JSON timeout error.
                 outcome: unavailable
-          x-implementation-status: target-http-contract
+          x-implementation-status: implemented-http
+        "400":
+          description: Invalid or undeclared query input; no successful query result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadInvalidArgumentError"
+              example:
+                code: InvalidArgument
+                message: Request query is invalid.
+                outcome: unavailable
 components:
   schemas:
     ID:
@@ -2488,12 +2650,16 @@ components:
         - $ref: "#/components/schemas/OrderConfirmed"
         - $ref: "#/components/schemas/RequiresConfirmation"
         - $ref: "#/components/schemas/EmptyOrder"
+        - $ref: "#/components/schemas/ProposalSuperseded"
       discriminator:
         propertyName: kind
         mapping:
           OrderConfirmed: "#/components/schemas/OrderConfirmed"
           RequiresConfirmation: "#/components/schemas/RequiresConfirmation"
           EmptyOrder: "#/components/schemas/EmptyOrder"
+          ProposalSuperseded: "#/components/schemas/ProposalSuperseded"
+      description: Completed confirmation or exact replay. ProposalSuperseded is a normal 200 result.
+        ConfirmationPending is returned only with 202.
     ConfirmResult:
       oneOf:
         - $ref: "#/components/schemas/OrderConfirmed"
@@ -2844,8 +3010,8 @@ components:
             - not_committed
     ProposalNotFoundError:
       type: object
-      description: A missing proposal is not evidence that an earlier unknown write cannot complete. Only the owner
-        may declare this attempt not_committed.
+      description: A missing proposal does not establish the outcome of an earlier confirmation. Memory loss or
+        absence in one lookup remains unknown.
       additionalProperties: false
       required:
         - code
@@ -2864,7 +3030,6 @@ components:
         outcome:
           type: string
           enum:
-            - not_committed
             - unknown
     ReadNotFoundError:
       type: object
@@ -2889,8 +3054,8 @@ components:
             - unavailable
     InventoryUnavailableError:
       type: object
-      description: not_committed requires an established refusal before new OrderPlaced/intake/definition. Failure
-        to read an older attempt leaves its outcome unknown. No replacement or shortage result is inferred.
+      description: Inventory preparation or result lookup failed. The current HTTP write boundary keeps the
+        outcome unknown; no replacement or shortage result is inferred.
       additionalProperties: false
       required:
         - code
@@ -2909,7 +3074,6 @@ components:
         outcome:
           type: string
           enum:
-            - not_committed
             - unknown
     ReadUnavailableError:
       type: object
@@ -3155,6 +3319,4 @@ components:
           type: string
           enum:
             - not_committed
-externalDocs:
-  description: Published target HTTP handoff and production integration requirements.
-  url: https://github.com/JustIkra/umir-factory/blob/2a60ea2b00f1586bceeacaa8b2c8d37806c7e310/docs/gateway-frontend-handoff.md
+x-gateway-source-revision: c7a5c02ee3a443f8a72120d64608b85049a18ad3

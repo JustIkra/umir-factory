@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -65,20 +64,48 @@ func runBusinessWithCleanup(ctx context.Context, factoryDir string, options cliO
 			paths[service] = path
 		}
 	}
-	workFile := filepath.Join(tempDir, "go.work")
-	content := "go 1.26.5\n\nuse (\n"
+	workArgs := []string{"work", "init"}
 	for _, path := range []string{businessDir, paths["warehouse"], paths["serving"]} {
-		content += "\t" + strconv.Quote(path) + "\n"
+		absolutePath, err := filepath.Abs(path)
+		if err != nil {
+			writeFailure(stderr, "resolve business workspace module path %q: %v\n", path, err)
+			return 1
+		}
+		workArgs = append(workArgs, absolutePath)
 	}
-	content += ")\n"
-	if err := os.WriteFile(workFile, []byte(content), 0o600); err != nil {
-		writeFailure(stderr, "write temporary go.work: %v\n", err)
+	workFile, err := filepath.Abs(filepath.Join(tempDir, "go.work"))
+	if err != nil {
+		writeFailure(stderr, "resolve temporary go.work path: %v\n", err)
+		return 1
+	}
+	out, errOut, err := executor.Run(ctx, tempDir, commandEnv("GOWORK=off"), "go", workArgs...)
+	stdoutErr := writeAll(stdout, out)
+	stderrErr := writeAll(stderr, errOut)
+	if err != nil {
+		if childCode := processCode(err); childCode != 1 {
+			return childCode
+		}
+		if stderrErr != nil {
+			return 1
+		}
+		writeFailure(stderr, "initialize business workspace failed: %v\n", err)
+		return 1
+	}
+	if stdoutErr != nil {
+		writeFailure(stderr, "write business workspace output: %v\n", stdoutErr)
+		return 1
+	}
+	if stderrErr != nil {
+		return 1
+	}
+	if _, err := os.Stat(workFile); err != nil {
+		writeFailure(stderr, "go work init did not create temporary workspace: %v\n", err)
 		return 1
 	}
 	env := commandEnv("GOWORK=" + workFile)
-	out, errOut, err := executor.Run(ctx, businessDir, env, "go", "test", "-race", "./...")
-	stdoutErr := writeAll(stdout, out)
-	stderrErr := writeAll(stderr, errOut)
+	out, errOut, err = executor.Run(ctx, businessDir, env, "go", "test", "-race", "./...")
+	stdoutErr = writeAll(stdout, out)
+	stderrErr = writeAll(stderr, errOut)
 	if err != nil {
 		if childCode := processCode(err); childCode != 1 {
 			return childCode

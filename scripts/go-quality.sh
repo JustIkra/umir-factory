@@ -31,6 +31,7 @@ module_root() {
   case "$1" in
     tools) printf '%s\n' "$root/tools/assembly-checks" ;;
     business) printf '%s\n' "$root/tests/business" ;;
+    http) printf '%s\n' "$root/tests/http" ;;
     *) printf 'Unknown factory module: %s\n' "$1" >&2; return 2 ;;
   esac
 }
@@ -58,6 +59,9 @@ run_module() {
     local work
     work="$(workspace)"
     export GOWORK="$work"
+  elif [[ "$name" == http ]]; then
+    arch_file="$root/.go-arch-http.yml"
+    export GOWORK=off
   else
     export GOWORK=off
   fi
@@ -86,7 +90,8 @@ run_module() {
         mkdir -p "$scratch/$name-build"
         (cd "$dir" && go test -c -o "$scratch/$name-build/" ./...)
       else
-        (cd "$dir" && go build -o "$scratch/$name-build" ./...)
+        mkdir -p "$scratch/$name-build"
+        (cd "$dir" && go build -o "$scratch/$name-build/" ./...)
       fi
       ;;
     lint)
@@ -110,12 +115,24 @@ run_business() {
   local operation="$1"
   run_module business "$operation" "${@:2}"
 }
+run_http() {
+  local operation="$1"
+  run_module http "$operation" "${@:2}"
+}
+run_named_module() {
+  case "$1" in
+    tools) run_tools "$2" "${@:3}" ;;
+    business) run_business "$2" "${@:3}" ;;
+    http) run_http "$2" "${@:3}" ;;
+  esac
+}
 case "$action" in
   fmt)
     case "${QUALITY_MODULE:-}" in
       tools) run_tools fmt "$@" ;;
       business) run_business fmt "$@" ;;
-      *) printf 'Set QUALITY_MODULE=tools or QUALITY_MODULE=business to select module-relative formatter paths\n' >&2; exit 2 ;;
+      http) run_http fmt "$@" ;;
+      *) printf 'Set QUALITY_MODULE=tools, business, or http to select module-relative formatter paths\n' >&2; exit 2 ;;
     esac
     ;;
   fmt-all|fmt-check|build|lint|arch|test)
@@ -125,20 +142,25 @@ case "$action" in
       all)
         run_tools "$action" "$@"
         run_business "$action" "$@"
+        run_http "$action" "$@"
         ;;
-      *) printf 'QUALITY_MODULE must be tools, business, or all\n' >&2; exit 2 ;;
+      http) run_http "$action" "$@" ;;
+      *) printf 'QUALITY_MODULE must be tools, business, http, or all\n' >&2; exit 2 ;;
     esac
     ;;
-  check-tools)
-    for step in fmt-check build lint arch test; do run_tools "$step"; done
-    ;;
-  check-business)
-    for step in fmt-check build lint arch test; do run_business "$step"; done
+  check-tools|check-business|check-http)
+    case "$action" in
+      check-tools) module=tools ;;
+      check-business) module=business ;;
+      check-http) module=http ;;
+    esac
+    for step in fmt-check build lint arch test; do run_named_module "$module" "$step"; done
     ;;
   check)
     for step in fmt-check build lint arch test; do
       run_tools "$step"
       run_business "$step"
+      run_http "$step"
     done
     ;;
   *) printf 'Unknown quality command: %s\n' "$action" >&2; exit 1 ;;

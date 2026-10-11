@@ -9,8 +9,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 type commandExecutor interface {
@@ -31,7 +33,10 @@ func (*osExecutor) Run(ctx context.Context, dir string, env []string, name strin
 }
 
 func main() {
-	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	code := run(ctx, os.Args[1:], os.Stdout, os.Stderr)
+	stop()
+	os.Exit(code)
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -40,11 +45,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Writer, executor commandExecutor) int {
 	if len(args) == 0 {
-		writeFailure(stderr, "expected business, check-images, or smoke command\n")
+		writeFailure(stderr, "expected business, check-images, http-acceptance, or smoke command\n")
 		return 2
 	}
 	command := args[0]
-	if command != "business" && command != "check-images" && command != "smoke" {
+	if command != "business" && command != "check-images" && command != "http-acceptance" && command != "smoke" {
 		writeFailure(stderr, "unknown command %q\n", command)
 		return 2
 	}
@@ -77,6 +82,8 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 			return 1
 		}
 		return 0
+	case "http-acceptance":
+		return runHTTPAcceptance(ctx, factoryDir, options, executor, stdout, stderr)
 	case "smoke":
 		targets, err := discoverSmokeTargets(ctx, factoryDir, options, executor)
 		if err != nil {
@@ -103,6 +110,10 @@ type cliOptions struct {
 	local        bool
 	warehouse    string
 	serving      string
+	gateway      string
+	frontend     string
+	candidate    bool
+	selected     bool
 	githubOutput string
 }
 
@@ -118,6 +129,14 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	}
 	if command == "check-images" {
 		flags.StringVar(&options.githubOutput, "github-output", "", "append selected service refs to a GitHub Actions output file")
+	}
+	if command == "http-acceptance" {
+		flags.BoolVar(&options.candidate, "candidate", false, "build exact supplied commits as local test images")
+		flags.BoolVar(&options.selected, "selected", false, "pull and verify the selected published images")
+		flags.StringVar(&options.warehouse, "warehouse-ref", "", "full warehouse commit SHA")
+		flags.StringVar(&options.serving, "serving-ref", "", "full serving commit SHA")
+		flags.StringVar(&options.gateway, "gateway-ref", "", "full gateway commit SHA")
+		flags.StringVar(&options.frontend, "frontend-ref", "", "full frontend commit SHA")
 	}
 	if command == "smoke" {
 		flags.StringVar(&options.envFile, "env-file", "", "Compose environment file, relative to the factory checkout")
@@ -148,6 +167,25 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		}
 		if !isSHA(options.warehouse) || !isSHA(options.serving) {
 			return options, errors.New("service refs must be exactly 40 lowercase hexadecimal characters")
+		}
+	}
+	if command == "http-acceptance" {
+		if options.candidate == options.selected {
+			return options, errors.New("choose exactly one of --candidate or --selected")
+		}
+		refs := []string{options.warehouse, options.serving, options.gateway, options.frontend}
+		if options.candidate {
+			for _, ref := range refs {
+				if !isSHA(ref) {
+					return options, errors.New("candidate requires four full lowercase 40-character service SHAs")
+				}
+			}
+		} else {
+			for _, ref := range refs {
+				if ref != "" {
+					return options, errors.New("--selected does not accept candidate refs")
+				}
+			}
 		}
 	}
 	if command == "smoke" {

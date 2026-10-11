@@ -27,7 +27,7 @@ type fakeExecutor struct {
 	workContents string
 }
 
-func (f *fakeExecutor) Run(_ context.Context, dir string, env []string, name string, args ...string) ([]byte, []byte, error) {
+func (f *fakeExecutor) Run(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, []byte, error) {
 	call := recordedCall{name: name, args: append([]string(nil), args...), dir: dir}
 	for _, entry := range env {
 		if strings.HasPrefix(entry, "GOWORK=") {
@@ -36,16 +36,31 @@ func (f *fakeExecutor) Run(_ context.Context, dir string, env []string, name str
 	}
 	f.calls = append(f.calls, call)
 	if name == "go" {
-		for _, entry := range env {
-			if strings.HasPrefix(entry, "GOWORK=") {
-				contents, err := os.ReadFile(strings.TrimPrefix(entry, "GOWORK="))
-				if err != nil {
-					return nil, nil, err
-				}
-				f.workContents = string(contents)
+		if len(args) >= 2 && args[0] == "work" && args[1] == "init" {
+			out, errOut, err := (&osExecutor{}).Run(ctx, dir, env, name, args...)
+			if err != nil {
+				return out, errOut, err
 			}
+			contents, err := os.ReadFile(filepath.Join(dir, "go.work"))
+			if err != nil {
+				return out, errOut, err
+			}
+			f.workContents = string(contents)
+			return out, errOut, nil
 		}
-		return f.stdout, f.stderr, f.fail
+		if len(args) >= 1 && args[0] == "test" {
+			for _, entry := range env {
+				if strings.HasPrefix(entry, "GOWORK=") {
+					contents, err := os.ReadFile(strings.TrimPrefix(entry, "GOWORK="))
+					if err != nil {
+						return nil, nil, err
+					}
+					f.workContents = string(contents)
+				}
+			}
+			return f.stdout, f.stderr, f.fail
+		}
+		return nil, nil, fmt.Errorf("unexpected Go command in test executor: %v", args)
 	}
 	return (&osExecutor{}).Run(context.Background(), dir, env, name, args...)
 }
@@ -114,7 +129,7 @@ func factoryWithBusinessModule(t *testing.T) string {
 	if err := os.MkdirAll(businessDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(businessDir, "go.mod"), []byte("module example.test/business\n\ngo 1.26.5\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(businessDir, "go.mod"), []byte("module example.test/business\n\ngo 1.26.9\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return factory
@@ -131,7 +146,7 @@ func TestWorkspaceUsesRealPaths(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(factory, "tests", "business"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.5\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.9\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	exec := &fakeExecutor{}
@@ -160,6 +175,21 @@ func TestWorkspaceUsesRealPaths(t *testing.T) {
 	if goCall == nil {
 		t.Fatal("runner did not execute go test")
 	}
+	var workInitCall *recordedCall
+	for i := range exec.calls {
+		if exec.calls[i].name == "go" && len(exec.calls[i].args) >= 2 && fmt.Sprint(exec.calls[i].args[:2]) == fmt.Sprint([]string{"work", "init"}) {
+			workInitCall = &exec.calls[i]
+		}
+	}
+	if workInitCall == nil {
+		t.Fatal("runner did not initialize the workspace with go work init")
+	}
+	if workInitCall.dir == "" || workInitCall.dir != filepath.Dir(envValue(goCall.env, "GOWORK")) {
+		t.Fatalf("go work init directory = %q, want temporary workspace %q", workInitCall.dir, filepath.Dir(envValue(goCall.env, "GOWORK")))
+	}
+	if envValue(workInitCall.env, "GOWORK") != "off" {
+		t.Fatalf("go work init GOWORK = %q, want off", envValue(workInitCall.env, "GOWORK"))
+	}
 	resolvedFactory, err := filepath.EvalSymlinks(factory)
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +209,7 @@ func TestWorkspaceUsesRealPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{filepath.Join(resolvedFactory, "tests", "business"), resolvedWarehouse, resolvedServing} {
-		if !strings.Contains(exec.workContents, "\""+path+"\"") {
+		if !strings.Contains(exec.workContents, path) {
 			t.Errorf("go.work does not contain absolute module path %q: %s", path, exec.workContents)
 		}
 	}
@@ -200,6 +230,53 @@ func TestWorkspaceUsesRealPaths(t *testing.T) {
 	}
 }
 
+func TestBusinessRunnerUsesSelectedModulesGoVersion(t *testing.T) {
+	parent := t.TempDir()
+	factory := filepath.Join(parent, "umir-factory")
+	warehouse := filepath.Join(parent, "umir-warehouse")
+	serving := filepath.Join(parent, "umir-serving")
+	initRepo(t, factory)
+	initRepo(t, warehouse)
+	initRepo(t, serving)
+
+	businessDir := filepath.Join(factory, "tests", "business")
+	if err := os.MkdirAll(businessDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write := func(path, contents string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(businessDir, "go.mod"), "module example.test/business\n\ngo 1.26.9\n\nrequire (\n\texample.test/warehouse v0.0.0\n\texample.test/serving v0.0.0\n)\n")
+	write(filepath.Join(businessDir, "selected_modules_test.go"), `package business
+
+import (
+	"testing"
+
+	"example.test/serving"
+	"example.test/warehouse"
+)
+
+func TestSelectedModulesAreInWorkspace(t *testing.T) {
+	if serving.Name == "" || warehouse.Name == "" {
+		t.Fatal("selected modules are unavailable")
+	}
+}
+`)
+	write(filepath.Join(warehouse, "go.mod"), "module example.test/warehouse\n\ngo 1.26.9\n")
+	write(filepath.Join(warehouse, "warehouse.go"), "package warehouse\n\nconst Name = \"warehouse\"\n")
+	write(filepath.Join(serving, "go.mod"), "module example.test/serving\n\ngo 1.26.9\n")
+	write(filepath.Join(serving, "serving.go"), "package serving\n\nconst Name = \"serving\"\n")
+
+	var stdout, stderr bytes.Buffer
+	code := runWithExecutor(context.Background(), []string{"business", "--factory-dir", factory, "--local"}, &stdout, &stderr, &osExecutor{})
+	if code != 0 {
+		t.Fatalf("selected module business run returned %d: stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
 func TestReturnsGoFailure(t *testing.T) {
 	factory := t.TempDir()
 	initRepo(t, factory)
@@ -209,13 +286,57 @@ func TestReturnsGoFailure(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(factory, "tests", "business"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.5\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.9\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	exec := &fakeExecutor{fail: codedError(23)}
 	code := runWithExecutor(context.Background(), []string{"business", "--factory-dir", factory, "--local"}, &bytes.Buffer{}, &bytes.Buffer{}, exec)
 	if code != 23 {
 		t.Fatalf("run returned %d, want exact child code 23", code)
+	}
+}
+
+func TestWorkspaceInitializationFailureStopsTestsAndCleansWorkspace(t *testing.T) {
+	factory := factoryWithBusinessModule(t)
+	parent := filepath.Dir(factory)
+	warehouse := filepath.Join(parent, "umir-warehouse")
+	serving := filepath.Join(parent, "umir-serving")
+	initRepo(t, warehouse)
+	initRepo(t, serving)
+	if err := os.WriteFile(filepath.Join(warehouse, "go.mod"), []byte("invalid go.mod\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var tempPath string
+	removed := false
+	createTemp := func(dir, pattern string) (string, error) {
+		path, err := os.MkdirTemp(dir, pattern)
+		tempPath = path
+		return path, err
+	}
+	removeTemp := func(path string) error {
+		removed = path == tempPath
+		return os.RemoveAll(path)
+	}
+	executor := &fakeExecutor{}
+	var stdout, stderr bytes.Buffer
+	code := runBusinessWithCleanup(context.Background(), factory, cliOptions{local: true}, executor, &stdout, &stderr, createTemp, removeTemp)
+	if code != 1 {
+		t.Fatalf("business returned %d, want workspace initialization failure", code)
+	}
+	if !strings.Contains(stderr.String(), "initialize business workspace failed") || !strings.Contains(stderr.String(), "unknown directive: invalid") {
+		t.Fatalf("workspace initialization failure was not reported: %q", stderr.String())
+	}
+	for _, call := range executor.calls {
+		if call.name == "go" && len(call.args) > 0 && call.args[0] == "test" {
+			t.Fatalf("go test ran after workspace initialization failed: %#v", call)
+		}
+	}
+	if !removed {
+		t.Fatal("workspace initialization failure did not invoke temporary workspace cleanup")
+	}
+	if _, err := os.Stat(tempPath); !os.IsNotExist(err) {
+		t.Fatalf("runner temporary workspace remains after initialization failure: %v", err)
 	}
 }
 
@@ -347,7 +468,7 @@ func TestCleansTempFiles(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(factory, "tests", "business"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.5\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(factory, "tests", "business", "go.mod"), []byte("module example.test/business\n\ngo 1.26.9\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	warehouseMod := read(t, filepath.Join(warehouse, "go.mod"))
@@ -381,7 +502,7 @@ func initRepo(t *testing.T, dir string) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.test/service\n\ngo 1.26.5\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(fmt.Sprintf("module example.test/%s\n\ngo 1.26.9\n", filepath.Base(dir))), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"init", "-q"}, {"add", "go.mod"}, {"-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-qm", "initial"}} {

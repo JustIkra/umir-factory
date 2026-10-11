@@ -1,0 +1,17 @@
+version: 3
+workdir: .
+allow:
+  deepScan: false
+  depOnAnyVendor: false
+  ignoreNotFoundComponents: false
+components:
+  acceptance: {in: "cmd/acceptance"}
+  fault-proxy: {in: "cmd/fault-proxy"}
+  faultproxy: {in: "internal/faultproxy"}
+deps:
+  acceptance:
+    mayDependOn: [acceptance, faultproxy]
+  fault-proxy:
+    mayDependOn: [fault-proxy, faultproxy]
+  faultproxy:
+    mayDependOn: [faultproxy]

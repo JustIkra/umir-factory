@@ -393,19 +393,36 @@ func TestAcceptanceDefiniteUnavailableKeepsProposalRetryable(t *testing.T) {
 	}
 	assertNoOrderPlaced(t, history.Events)
 
-	retried, err := system.serving.ConfirmOrder(context.Background(), request)
-	if err != nil || retried.Kind != servingcontract.OrderConfirmed || retried.Order == nil {
-		t.Fatalf("same-command retry = (%#v, %v), want successful order", retried, err)
+	replayed, err := system.serving.ConfirmOrder(context.Background(), request)
+	if !errors.Is(err, servingcontract.ErrInventoryUnavailable) || replayed.Kind != "" {
+		t.Fatalf("same-command retry = (%#v, %v), want saved definite refusal", replayed, err)
 	}
-	if ports.calls != 2 {
-		t.Fatalf("commit attempts = %d, want failed attempt followed by retry", ports.calls)
+	if ports.calls != 1 {
+		t.Fatalf("commit attempts after exact refusal replay = %d, want 1", ports.calls)
 	}
 	history, err = system.warehouse.GetHistory(context.Background())
 	if err != nil {
-		t.Fatalf("history after retry: %v", err)
+		t.Fatalf("history after exact refusal replay: %v", err)
+	}
+	assertNoOrderPlaced(t, history.Events)
+
+	allowed, err := system.serving.ConfirmOrder(context.Background(), servingcontract.ConfirmOrderRequest{CommandID: "retry-new-command", ProposalID: proposal.ProposalID})
+	if err != nil || allowed.Kind != servingcontract.OrderConfirmed || allowed.Order == nil {
+		t.Fatalf("new-command retry = (%#v, %v), want successful order", allowed, err)
+	}
+	if ports.calls != 2 {
+		t.Fatalf("commit attempts after new command = %d, want 2", ports.calls)
+	}
+	history, err = system.warehouse.GetHistory(context.Background())
+	if err != nil {
+		t.Fatalf("history after new-command retry: %v", err)
 	}
 	if countAcceptanceEvents(history.Events, warehousecontract.EventOrderPlaced) != 1 {
-		t.Fatalf("history after retry has %d order events, want one", countAcceptanceEvents(history.Events, warehousecontract.EventOrderPlaced))
+		t.Fatalf("history after new-command retry has %d order events, want one", countAcceptanceEvents(history.Events, warehousecontract.EventOrderPlaced))
+	}
+	inventory, err := system.warehouse.GetInventory(context.Background())
+	if err != nil || len(inventory.Products) != 1 || inventory.Products[0].Quantity != 0 {
+		t.Fatalf("inventory after allowed retry = %#v, error=%v; want one stock decrement", inventory, err)
 	}
 }
 

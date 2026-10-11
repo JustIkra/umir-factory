@@ -22,6 +22,6 @@ Factory owns reproducible assembly and integration checks. The bridge imports pu
 
 ## Verification and readiness
 
-Run `make go-readiness` to verify the two declared nested modules: `tools/assembly-checks` and `tests/business`. Both modules exist and have active build, lint, architecture and race-test gates in `make check`. Tooling checks use GOWORK=off; business lint/tests use a controlled workspace from the established runner. Assembly CI runs the Go tool checks and preserves Compose, image and smoke checks. The business suite remains an explicit manual CI opt-in.
+Run `make go-readiness` to verify all three declared nested modules: `tools/assembly-checks`, `tests/business` and `tests/http`. All modules have active build, lint, architecture and race-test gates in `make check`. Tooling and HTTP module checks use GOWORK=off; business lint/tests use a controlled workspace from the established runner. Assembly CI preserves Compose, image and smoke checks. The business suite runs automatically against the exact selected service commits after assembly verification. HTTP candidate acceptance builds four exact source revisions; selected acceptance uses published images and requires the selected HTTP marker. Both modes require service evidence and owned-project cleanup. The shared verifier uses a temporary Compose project and ephemeral loopback ports; preserve its failure reporting.
 
 Do not create dummy modules to pass readiness.

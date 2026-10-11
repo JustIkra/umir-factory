@@ -28,7 +28,7 @@
 
 ## Текущее состояние
 
-Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Warehouse cmd/server собирает пустой Runtime, таймер истечения и snapshot worker; сбой Save повторяется с заданным интервалом, пока HTTP и обработка просрочки продолжаются. Serving cmd/server сохраняет healthz до подключения транспортного адаптера. Бизнес-HTTP, постоянные хранилища и экраны относятся к следующему этапу. Выбранные в compose.yaml опубликованные образы не меняются вместе с исходным кодом рабочих веток.
+Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Реальные HTTP-процессы обслуживают публичный API через gateway; serving обращается к private listener warehouse на 8082. Warehouse запускает таймер истечения и snapshot worker; оба сервиса ожидают завершения своих обработчиков. Фабрика отдельно проверяет HTTP-сценарии и сетевые сбои на четырёх точных исходниках или опубликованных образах. Постоянное хранение и экраны остаются следующим этапом. Выбранные в compose.yaml образы не меняются вместе с исходным кодом рабочих веток.
 
 ## Бизнес-ядро и разработка
 
@@ -40,11 +40,11 @@ Warehouse и serving предоставляют независимые Go-мод
 | --- | --- | --- |
 | warehouse | Значения, события, FEFO, единый допуск, in-memory EventStore/SnapshotStore, полные снапшоты | Собственные контрактные и приёмочные Go-тесты. |
 | serving | Потребительские порты, предложения, подтверждение, меню, стоп-лист, рекомендации, in-memory ProposalStore | Собственные Go-тесты сценариев и переходов предложения. |
-| factory | Документация границ и совместные проверки двух Go-модулей в памяти | Реальные сценарии через test bridge; отдельно сохраняются проверки Compose. |
-| gateway | Существующий proxy и healthz; OpenAPI v1 draft задаёт целевой бизнес-контракт | Текущие тесты маршрутизации без переноса бизнес-логики в gateway; бизнес HTTP-адаптеры ещё впереди. |
+| factory | Три Go-модуля: сборочный runner, совместные business-проверки и HTTP-приёмка | Сценарии двух Runtime, реальные HTTP-процессы, сетевые сбои и точные identities сборки. |
+| gateway | Proxy публичного HTTP API с конечными бюджетами и graceful shutdown | Тесты маршрутизации, таймаутов и завершения; приёмка реальной сборки через публичный gateway. |
 | frontend | Существующая точка входа; OpenAPI v1 задаёт схему API | Текущая сборка Vite; экраны и браузерные сценарии ещё впереди. |
 
-Совместная проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов и явно переводит значения. Сервисные модули независимы; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` предоставляет команды `business`, `check-images` и `smoke` на Go:
+Совместная проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов и явно переводит значения. Сервисные модули независимы; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` предоставляет команды `business`, `check-images`, `smoke` и `http-acceptance` на Go. Реальный HTTP harness находится в отдельном модуле `tests/http`:
 
 ```sh
 GOWORK=off go -C tools/assembly-checks build -o /tmp/umir-checks
@@ -52,24 +52,47 @@ GOWORK=off go -C tools/assembly-checks build -o /tmp/umir-checks
 /tmp/umir-checks business --factory-dir "$PWD" --warehouse-ref <full-commit-sha> --serving-ref <full-commit-sha>
 ```
 
-Каждая команда требует существующий абсолютный `--factory-dir`. Локальный режим использует соседние checkout `umir-warehouse` и `umir-serving`; режим фиксированных источников клонирует полные SHA из публичных репозиториев и проверяет `HEAD`. Runner создаёт временный `go.work` и удаляет только свои временные файлы. Он не меняет сервисные `go.mod` и не выполняет `go work sync`. Совместная бизнес-проверка работает в памяти и не требует контейнеров; она не проверяет сетевое восстановление pending. CI собирает бинарник и вызывает его для сохранения точного кода дочернего процесса. Ручной запуск бизнес-suite выключен по умолчанию: включайте его, когда выбранные warehouse и serving SHA содержат публичные `contract` и `bootstrap`.
+Каждая команда требует существующий абсолютный `--factory-dir`. Локальный режим использует соседние checkout `umir-warehouse` и `umir-serving`; режим фиксированных источников клонирует полные SHA из публичных репозиториев и проверяет `HEAD`. Runner создаёт временный workspace через `go work init` с абсолютными путями и `GOWORK=off`; версия учитывает требования выбранных модулей. Он удаляет только свои временные файлы, не меняет сервисные `go.mod` и не выполняет `go work sync`. Совместная бизнес-проверка работает в памяти и не требует контейнеров; она не проверяет сетевое восстановление pending. CI собирает бинарник и вызывает его для сохранения точного кода дочернего процесса. CI запускает business-suite автоматически на выбранных warehouse и serving SHA. Эти исходники должны поддерживать текущий контракт тестов; HTTP candidate принимает отдельные четыре точных SHA.
 
 Перед PR сверяйте изменения с business-core, запускайте проверки владельца и обновляйте его README. Фикстуры хранятся в тестах; настройки и worker собираются в точке запуска. Смена закреплённых образов остаётся отдельным изменением сборки.
 
-Полный Go gate фабрики проверяет оба вложенных модуля из `.go-quality-modules`:
+## HTTP Acceptance
+
+Fixture dates use warehouse `inventory.evaluatedAt` through the public gateway. The harness validates the Moscow timestamp and stops if the clock sample is unavailable or invalid. It does not fall back to host time. Delivery failures retain the exact synthetic request, host send time and a warehouse clock sample; they do not trigger automatic POST retries.
+
+`tests/http` is a separate Go module. `make check-http` runs its build, lint, architecture and race-test gates without Docker. The compiled assembly runner has two mutually exclusive modes:
+
+```sh
+/tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate \
+  --warehouse-ref <40-character-sha> --serving-ref <40-character-sha> \
+  --gateway-ref <40-character-sha> --frontend-ref <40-character-sha>
+/tmp/umir-checks http-acceptance --factory-dir "$PWD" --selected
+```
+
+Candidate mode verifies each source checkout and builds local test images from the exact commits. It does not require registry publication. Selected mode checks the selected commit publication, pulls those exact images, and checks their OCI labels and HEALTHCHECK. Both run normal public-gateway scenarios on the four-service assembly, then start a separate fault-fixture assembly for network-failure cases. Only gateway and frontend receive ephemeral loopback host ports. Warehouse's internal listener stays on the Compose network at port `8082`.
+
+The manual CI candidate gate accepts four complete commit SHA inputs. Selected HTTP acceptance remains gated on published full-SHA images selected in Compose. Scenario outcomes and image/container identities are retained as JSON evidence. Candidate images use stable local tags derived from each exact source SHA. The fault fixture tag uses the factory commit SHA and dirty-tree content hash. Compose project names remain unique for each run, while Docker reuses these tags and their shared layers. Acceptance cleanup removes only its owned Compose projects; it does not remove cached images.
+
+Before either phase starts, the runner executes the three warehouse owner, recheck, and HTTP pending tests against the exact selected warehouse source with `go test -race -count=1 -json`. Evidence records the source SHA and test names and preserves raw JSON and stderr files. The runner writes its evidence record before source resolution, image build, or pull can fail, so early failures retain the facts already known.
+The current selected image pins remain unchanged until tested HTTP service commits are published and selected.
+
+Полный Go gate фабрики проверяет все вложенные модули из `.go-quality-modules`:
 
 ```sh
 make tools
 make check-tools
 make check-business
+make check-http
 make check
 ```
 
-`check-tools` проверяет автономный runner с GOWORK=off. `check-business` создаёт временный workspace с соседними сервисами; другие пути задаются через WAREHOUSE_DIR/SERVING_DIR. Gates включают форматирование, сборку, закреплённые linters, архитектуру и полные race-тесты. Для test-only business модуля build компилирует тестовый бинарник в временный каталог. Версии и правила находятся в `.go-quality-versions`, `.golangci.yml` и `.go-arch-*.yml`. Необъявленный или отсутствующий вложенный модуль вызывает ошибку. Для форматирования отдельных файлов выберите QUALITY_MODULE=tools или business и передайте FILES как список путей с разделением новой строкой.
+`check-tools` проверяет автономный runner с GOWORK=off. `check-business` создаёт временный workspace с соседними сервисами; другие пути задаются через WAREHOUSE_DIR/SERVING_DIR. `check-http` изолирован от service modules и Docker. Gates включают форматирование, сборку, закреплённые linters, архитектуру и полные race-тесты. Версии и правила находятся в `.go-quality-versions`, `.golangci.yml` и `.go-arch-*.yml`. Необъявленный или отсутствующий вложенный модуль вызывает ошибку. Для форматирования отдельных файлов выберите QUALITY_MODULE=tools, business или http и передайте FILES как список путей с разделением новой строкой.
 
 ## Gateway OpenAPI
 
-[OpenAPI v1](docs/api/openapi.yml) defines the target gateway contract for HTTP mocks and clients. It includes 15 business operations, three health routes, typed results, errors and JSON examples. All int64 business values use bounded decimal strings; timestamps include the Moscow `+03:00` offset. Wire DTOs use `ingredients` and `acceptedPositions` across services. Business HTTP adapters are not implemented yet. The resolve operation requires authoritative resolution, prevention of late writes and pending recovery after restart before production integration. The document revision is `1.0.0-draft.1`; it does not change service releases or selected images.
+[OpenAPI v1](docs/api/openapi.yml), revision `1.0.0-draft.2`, defines the implemented public gateway contract for 15 business operations and three health routes. Real gateway, serving and warehouse processes exchange business requests over HTTP. Business values use bounded decimal strings and Moscow `+03:00` timestamps; serving recipe/order DTOs map to wire `ingredients` and `acceptedPositions`. [The internal warehouse contract](docs/api/warehouse-internal.yml), revision `1.0.1-draft.1`, defines the private serving-to-warehouse listener and recorded command/attempt results. It references common scalar schemas in `openapi.yml`; distribute both files or bundle the internal document. API revisions are separate from service releases and selected image pins. These documents describe local HTTP source revisions; the selected published images serve this HTTP API.
+
+Data and confirmation attempts stay in process memory. Restarts lose the state owned by the restarted service; a missing proposal has outcome `unknown`. Resolve is passive and exact retries replay saved results. `ProposalSuperseded` is a normal HTTP 200 result; pending uses 202 and command identity conflicts use 409. Invalid read input returns `unavailable`, rejected modifying input returns `not_committed` for that input, and invalid Resolve input leaves the original confirmation `unknown`. A valid Resolve can replay a saved owner refusal as `not_committed`. Missing warehouse dishes can return a cached `DishNotFound` refusal after a warehouse memory reset. Inventory and transport failures on write paths keep outcome `unknown`. Preparation first evaluates stock through the non-mutating internal `POST /order-evaluations`; its authoritative read errors use `unavailable`, and no proposal is created. A repeated preparation creates a new proposal ID.
 
 Contract sources are the local [gateway handoff](docs/gateway-frontend-handoff.md) and [business rules](docs/business-core.md), updated with the reviewed delivery form fields and timestamp semantics.
 
@@ -147,18 +170,28 @@ workspace/
 4. Дождитесь успешного CI фабрики и merge от `JustIkra`.
 5. Выполните `docker compose pull` и `docker compose up -d --wait --wait-timeout 120` на целевом хосте.
 
-CI фабрики устанавливает Go 1.26.5, проверяет runner, собирает umir-checks, проверяет оба Compose и SHA-теги. До pull он проверяет существование выбранных commit и успешные Check/Publish image на main. После pull он проверяет OCI source/revision и HEALTHCHECK. Затем запускает четыре контейнера и проверяет frontend и маршруты gateway через опубликованные порты. При сбое показывает логи. Совместный business job включается вручную после публикации выбранных реализаций; два SHA извлекаются из Compose через Go. Проверки сборки выполняются командами:
+CI фабрики устанавливает Go 1.26.9, проверяет runner, собирает umir-checks, проверяет оба Compose и SHA-теги. Общий скрипт verify-assembly проверяет существование выбранных commit и успешные Check/Publish image на main до pull. После pull он проверяет OCI source/revision и HEALTHCHECK, запускает четыре контейнера и проверяет frontend и маршруты gateway. При сбое показывает логи временной сборки. Совместный business job запускается после успешной проверки сборки на каждом push, PR и ручном запуске; оба точных SHA извлекаются из Compose через Go. Проверки сборки выполняются командами:
 
 ```sh
 docker compose --env-file .env.example config --quiet
 docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
 make check-tools
 bash tests/infra/image-checks.sh
+bash tests/infra/assembly-checks.sh
+bash tests/infra/http-compose-checks.sh
 GOWORK=off go -C tools/assembly-checks run . check-images --factory-dir "$PWD"
 GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-file .env.example
 ```
 
 `check-images` читает JSON от `docker compose config` с .env.example. `smoke` требует запущенную сборку; он определяет адреса через Compose port frontend/gateway 8080. --env-file задаёт файл относительно factory-dir; по умолчанию Compose читает .env. Для других адресов используйте --web-url и --api-url. Оба явных URL позволяют обойти Docker discovery. Для CI используйте собранный бинарник, чтобы сохранить точный код возврата проверки.
+
+Полную проверку выбранных образов на локальном Docker daemon запускайте из checkout фабрики:
+
+```sh
+bash scripts/verify-assembly.sh --env-file .env.example
+```
+
+Нужны Docker Compose, GitHub CLI с `gh auth login` либо `GH_TOKEN`, jq и Go 1.26.9. Через `UMIR_CHECKS_BIN` можно передать абсолютный путь к заранее собранному umir-checks, как делает CI. Скрипт использует только production compose.yaml, собственное уникальное имя проекта с префиксом `umir-check-` и свободные порты на 127.0.0.1. Параметры текущей production-сборки и переопределения Compose не используются. После проверки скрипт удаляет только свои контейнеры и сеть; при частичном старте или ошибке smoke он сначала показывает их логи. Ошибка очистки также завершает проверку неуспешно. Деплой на целевой хост остаётся отдельным шагом после успешного CI.
 
 Фабрика не публикует собственный контейнер. Автоматический деплой на сервер пока не настроен.
 
@@ -182,7 +215,7 @@ GOWORK=off go -C tools/assembly-checks run . smoke --factory-dir "$PWD" --env-fi
 
 Repository instructions are in [AGENTS.md](AGENTS.md). Public compatibility covers documented requests, results, error states and operational interfaces. Warehouse and serving publish their Go contract surfaces; internal refactoring does not automatically change those contracts.
 
-The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares both real nested Go modules. `make go-readiness` checks that inventory against the repository; it does not replace their build, lint, architecture or race-test gates. `make check` runs those gates for both modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`. Assembly CI runs the Go tool checks with the Compose, image and smoke checks; the cross-service business suite remains an explicit manual opt-in.
+The full [development standard](docs/development-standard.md) describes Go, Git and versioning. The [module inventory](.go-quality-modules) declares three real nested Go modules. `make go-readiness` checks that inventory against the repository; `make check-http` runs the HTTP harness build, lint, architecture and race gates without Docker. `make check` runs the gates for all three modules. The effective lint and architecture configurations are `.golangci.yml` and `.go-arch-*.yml`. Factory HTTP acceptance separates ordinary public-gateway scenarios from network-fault scenarios, then records exact image and container IDs, scenario evidence and cleanup.
 
 Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Stable incompatible changes increment major, compatible additions minor and fixes patch. Our pre-1.0 convention uses patch for compatible fixes and minor for additions or breaking changes. Mark breaking behavior and migration explicitly.
 

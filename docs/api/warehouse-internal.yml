@@ -1,0 +1,568 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Umir warehouse internal API
+  version: 1.0.1-draft.1
+  description: Private serving-to-warehouse protocol implemented by the local source revisions below. This
+    listener is not routed through gateway. State and attempt outcomes live in process memory. Passive
+    lookups never start a commit; an absent lookup or Unseen does not prove not_committed. Share this
+    document together with openapi.yml, which owns the common scalar schemas, or bundle it before
+    distribution. This document revision does not publish or select service images.
+servers:
+  - url: http://warehouse:8082/internal/v1
+security: []
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      responses:
+        '200':
+          description: Registered product definitions.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Products'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: registerProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RegisterProductRequest'}
+      responses:
+        '200':
+          description: Registered product.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Product'}
+        default: {$ref: '#/components/responses/Error'}
+  /dish-catalog:
+    get:
+      operationId: listDishes
+      responses:
+        '200':
+          description: Defined dishes with complete recipes.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DishCatalog'}
+        default: {$ref: '#/components/responses/Error'}
+  /dish:
+    get:
+      operationId: getDish
+      parameters:
+        - {name: dishID, in: query, required: true, schema: {$ref: '#/components/schemas/ID'}}
+      responses:
+        '200':
+          description: Dish definition and recipe.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DishDetails'}
+        default: {$ref: '#/components/responses/Error'}
+  /dishes:
+    post:
+      operationId: defineDish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DefineDishRequest'}
+      responses:
+        '200':
+          description: Defined dish.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Dish'}
+        default: {$ref: '#/components/responses/Error'}
+  /menu-evaluation:
+    get:
+      operationId: evaluateMenu
+      responses:
+        '200':
+          description: Menu decisions from one captured warehouse version.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MenuEvaluation'}
+        default: {$ref: '#/components/responses/Error'}
+  /order-evaluations:
+    post:
+      operationId: evaluateOrder
+      description: Read evaluation carried by POST. Body validation and Owner read errors use outcome
+        unavailable; no proposal or order is created. Invalid query input is rejected as not_committed
+        for that submitted input only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OrderEvaluationRequest'}
+      responses:
+        '200':
+          description: Recalculation; it does not consume inventory.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderEvaluation'}
+        default: {$ref: '#/components/responses/Error'}
+  /order-commits:
+    post:
+      operationId: commitAcceptedOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OrderCommitRequest'}
+      responses:
+        '200':
+          description: Completed immutable result.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderCommitResult'}
+        '202':
+          description: The original application attempt is still executing.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [kind]
+                properties:
+                  kind: {const: Pending}
+        default: {$ref: '#/components/responses/Error'}
+  /commands:
+    get:
+      operationId: getRecordedCommand
+      parameters:
+        - {name: commandID, in: query, required: true, schema: {$ref: '#/components/schemas/ID'}}
+      responses:
+        '200':
+          description: Recorded command or found:false in this process. Absence does not establish the outcome of
+            an earlier write.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommandLookup'}
+        default: {$ref: '#/components/responses/Error'}
+  /orders:
+    get:
+      operationId: getRecordedOrder
+      parameters:
+        - {name: proposalID, in: query, required: true, schema: {$ref: '#/components/schemas/ID'}}
+      responses:
+        '200':
+          description: Recorded order or found:false in this process. Absence does not establish the outcome of an
+            earlier write.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderLookup'}
+        default: {$ref: '#/components/responses/Error'}
+  /order-attempts:
+    get:
+      operationId: getOrderAttempt
+      parameters:
+        - {name: commandID, in: query, required: true, schema: {$ref: '#/components/schemas/ID'}}
+        - {name: proposalID, in: query, required: true, schema: {$ref: '#/components/schemas/ID'}}
+      responses:
+        '200':
+          description: Passive state of the original order attempt.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderAttempt'}
+        default: {$ref: '#/components/responses/Error'}
+components:
+  responses:
+    Error:
+      description: Stable machine code, human message and outcome.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    ID:
+      $ref: ./openapi.yml#/components/schemas/ID
+    Quantity:
+      $ref: ./openapi.yml#/components/schemas/Quantity
+    PositiveQuantity:
+      $ref: ./openapi.yml#/components/schemas/PositiveQuantity
+    Timestamp:
+      $ref: ./openapi.yml#/components/schemas/MoscowTimestamp
+    Version:
+      $ref: ./openapi.yml#/components/schemas/NonNegativeInt64
+    Unit:
+      $ref: ./openapi.yml#/components/schemas/BaseUnit
+    Product:
+      type: object
+      additionalProperties: false
+      required: [productID, name, baseUnit]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        name: {type: string, minLength: 1}
+        baseUnit: {$ref: '#/components/schemas/Unit'}
+    Ingredient:
+      type: object
+      additionalProperties: false
+      required: [productID, quantity]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        quantity: {$ref: '#/components/schemas/PositiveQuantity'}
+        baseUnit: {$ref: '#/components/schemas/Unit'}
+    RecordedIngredient:
+      type: object
+      additionalProperties: false
+      required: [productID, quantity]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        quantity: {$ref: '#/components/schemas/PositiveQuantity'}
+    RecordedDish:
+      type: object
+      additionalProperties: false
+      required: [dishID, name, ingredients]
+      properties:
+        dishID: {$ref: '#/components/schemas/ID'}
+        name: {type: string, minLength: 1}
+        ingredients: { type: array, items: {$ref: '#/components/schemas/RecordedIngredient'}, minItems: 1 }
+    Dish:
+      type: object
+      additionalProperties: false
+      required: [dishID, name, ingredients]
+      properties:
+        dishID: {$ref: '#/components/schemas/ID'}
+        name: {type: string, minLength: 1}
+        ingredients:
+          type: array
+          items: {$ref: '#/components/schemas/Ingredient'}
+          minItems: 1
+    Products:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, items]
+      properties:
+        evaluatedAt: {$ref: '#/components/schemas/Timestamp'}
+        stateVersion: {$ref: '#/components/schemas/Version'}
+        items: {type: array, items: {$ref: '#/components/schemas/Product'}}
+    DishCatalog:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, items]
+      properties:
+        evaluatedAt: {$ref: '#/components/schemas/Timestamp'}
+        stateVersion: {$ref: '#/components/schemas/Version'}
+        items: {type: array, items: {$ref: '#/components/schemas/Dish'}}
+    DishDetails:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, dish]
+      properties:
+        evaluatedAt: {$ref: '#/components/schemas/Timestamp'}
+        stateVersion: {$ref: '#/components/schemas/Version'}
+        dish: {$ref: '#/components/schemas/Dish'}
+    RegisterProductRequest:
+      type: object
+      additionalProperties: false
+      required: [commandID, productID, name, baseUnit]
+      properties:
+        commandID: {$ref: '#/components/schemas/ClientCommandID'}
+        productID: {$ref: '#/components/schemas/ID'}
+        name: {type: string, minLength: 1}
+        baseUnit: {$ref: '#/components/schemas/Unit'}
+    DefineDishRequest:
+      type: object
+      additionalProperties: false
+      required: [commandID, dishID, name, ingredients]
+      properties:
+        commandID: {$ref: '#/components/schemas/ClientCommandID'}
+        dishID: {$ref: '#/components/schemas/ID'}
+        name: {type: string, minLength: 1}
+        ingredients:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/Ingredient'}
+    Position:
+      type: object
+      additionalProperties: false
+      required: [lineNo, dishID, portions]
+      properties:
+        lineNo:
+          $ref: "#/components/schemas/PositiveInt64"
+        dishID: {$ref: '#/components/schemas/ID'}
+        portions:
+          $ref: "#/components/schemas/PositiveInt64"
+    Allocation:
+      type: object
+      additionalProperties: false
+      required: [productID, batchID, quantity]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        batchID: {$ref: '#/components/schemas/ID'}
+        quantity: {$ref: '#/components/schemas/PositiveQuantity'}
+    Order:
+      type: object
+      additionalProperties: false
+      required: [orderID, proposalID, acceptedPositions, allocations, placedAt]
+      properties:
+        orderID: {$ref: '#/components/schemas/ID'}
+        proposalID: {$ref: '#/components/schemas/ID'}
+        acceptedPositions: { type: array, items: {$ref: '#/components/schemas/Position'}, minItems: 1 }
+        allocations: { type: array, items: {$ref: '#/components/schemas/Allocation'}, minItems: 1 }
+        placedAt: {$ref: '#/components/schemas/Timestamp'}
+    EvaluationChange:
+      type: object
+      additionalProperties: false
+      required: [lineNo, dishID, requestedPortions, acceptedPortions, deficits]
+      properties:
+        lineNo:
+          $ref: "#/components/schemas/PositiveInt64"
+        dishID: {$ref: '#/components/schemas/ID'}
+        requestedPortions:
+          $ref: "#/components/schemas/PositiveInt64"
+        acceptedPortions:
+          $ref: "#/components/schemas/NonNegativeInt64"
+        deficits: {type: array, minItems: 1, items: {$ref: '#/components/schemas/Deficit'}}
+    Deficit:
+      type: object
+      additionalProperties: false
+      required: [productID, requiredQuantity, availableQuantity]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        requiredQuantity: {$ref: '#/components/schemas/PositiveQuantity'}
+        availableQuantity: {$ref: '#/components/schemas/Quantity'}
+    OrderEvaluation:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, requestedPositions, acceptedPositions, changes]
+      properties:
+        evaluatedAt: {$ref: '#/components/schemas/Timestamp'}
+        stateVersion: {$ref: '#/components/schemas/Version'}
+        requestedPositions: {type: array, items: {$ref: '#/components/schemas/Position'}}
+        acceptedPositions: {type: array, items: {$ref: '#/components/schemas/Position'}}
+        changes: {type: array, items: {$ref: '#/components/schemas/EvaluationChange'}}
+    MenuEvaluation:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, dishes]
+      properties:
+        evaluatedAt: {$ref: '#/components/schemas/Timestamp'}
+        stateVersion: {$ref: '#/components/schemas/Version'}
+        dishes: {type: array, items: {$ref: '#/components/schemas/MenuEvaluationDish'}}
+    MenuEvaluationDish:
+      type: object
+      additionalProperties: false
+      required: [dishID, dishName, isAvailable, deficits, allocations]
+      properties:
+        dishID: {$ref: '#/components/schemas/ID'}
+        dishName: {type: string, minLength: 1}
+        isAvailable: {type: boolean}
+        deficits: {type: array, items: {$ref: '#/components/schemas/Deficit'}}
+        allocations: {type: array, items: {$ref: '#/components/schemas/MenuAllocation'}}
+    MenuAllocation:
+      type: object
+      additionalProperties: false
+      required: [productID, productName, batchID, quantity, baseUnit, expiresAt]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        productName: {type: string, minLength: 1}
+        batchID: {$ref: '#/components/schemas/ID'}
+        quantity: {$ref: '#/components/schemas/PositiveQuantity'}
+        baseUnit: {$ref: '#/components/schemas/Unit'}
+        expiresAt: {$ref: '#/components/schemas/Timestamp'}
+    OrderEvaluationRequest:
+      type: object
+      additionalProperties: false
+      required: [positions]
+      properties:
+        positions: {type: array, items: {$ref: '#/components/schemas/Position'}}
+    DeliveryLine:
+      type: object
+      additionalProperties: false
+      required: [productID, manufacturedAt, shelfLife, receivedAt, quantity]
+      properties:
+        productID: {$ref: '#/components/schemas/ID'}
+        manufacturedAt: {$ref: '#/components/schemas/Timestamp'}
+        shelfLife:
+          $ref: ./openapi.yml#/components/schemas/ShelfLife
+        receivedAt: {$ref: '#/components/schemas/Timestamp'}
+        quantity: {$ref: '#/components/schemas/PositiveQuantity'}
+    Delivery:
+      type: object
+      additionalProperties: false
+      required: [deliveryID, number, createdAt, lines]
+      properties:
+        deliveryID: {$ref: '#/components/schemas/ID'}
+        number: {type: string, minLength: 1}
+        createdAt: {$ref: '#/components/schemas/Timestamp'}
+        lines: {type: array, minItems: 1, items: {$ref: '#/components/schemas/DeliveryLine'}}
+    DeliveryReceipt:
+      type: object
+      additionalProperties: false
+      required: [deliveryID, batchIDs]
+      properties:
+        deliveryID: {$ref: '#/components/schemas/ID'}
+        batchIDs: {type: array, minItems: 1, items: {$ref: '#/components/schemas/ID'}}
+    ProductRegisteredResult:
+      type: object
+      additionalProperties: false
+      required: [kind, product]
+      properties:
+        kind: {const: ProductRegistered}
+        product: {$ref: '#/components/schemas/Product'}
+    DishDefinedResult:
+      type: object
+      additionalProperties: false
+      required: [kind, dish]
+      properties:
+        kind: {const: DishDefined}
+        dish: {$ref: '#/components/schemas/RecordedDish'}
+    DeliveryReceivedResult:
+      type: object
+      additionalProperties: false
+      required: [kind, delivery]
+      properties:
+        kind: {const: DeliveryReceived}
+        delivery: {$ref: '#/components/schemas/DeliveryReceipt'}
+    OrderPlacedResult:
+      type: object
+      additionalProperties: false
+      required: [kind, order]
+      properties:
+        kind: {const: OrderPlaced}
+        order: {$ref: '#/components/schemas/Order'}
+    BatchExpiredResult:
+      type: object
+      additionalProperties: false
+      required: [kind, expiry]
+      properties:
+        kind: {const: BatchExpired}
+        expiry:
+          type: object
+          additionalProperties: false
+          required: [batchID, productID, writtenOffQuantity, reason, expiresAt, processedAt]
+          properties:
+            batchID: {$ref: '#/components/schemas/ID'}
+            productID: {$ref: '#/components/schemas/ID'}
+            writtenOffQuantity: {$ref: '#/components/schemas/PositiveQuantity'}
+            reason: {const: EXPIRATION}
+            expiresAt: {$ref: '#/components/schemas/Timestamp'}
+            processedAt: {$ref: '#/components/schemas/Timestamp'}
+    RecordedCommand:
+      type: object
+      additionalProperties: false
+      required: [commandID, commandType, commandFingerprint, result]
+      properties:
+        commandID: {$ref: '#/components/schemas/ID'}
+        commandType: { type: string, enum: [ RegisterProduct, DefineDish, ReceiveDelivery, ConfirmOrder, ExpireBatch ] }
+        commandFingerprint: {type: string, pattern: '^[0-9a-f]{64}$'}
+        result:
+          oneOf:
+            - {$ref: '#/components/schemas/ProductRegisteredResult'}
+            - {$ref: '#/components/schemas/DishDefinedResult'}
+            - {$ref: '#/components/schemas/DeliveryReceivedResult'}
+            - {$ref: '#/components/schemas/OrderPlacedResult'}
+            - {$ref: '#/components/schemas/BatchExpiredResult'}
+          discriminator: {propertyName: kind}
+    CommandLookup:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [found]
+          properties: {found: {const: false}}
+        - type: object
+          additionalProperties: false
+          required: [found, record]
+          properties:
+            found: {const: true}
+            record: {$ref: '#/components/schemas/RecordedCommand'}
+    OrderLookup:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [found]
+          properties: {found: {const: false}}
+        - type: object
+          additionalProperties: false
+          required: [found, order]
+          properties:
+            found: {const: true}
+            order: {$ref: '#/components/schemas/Order'}
+    OrderCommitRequest:
+      type: object
+      additionalProperties: false
+      required: [commandID, proposalID, acceptedPositions]
+      properties:
+        commandID: {$ref: '#/components/schemas/ClientCommandID'}
+        proposalID: {$ref: '#/components/schemas/ID'}
+        acceptedPositions: { type: array, items: {$ref: '#/components/schemas/Position'}, minItems: 1 }
+    OrderCommitted:
+      type: object
+      additionalProperties: false
+      required: [kind, order]
+      properties:
+        kind: {const: OrderCommitted}
+        order: {$ref: '#/components/schemas/Order'}
+    RecheckRequired:
+      type: object
+      additionalProperties: false
+      required: [kind, evaluation]
+      properties:
+        kind: {const: RecheckRequired}
+        evaluation: {$ref: '#/components/schemas/OrderEvaluation'}
+    OrderCommitResult:
+      oneOf:
+        - {$ref: '#/components/schemas/OrderCommitted'}
+        - {$ref: '#/components/schemas/RecheckRequired'}
+      discriminator: {propertyName: kind}
+    OrderAttempt:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [state]
+          properties: {state: {const: Unseen}}
+        - type: object
+          additionalProperties: false
+          required: [state]
+          properties: {state: {const: Pending}}
+        - type: object
+          additionalProperties: false
+          required: [state, result]
+          properties:
+            state: {const: Completed}
+            result: {$ref: '#/components/schemas/OrderCommitResult'}
+        - type: object
+          additionalProperties: false
+          required: [state, error]
+          properties:
+            state: {const: Rejected}
+            error: {$ref: '#/components/schemas/RejectedError'}
+    RejectedError:
+      type: object
+      additionalProperties: false
+      required: [code, message, outcome]
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        outcome: {const: not_committed}
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, outcome]
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        outcome: {type: string, enum: [not_committed, unknown, unavailable]}
+    PositiveInt64:
+      $ref: ./openapi.yml#/components/schemas/PositiveInt64
+    NonNegativeInt64:
+      $ref: ./openapi.yml#/components/schemas/NonNegativeInt64
+    ClientCommandID:
+      $ref: ./openapi.yml#/components/schemas/ClientCommandID
+x-wire-version: 1
+x-timezone: Europe/Moscow
+x-source-revisions:
+  warehouse: 3e37af2f74a498c425c2dcb561be1bd3c9c01160
+  serving: 0fb867e7ff58e3106fa819355fc1ee298da58074
+x-adapter-rules:
+  - Requests use strict application/json with exact field names, no duplicate/unknown fields, null or
+    trailing JSON value. The default request-body limit is 1 MiB; malformed, oversized or
+    unsupported-media input is 400 InvalidArgument.
+  - Only declared query keys are accepted. Reject duplicate keys, invalid escapes and raw semicolons.
+    Percent-encode opaque IDs and +03:00 timestamps.
+  - Mutating POST rejection of this input is not_committed; transport, inventory and technical failures
+    keep unknown. GET errors and body/Owner errors on POST /order-evaluations use unavailable. Read
+    absence does not resolve a separate earlier write.
+  - Reserve command identity and immutable acceptedPositions before Owner execution. An exact concurrent
+    duplicate returns 202 Pending while its owner call runs. Cache completed results and definite
+    refusals for process life.

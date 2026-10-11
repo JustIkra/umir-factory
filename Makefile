@@ -1,4 +1,4 @@
-.PHONY: tools go-readiness fmt fmt-all fmt-check build lint arch test check check-tools check-business
+.PHONY: tools go-readiness fmt fmt-all fmt-check build lint arch test check check-tools check-business check-http
 export FILES QUALITY_MODULE
 
 tools:
@@ -9,5 +9,5 @@ fmt:
 	bash scripts/go-quality.sh fmt
 fmt-all:
 	bash scripts/go-quality.sh fmt-all
-fmt-check build lint arch test check check-tools check-business:
+fmt-check build lint arch test check check-tools check-business check-http:
 	bash scripts/go-quality.sh $@

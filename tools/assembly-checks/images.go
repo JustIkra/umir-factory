@@ -9,7 +9,18 @@ import (
 )
 
 type composeService struct {
-	Image string `json:"image"`
+	Image       string              `json:"image"`
+	Environment map[string]string   `json:"environment"`
+	Ports       []composePortConfig `json:"ports"`
+	DependsOn   map[string]struct {
+		Condition string `json:"condition"`
+	} `json:"depends_on"`
+}
+
+type composePortConfig struct {
+	Target    int    `json:"target"`
+	Published string `json:"published"`
+	HostIP    string `json:"host_ip"`
 }
 
 type composeConfig struct {

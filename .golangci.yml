@@ -63,7 +63,7 @@ linters:
     warn-unused: true
     rules:
       - linters: [forbidigo]
-        path: '^(tools/assembly-checks/|tests/business/)'
+        path: '^(tools/assembly-checks/|tests/business/|tests/http/)'
       - linters: [forbidigo]
         path: '_test\.go$'
 formatters:

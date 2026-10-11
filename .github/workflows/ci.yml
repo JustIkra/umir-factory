@@ -7,11 +7,27 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      run_business_suite:
-        description: Run the cross-service in-memory suite against the selected image commits
-        required: false
-        default: false
+      http_candidate:
+        description: Run HTTP acceptance against four exact candidate commits
         type: boolean
+        required: true
+        default: false
+      warehouse_ref:
+        description: Full warehouse commit SHA
+        type: string
+        required: false
+      serving_ref:
+        description: Full serving commit SHA
+        type: string
+        required: false
+      gateway_ref:
+        description: Full gateway commit SHA
+        type: string
+        required: false
+      frontend_ref:
+        description: Full frontend commit SHA
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -21,17 +37,19 @@ jobs:
     name: Check assembly
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.9'
           check-latest: false
       - name: Install pinned Go quality tools
         run: make tools
       - name: Check standalone assembly-check module
         run: make check-tools
+      - name: Check HTTP acceptance module
+        run: make check-http
       - name: Build assembly checks
         env:
           GOWORK: 'off'
@@ -47,35 +65,27 @@ jobs:
           "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE"
       - name: Test image verification
         run: bash tests/infra/image-checks.sh
-      - name: Verify service commits and successful publication
+      - name: Test assembly verification isolation and failures
+        run: bash tests/infra/assembly-checks.sh
+      - name: Resolve HTTP candidate and fault Compose topologies
+        run: bash tests/infra/http-compose-checks.sh
+      - name: Verify selected assembly
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash scripts/check-image-sources.sh --env-file .env.example
-      - name: Pull pinned images
-        run: docker compose --env-file .env.example pull
-      - name: Verify pulled image metadata and healthchecks
-        run: bash scripts/check-pulled-images.sh --env-file .env.example
-      - name: Start assembly
-        run: docker compose --env-file .env.example up -d --wait --wait-timeout 120
-      - name: Check gateway paths
-        run: |
-          "$RUNNER_TEMP/umir-checks/umir-checks" smoke --factory-dir "$GITHUB_WORKSPACE" --env-file .env.example
-      - name: Show service logs on failure
-        if: failure()
-        run: docker compose --env-file .env.example logs --no-color
+          UMIR_CHECKS_BIN: ${{ runner.temp }}/umir-checks/umir-checks
+        run: bash scripts/verify-assembly.sh --env-file .env.example
 
   business-core:
-    name: Cross-service business suite (manual opt-in)
-    if: github.event_name == 'workflow_dispatch' && inputs.run_business_suite == true
+    name: Cross-service business suite
     needs: check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
-          go-version: '1.26.5'
+          go-version: '1.26.9'
           check-latest: false
       - name: Build assembly checks
         env:
@@ -93,4 +103,83 @@ jobs:
           --factory-dir "$GITHUB_WORKSPACE"
           --warehouse-ref "${{ steps.selected.outputs.warehouse_ref }}"
           --serving-ref "${{ steps.selected.outputs.serving_ref }}"
+
+  http-selected:
+    name: Selected HTTP acceptance
+    needs: check
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.9'
+          check-latest: false
+      - name: Select the published HTTP assembly when enabled
+        id: stage
+        run: |
+          if rg -q '^x-umir-http-acceptance: selected$' compose.yaml; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo 'Selected HTTP acceptance is not enabled for the current health-only pins.'
+          fi
+      - name: Build assembly checks
+        if: steps.stage.outputs.enabled == 'true'
+        env:
+          GOWORK: 'off'
+        run: |
+          mkdir -p "$RUNNER_TEMP/umir-checks"
+          go -C tools/assembly-checks build -o "$RUNNER_TEMP/umir-checks/umir-checks"
+      - name: Verify selected published HTTP images
+        if: steps.stage.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UMIR_HTTP_EVIDENCE_DIR: ${{ runner.temp }}/umir-http-evidence
+        run: >-
+          "$RUNNER_TEMP/umir-checks/umir-checks" http-acceptance
+          --factory-dir "$GITHUB_WORKSPACE"
+          --selected
+      - name: Print selected HTTP evidence
+        if: always() && steps.stage.outputs.enabled == 'true'
+        run: if [[ -d "$RUNNER_TEMP/umir-http-evidence" ]]; then find "$RUNNER_TEMP/umir-http-evidence" -maxdepth 1 -type f -name '*.json' -exec cat {} \;; fi
+
+  http-candidate:
+    name: Candidate HTTP acceptance
+    if: github.event_name == 'workflow_dispatch' && inputs.http_candidate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.9'
+          check-latest: false
+      - name: Install pinned Go quality tools
+        run: make tools
+      - name: Check HTTP module
+        run: make check-http
+      - name: Build assembly checks
+        env:
+          GOWORK: 'off'
+        run: |
+          mkdir -p "$RUNNER_TEMP/umir-checks"
+          go -C tools/assembly-checks build -o "$RUNNER_TEMP/umir-checks/umir-checks"
+      - name: Run exact candidate acceptance
+        env:
+          UMIR_HTTP_EVIDENCE_DIR: ${{ runner.temp }}/umir-http-evidence
+        run: >-
+          "$RUNNER_TEMP/umir-checks/umir-checks" http-acceptance
+          --factory-dir "$GITHUB_WORKSPACE"
+          --candidate
+          --warehouse-ref "${{ inputs.warehouse_ref }}"
+          --serving-ref "${{ inputs.serving_ref }}"
+          --gateway-ref "${{ inputs.gateway_ref }}"
+          --frontend-ref "${{ inputs.frontend_ref }}"
+      - name: Print candidate HTTP evidence
+        if: always()
+        run: if [[ -d "$RUNNER_TEMP/umir-http-evidence" ]]; then find "$RUNNER_TEMP/umir-http-evidence" -maxdepth 1 -type f -name '*.json' -exec cat {} \;; fi
 
