@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Distinguished the organizer's recommended technologies from the implemented Go/React/Vite stack and the approved TypeScript/SCSS/Chakra frontend additions and test tooling.
+- Added the project documentation ownership and update rules, with README, AGENTS, OpenAPI, handoff, design brief and changelog responsibilities.
 - Business acceptance initializes its owned temporary workspace with `go work init`, so selected module requirements do not depend on a stale hardcoded Go patch version.
 - HTTP fixtures derive dates from the warehouse clock and preserve delivery request/clock diagnostics on failure without retrying the POST.
 - Updated pinned GitHub Actions to Node.js 24-compatible releases.

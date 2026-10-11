@@ -20,6 +20,10 @@
 
 Factory owns reproducible assembly and integration checks. The bridge imports public contract/bootstrap and translates values without business decisions. The Go assembly runner replaces the former Python image and smoke scripts; keep those scripts removed. Preserve image publication/source/OCI/HEALTHCHECK, Compose and smoke checks.
 
+## Documentation
+
+Follow the document ownership map in README.md. Update developer commands, actual stack and operational behavior in the same PR as implementation. Keep recommended, approved/planned and implemented technologies distinct. Business rules belong to docs/business-core.md; public/private wire contracts belong to docs/api. Keep AGENTS.md concise, link canonical documents, and record relevant changes under Unreleased.
+
 ## Verification and readiness
 
 Run `make go-readiness` to verify all three declared nested modules: `tools/assembly-checks`, `tests/business` and `tests/http`. All modules have active build, lint, architecture and race-test gates in `make check`. Tooling and HTTP module checks use GOWORK=off; business lint/tests use a controlled workspace from the established runner. Assembly CI preserves Compose, image and smoke checks. The business suite runs automatically against the exact selected service commits after assembly verification. HTTP candidate acceptance builds four exact source revisions; selected acceptance uses published images and requires the selected HTTP marker. Both modes require service evidence and owned-project cleanup. The shared verifier uses a temporary Compose project and ephemeral loopback ports; preserve its failure reporting.
