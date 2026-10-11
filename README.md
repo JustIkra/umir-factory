@@ -71,6 +71,8 @@ GOWORK=off go -C tools/assembly-checks build -o /tmp/umir-checks
 
 ## HTTP Acceptance
 
+CI reads the canonical `x-umir-http-acceptance` marker with `scripts/http-acceptance-stage.sh`. Selected HTTP acceptance is enabled only by `selected`; `health-only` is an explicit older-stage choice. Missing, invalid or duplicate markers fail CI. `bash tests/infra/http-stage-checks.sh` verifies activation without optional search tools.
+
 Fixture dates use warehouse `inventory.evaluatedAt` through the public gateway. The harness validates the Moscow timestamp and stops if the clock sample is unavailable or invalid. It does not fall back to host time. Delivery failures retain the exact synthetic request, host send time and a warehouse clock sample; they do not trigger automatic POST retries.
 
 `tests/http` is a separate Go module. `make check-http` runs its build, lint, architecture and race-test gates without Docker. The compiled assembly runner has two mutually exclusive modes:

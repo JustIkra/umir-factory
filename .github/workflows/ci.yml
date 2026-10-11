@@ -69,6 +69,8 @@ jobs:
         run: bash tests/infra/assembly-checks.sh
       - name: Resolve HTTP candidate and fault Compose topologies
         run: bash tests/infra/http-compose-checks.sh
+      - name: Test HTTP acceptance stage activation
+        run: bash tests/infra/http-stage-checks.sh
       - name: Verify selected assembly
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,13 +121,7 @@ jobs:
           check-latest: false
       - name: Select the published HTTP assembly when enabled
         id: stage
-        run: |
-          if rg -q '^x-umir-http-acceptance: selected$' compose.yaml; then
-            echo 'enabled=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'enabled=false' >> "$GITHUB_OUTPUT"
-            echo 'Selected HTTP acceptance is not enabled for the current health-only pins.'
-          fi
+        run: bash scripts/http-acceptance-stage.sh >> "$GITHUB_OUTPUT"
       - name: Build assembly checks
         if: steps.stage.outputs.enabled == 'true'
         env:
