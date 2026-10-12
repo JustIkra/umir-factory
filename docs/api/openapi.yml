@@ -4346,5 +4346,5 @@ components:
             - not_committed
 x-gateway-source-revision: c7a5c02ee3a443f8a72120d64608b85049a18ad3
 x-auth-candidate-revisions:
-  gateway: 910d4d666400be03976a5ea354d5d15da5efc7fe
+  gateway: d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969
   frontend: 429ff994abf726d45926fcaf06d8bd3f33d61e50

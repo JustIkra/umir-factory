@@ -122,7 +122,7 @@ The verified service source is [feedback 3bea71b](https://github.com/JustIkra/um
 /tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
   --warehouse-ref 3e37af2f74a498c425c2dcb561be1bd3c9c01160 \
   --serving-ref 0fb867e7ff58e3106fa819355fc1ee298da58074 \
-  --gateway-ref 910d4d666400be03976a5ea354d5d15da5efc7fe \
+  --gateway-ref d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969 \
   --frontend-ref 429ff994abf726d45926fcaf06d8bd3f33d61e50 \
   --feedback-ref 3bea71b09b56f9fb17d39170688bf8d64b014225
 ```
