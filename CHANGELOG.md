@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Completed the six operator operations' OpenAPI 502/504 responses: read failures are unavailable, and lost modifying responses keep an unknown account or session outcome.
+
 - Added the private feedback/VPN candidate overlay and optional exact feedback source revision to authenticated HTTP acceptance. Synthetic F01–F05 cover the public form while SMTP/VPN are unavailable; selected pins remain unchanged.
 - Completed feedback draft.4 receipt/error schemas and required rate-limit Retry-After; CI accepts an optional feedback_ref through quoted environment arguments.
 
