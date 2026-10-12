@@ -30,6 +30,7 @@ var httpRepositories = map[string]string{
 type httpRunEvidence struct {
 	Mode                 string                         `json:"mode"`
 	Auth                 bool                           `json:"auth,omitempty"`
+	Realtime             bool                           `json:"realtime,omitempty"`
 	Feedback             bool                           `json:"feedback,omitempty"`
 	Project              string                         `json:"project"`
 	Projects             map[string]string              `json:"projects"`
@@ -94,6 +95,10 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		writeFailure(stderr, "choose exactly one HTTP acceptance mode\n")
 		return 2
 	}
+	if options.realtime && (!options.candidate || !options.auth) {
+		writeFailure(stderr, "--realtime requires --candidate and --auth\n")
+		return 2
+	}
 	testModule := filepath.Join(factoryDir, "tests", "http")
 	if _, err := os.Stat(filepath.Join(testModule, "go.mod")); err != nil {
 		writeFailure(stderr, "HTTP test module is unavailable: %v\n", err)
@@ -118,6 +123,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		return 1
 	}
 	evidence := httpRunEvidence{Project: project, Projects: make(map[string]string), Sources: make(map[string]string), ServiceTests: make(map[string]serviceTestEvidence), Images: make(map[string]imageEvidence), PhaseCleanup: make(map[string]string), ContainerIDs: make(map[string]map[string]string), Cleanup: "not-started"}
+	evidence.Realtime = options.realtime
 	defer func() {
 		if code != 0 && evidence.Failure == "" {
 			evidence.FailureStage = evidence.Stage
@@ -353,7 +359,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 	}
 	evidence.Outcomes = append(evidence.Outcomes, "H25:passed")
 	evidence.Stage = "validate-matrix"
-	if err := validateHTTPOutcomes(evidence.Outcomes, options.auth, options.feedbackRef != ""); err != nil {
+	if err := validateHTTPOutcomes(evidence.Outcomes, options.auth, options.feedbackRef != "", options.realtime); err != nil {
 		writeFailure(stderr, "HTTP acceptance matrix incomplete: %v\n", err)
 		return 1
 	}
@@ -496,6 +502,9 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	}
 	if phase == "faults" {
 		services = append(services, "http-fault-serving", "http-fault-warehouse")
+		if options.realtime {
+			services = append(services, "http-fault-warehouse-public")
+		}
 	}
 	if auth != nil && auth.feedback != nil {
 		waitCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
@@ -522,6 +531,9 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		var controls []string
 		if phase == "faults" {
 			controls = []string{"http-fault-serving", "http-fault-warehouse"}
+			if options.realtime {
+				controls = append(controls, "http-fault-warehouse-public")
+			}
 		}
 		if err := checkPublishedPorts(report, auth.port, controls); err != nil {
 			return result, fmt.Errorf("verify the %s one-port boundary: %w", phase, err)
@@ -545,7 +557,11 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	}
 	controls := make(map[string]string)
 	if phase == "faults" {
-		for _, fixture := range []string{"http-fault-serving", "http-fault-warehouse"} {
+		fixtures := []string{"http-fault-serving", "http-fault-warehouse"}
+		if options.realtime {
+			fixtures = append(fixtures, "http-fault-warehouse-public")
+		}
+		for _, fixture := range fixtures {
 			published, err := composePort(ctx, executor, factoryDir, env, composeArgs, fixture, 9090)
 			if err != nil {
 				return result, err
@@ -567,6 +583,9 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	harnessEnv := commandEnv()
 	if auth != nil {
 		args = append(args, "--auth", "--operator-login", auth.login, "--operator-password-file", auth.passwordFile, "--compose-override", filepath.Join(factoryDir, authOverrideFile))
+		if options.realtime {
+			args = append(args, "--realtime")
+		}
 		if auth.feedback != nil && phase == "normal" {
 			args = append(args, "--feedback")
 		}
@@ -581,6 +600,9 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	}
 	if phase == "faults" {
 		args = append(args, "--serving-fault-control-url", controls["http-fault-serving"], "--warehouse-fault-control-url", controls["http-fault-warehouse"], "--control-token", token)
+		if options.realtime {
+			args = append(args, "--public-warehouse-fault-control-url", controls["http-fault-warehouse-public"])
+		}
 	}
 	out, errOut, err := executor.Run(ctx, factoryDir, harnessEnv, acceptanceBin, args...)
 	if writeErr := writeAll(stdout, out); writeErr != nil {
@@ -668,7 +690,7 @@ func hasRepositoryDigest(digests []string) bool {
 
 func writeHTTPOverride(path string, options cliOptions, project, faultImage, token string) error {
 	type serviceConfig map[string]any
-	services := make(map[string]serviceConfig, 6)
+	services := make(map[string]serviceConfig, 7)
 	if options.candidate {
 		refs := map[string]string{"warehouse": options.warehouse, "serving": options.serving, "gateway": options.gateway, "frontend": options.frontend}
 		for _, service := range []string{"warehouse", "serving", "gateway", "frontend"} {
@@ -686,14 +708,27 @@ func writeHTTPOverride(path string, options cliOptions, project, faultImage, tok
 		gateway = serviceConfig{}
 	}
 	gateway["environment"] = map[string]string{"SERVING_URL": "http://http-fault-serving:8080"}
-	gateway["depends_on"] = map[string]any{"http-fault-serving": map[string]string{"condition": "service_healthy"}}
+	dependencies := map[string]any{"http-fault-serving": map[string]string{"condition": "service_healthy"}}
+	if options.realtime {
+		gateway["environment"] = map[string]string{
+			"SERVING_URL":   "http://http-fault-serving:8080",
+			"WAREHOUSE_URL": "http://http-fault-warehouse-public:8080",
+		}
+		dependencies["http-fault-warehouse-public"] = map[string]string{"condition": "service_healthy"}
+	}
+	gateway["depends_on"] = dependencies
 	services["gateway"] = gateway
-	for _, fixture := range []struct{ name, upstream, listen string }{
-		{"http-fault-serving", "http://serving:8080", ":8080"},
-		{"http-fault-warehouse", "http://warehouse:8082", ":8082"},
-	} {
+	fixtures := []struct{ name, upstream, listen, dependency string }{
+		{"http-fault-serving", "http://serving:8080", ":8080", "serving"},
+		{"http-fault-warehouse", "http://warehouse:8082", ":8082", "warehouse"},
+	}
+	if options.realtime {
+		fixtures = append(fixtures, struct{ name, upstream, listen, dependency string }{
+			"http-fault-warehouse-public", "http://warehouse:8080", ":8080", "warehouse",
+		})
+	}
+	for _, fixture := range fixtures {
 		controlPort := 9090
-		dep := map[string]string{"http-fault-serving": "serving", "http-fault-warehouse": "warehouse"}[fixture.name]
 		services[fixture.name] = serviceConfig{
 			"image":   faultImage,
 			"command": []string{"--listen", fixture.listen, "--control-listen", fmt.Sprintf("0.0.0.0:%d", controlPort), "--upstream", fixture.upstream, "--control-token", token},
@@ -705,7 +740,7 @@ func writeHTTPOverride(path string, options cliOptions, project, faultImage, tok
 				"timeout":  "2s",
 				"retries":  5,
 			},
-			"depends_on": map[string]any{dep: map[string]string{"condition": "service_healthy"}},
+			"depends_on": map[string]any{fixture.dependency: map[string]string{"condition": "service_healthy"}},
 		}
 	}
 	content, err := json.MarshalIndent(map[string]any{"services": services}, "", "  ")
@@ -729,8 +764,8 @@ func writeHTTPImageOverride(path string, options cliOptions, project string) err
 }
 
 // validateHTTPOutcomes requires H01–H25 except the service-only H16, and A01–A04 in auth acceptance.
-func validateHTTPOutcomes(outcomes []string, auth bool, feedback ...bool) error {
-	want := make(map[string]bool, 28)
+func validateHTTPOutcomes(outcomes []string, auth, withFeedback, realtime bool) error {
+	want := make(map[string]bool, 41)
 	for number := 1; number <= 25; number++ {
 		if number == 16 {
 			continue
@@ -742,9 +777,14 @@ func validateHTTPOutcomes(outcomes []string, auth bool, feedback ...bool) error 
 			want[fmt.Sprintf("A%02d", number)] = false
 		}
 	}
-	if len(feedback) > 0 && feedback[0] {
+	if withFeedback {
 		for number := 1; number <= 5; number++ {
 			want[fmt.Sprintf("F%02d", number)] = false
+		}
+	}
+	if realtime {
+		for number := 1; number <= 7; number++ {
+			want[fmt.Sprintf("R%02d", number)] = false
 		}
 	}
 	for _, outcome := range outcomes {
@@ -959,7 +999,7 @@ func verifyRunningTopology(ctx context.Context, executor commandExecutor, factor
 		want[service] = false
 	}
 	if len(containers) != len(want) {
-		return fmt.Errorf("compose started %d containers, want exactly %d including two test fixtures", len(containers), len(want))
+		return fmt.Errorf("compose started %d containers, want exactly %d declared services", len(containers), len(want))
 	}
 	for _, container := range containers {
 		if _, ok := want[container.Service]; !ok || want[container.Service] {

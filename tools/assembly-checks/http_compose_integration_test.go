@@ -59,6 +59,9 @@ func TestHTTPComposeOverridesResolveAsIsolatedTopologies(t *testing.T) {
 	if faultConfig.Services["gateway"].Environment["SERVING_URL"] != "http://http-fault-serving:8080" {
 		t.Fatalf("gateway does not route serving requests through its fixture: %#v", faultConfig.Services["gateway"].Environment)
 	}
+	if faultConfig.Services["gateway"].Environment["WAREHOUSE_URL"] != "http://warehouse:8080" {
+		t.Fatalf("default fault topology changed the public warehouse route: %#v", faultConfig.Services["gateway"].Environment)
+	}
 	if len(faultConfig.Services["warehouse"].Ports) != 0 || len(faultConfig.Services["serving"].Ports) != 0 {
 		t.Fatal("fault topology publishes a service listener to the host")
 	}
@@ -69,6 +72,28 @@ func TestHTTPComposeOverridesResolveAsIsolatedTopologies(t *testing.T) {
 		if faultConfig.Services[name].DependsOn[fixture].Condition != "service_healthy" {
 			t.Errorf("%s has no healthy upstream dependency", name)
 		}
+	}
+	realtimeOptions := options
+	realtimeOptions.realtime = true
+	realtime := filepath.Join(temporary, "faults-realtime.json")
+	if err := writeHTTPOverride(realtime, realtimeOptions, "umir-http-integration", "umir-factory/http-fault:test", strings.Repeat("f", 64)); err != nil {
+		t.Fatal(err)
+	}
+	realtimeConfig := composeConfigOutput(t, docker, factoryDir, temporary, realtime)
+	if len(realtimeConfig.Services) != 7 {
+		t.Fatalf("realtime fault topology has %d services, want four candidates and three fixtures", len(realtimeConfig.Services))
+	}
+	if realtimeConfig.Services["gateway"].Environment["WAREHOUSE_URL"] != "http://http-fault-warehouse-public:8080" ||
+		realtimeConfig.Services["gateway"].Environment["SERVING_URL"] != "http://http-fault-serving:8080" {
+		t.Fatalf("gateway public upstreams are not isolated: %#v", realtimeConfig.Services["gateway"].Environment)
+	}
+	if realtimeConfig.Services["serving"].Environment["WAREHOUSE_INTERNAL_URL"] != "http://http-fault-warehouse:8082" {
+		t.Fatalf("serving's private warehouse upstream changed: %#v", realtimeConfig.Services["serving"].Environment)
+	}
+	publicFault := realtimeConfig.Services["http-fault-warehouse-public"]
+	if publicFault.DependsOn["warehouse"].Condition != "service_healthy" || len(publicFault.Ports) != 1 ||
+		publicFault.Ports[0].HostIP != "127.0.0.1" {
+		t.Fatalf("public warehouse fault fixture is not privately routed with loopback control: %#v", publicFault)
 	}
 	selectedOptions := cliOptions{selected: true}
 	selected := filepath.Join(temporary, "selected.json")

@@ -136,6 +136,121 @@ func TestHistoryEventCountersKeepScenarioScopesSeparate(t *testing.T) {
 	}
 }
 
+func TestRealtimeHistoryHelpersScopeExpirationToOneBatch(t *testing.T) {
+	const expiresAt = "2026-10-12T17:00:08+03:00"
+	history := map[string]any{"events": []any{
+		map[string]any{"type": "DeliveryReceived", "payload": map[string]any{
+			"delivery": map[string]any{"deliveryID": "delivery-R06"},
+			"batches":  []any{map[string]any{"batchID": "batch-R06", "expiresAt": expiresAt}},
+		}},
+		map[string]any{"type": "BatchExpired", "payload": map[string]any{"expiry": map[string]any{"batchID": "batch-R06"}}},
+		map[string]any{"type": "BatchExpired", "payload": map[string]any{"expiry": map[string]any{"batchID": "other"}}},
+	}}
+	parsed, err := deliveryBatchExpiry(history, "delivery-R06", "batch-R06")
+	if err != nil || parsed.Format(time.RFC3339) != expiresAt {
+		t.Fatalf("batch expiry = %s, %v", parsed.Format(time.RFC3339), err)
+	}
+	if got := batchExpiredCount(history, "batch-R06"); got != 1 {
+		t.Fatalf("batch expiration count = %d, want 1", got)
+	}
+	if got := batchExpiredCount(history, "missing"); got != 0 {
+		t.Fatalf("unrelated batch expiration count = %d, want 0", got)
+	}
+}
+
+func TestRealtimeChangeSequencesCompareAsDecimalStrings(t *testing.T) {
+	for _, test := range []struct {
+		candidate string
+		baseline  string
+		want      bool
+	}{
+		{"10", "9", true},
+		{"100000000000000000000", "99999999999999999999", true},
+		{"9", "10", false},
+		{"42", "42", false},
+	} {
+		if got := changeGreater(test.candidate, test.baseline); got != test.want {
+			t.Errorf("changeGreater(%q, %q) = %v, want %v", test.candidate, test.baseline, got, test.want)
+		}
+	}
+}
+
+func TestRealtimeUpstreamUnavailableRejectsPrematureFalseEvent(t *testing.T) {
+	observedAt := time.Date(2026, time.October, 12, 17, 0, 3, 0, time.FixedZone("MSK", 3*60*60))
+	earlyFalse := liveEvent{Upstream: &liveUpstream{Available: false}, ReceivedAt: observedAt}
+	oneFailure := []r07FailureEvent{{RuleID: "R07-drop-1", StatusCode: http.StatusOK, At: observedAt.Add(-time.Second)}}
+	if err := validateR07Unavailable(earlyFalse, 0, oneFailure); err == nil {
+		t.Fatal("premature upstream:false after one faulted call was accepted")
+	}
+	threeFailures := []r07FailureEvent{
+		{RuleID: "R07-drop-1", StatusCode: http.StatusOK, At: observedAt.Add(-3 * time.Second)},
+		{RuleID: "R07-drop-2", StatusCode: http.StatusOK, At: observedAt.Add(-2 * time.Second)},
+		{RuleID: "R07-drop-3", StatusCode: http.StatusOK, At: observedAt.Add(-time.Second)},
+	}
+	if err := validateR07Unavailable(earlyFalse, 0, threeFailures); err != nil {
+		t.Fatalf("upstream:false after three distinct injected failures was rejected: %v", err)
+	}
+	if err := validateR07Unavailable(liveEvent{Upstream: &liveUpstream{Available: true}, ReceivedAt: observedAt}, 0, threeFailures); err == nil {
+		t.Fatal("upstream:true was accepted as the unavailable transition")
+	}
+}
+
+func TestRealtimeUpstreamRecoveryRequiresSubsequentSuccessfulCall(t *testing.T) {
+	observedAt := time.Date(2026, time.October, 12, 17, 0, 3, 0, time.FixedZone("MSK", 3*60*60))
+	event := liveEvent{Upstream: &liveUpstream{Available: true}, ReceivedAt: observedAt}
+	recovery := r07RecoveryEvent{StatusCode: http.StatusOK, At: observedAt.Add(-time.Second)}
+	if err := validateR07Recovery(liveEvent{Upstream: &liveUpstream{Available: false}, ReceivedAt: observedAt}, recovery); err == nil {
+		t.Fatal("unsuccessful upstream state was accepted as recovered")
+	}
+	if err := validateR07Recovery(event, r07RecoveryEvent{StatusCode: http.StatusBadGateway, At: recovery.At}); err == nil {
+		t.Fatal("upstream:true without an HTTP 200 recovery call was accepted")
+	}
+	if err := validateR07Recovery(event, recovery); err != nil {
+		t.Fatalf("successful recovery was rejected: %v", err)
+	}
+}
+
+func TestRealtimeUpstreamTransitionsRequireFaultEvidenceBeforeBufferedFrames(t *testing.T) {
+	base := time.Date(2026, time.October, 12, 17, 0, 0, 0, time.FixedZone("MSK", 3*60*60))
+	failures := []r07FailureEvent{
+		{RuleID: "R07-drop-1", StatusCode: http.StatusOK, At: base.Add(time.Second)},
+		{RuleID: "R07-drop-2", StatusCode: http.StatusOK, At: base.Add(2 * time.Second)},
+		{RuleID: "R07-drop-3", StatusCode: http.StatusOK, At: base.Add(3 * time.Second)},
+	}
+	prematureFalse := liveEvent{Upstream: &liveUpstream{Available: false}, ReceivedAt: base}
+	if err := validateR07Unavailable(prematureFalse, 0, failures); err == nil {
+		t.Fatal("buffered upstream:false received before all three fault events was accepted")
+	}
+	orderedFalse := liveEvent{Upstream: &liveUpstream{Available: false}, ReceivedAt: base.Add(3 * time.Second)}
+	if err := validateR07Unavailable(orderedFalse, 0, failures); err != nil {
+		t.Fatalf("upstream:false received after three fault events was rejected: %v", err)
+	}
+	missingFailureTime := append([]r07FailureEvent(nil), failures...)
+	missingFailureTime[2].At = time.Time{}
+	if err := validateR07Unavailable(orderedFalse, 0, missingFailureTime); err == nil {
+		t.Fatal("upstream:false with a missing fault event time was accepted")
+	}
+
+	prematureTrue := liveEvent{Upstream: &liveUpstream{Available: true}, ReceivedAt: base.Add(4 * time.Second)}
+	recovery := r07RecoveryEvent{StatusCode: http.StatusOK, At: base.Add(5 * time.Second)}
+	if err := validateR07Recovery(prematureTrue, recovery); err == nil {
+		t.Fatal("buffered upstream:true received before recovery success was accepted")
+	}
+	orderedTrue := liveEvent{Upstream: &liveUpstream{Available: true}, ReceivedAt: base.Add(6 * time.Second)}
+	if err := validateR07Recovery(orderedTrue, recovery); err != nil {
+		t.Fatalf("upstream:true received after recovery success was rejected: %v", err)
+	}
+	malformed := r07RecoveryEvent{StatusCode: http.StatusOK}
+	if err := validateR07Recovery(orderedTrue, malformed); err == nil {
+		t.Fatal("recovery with missing event time was accepted")
+	}
+	for _, value := range []any{nil, "", "not-a-timestamp", "0001-01-01T00:00:00Z"} {
+		if _, err := parseR07EventTime(value); err == nil {
+			t.Errorf("fault event time %v was accepted", value)
+		}
+	}
+}
+
 func TestAcceptanceCLIRejectsInvalidPhaseAndExternalURLs(t *testing.T) {
 	tests := map[string][]string{
 		"phase":                  {"--phase", "all", "--gateway-url", "http://127.0.0.1:8081"},
@@ -341,15 +456,30 @@ func TestRestartUsesExactOwnedFaultProjectAndOverridesInOrder(t *testing.T) {
 	if err := os.WriteFile(auth, []byte("services: {}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := restart(t.Context(), restartConfig{factoryDir: factory, project: project, overrides: []string{auth, override}}, "warehouse"); err != nil {
+	if err := restart(t.Context(), restartConfig{factoryDir: factory, project: project, overrides: []string{auth, override}}, "gateway"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(argsFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := strings.Join([]string{"compose", "--project-name", project, "--file", filepath.Join(factory, "compose.yaml"), "--file", auth, "--file", override, "--env-file", filepath.Join(factory, ".env.example"), "restart", "--timeout", "10", "warehouse", ""}, "\n")
+	want := strings.Join([]string{"compose", "--project-name", project, "--file", filepath.Join(factory, "compose.yaml"), "--file", auth, "--file", override, "--env-file", filepath.Join(factory, ".env.example"), "restart", "--timeout", "10", "gateway", ""}, "\n")
 	if string(data) != want {
 		t.Fatalf("restart docker args = %q, want %q", string(data), want)
+	}
+}
+
+func TestRestartAllowsGatewayButRejectsOtherUnownedServiceNames(t *testing.T) {
+	for _, service := range []string{"warehouse", "serving", "gateway"} {
+		err := validateRestartConfig(restartConfig{factoryDir: "/tmp/factory", project: "umir-http-0123456789abcdef01234567"}, service)
+		if err != nil && strings.Contains(err.Error(), "not restartable") {
+			t.Errorf("owned service %q was rejected: %v", service, err)
+		}
+	}
+	for _, service := range []string{"frontend", "warehouse-public", "docker"} {
+		err := validateRestartConfig(restartConfig{factoryDir: "/tmp/factory", project: "umir-http-0123456789abcdef01234567"}, service)
+		if err == nil || !strings.Contains(err.Error(), "not restartable") {
+			t.Errorf("unowned service %q returned %v, want allowlist rejection", service, err)
+		}
 	}
 }
