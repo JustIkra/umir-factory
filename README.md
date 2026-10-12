@@ -154,7 +154,7 @@ This is a candidate contract and acceptance mode. Full real-process evidence dep
 
 `compose.feedback.yaml` adds private feedback and `telegram-vpn` to the one-port auth candidate. It declares `x-umir-feedback-acceptance: candidate`. Gateway uses `FEEDBACK_URL=http://feedback:8084`; feedback listens on 8084, while the proxy listens on 8080. The feedback service has no host port. SMTP uses the application network; Telegram uses the internal `telegram-link` and VPN-only uplink.
 
-The verified service source is [feedback 3bea71b](https://github.com/JustIkra/umir-feedback/commit/3bea71b09b56f9fb17d39170688bf8d64b014225). Gateway [PR #16](https://github.com/JustIkra/umir-gateway/pull/16) and frontend [PR #3](https://github.com/JustIkra/umir-frontend/pull/3) supply its public boundary. This candidate extends [factory PR #5](https://github.com/JustIkra/umir-factory/pull/5); selected image pins are unchanged.
+The candidate service source is [feedback 366fe265](https://github.com/JustIkra/umir-feedback/commit/366fe265f64581a0b638aec43cf6cf42b7e612ad). Gateway [PR #16](https://github.com/JustIkra/umir-gateway/pull/16) and [PR #17](https://github.com/JustIkra/umir-gateway/pull/17), together with frontend [PR #3](https://github.com/JustIkra/umir-frontend/pull/3), supply its public boundary. This candidate extends [factory PR #5](https://github.com/JustIkra/umir-factory/pull/5); selected image pins are unchanged.
 
 ```sh
 /tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
