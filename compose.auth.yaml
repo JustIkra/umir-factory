@@ -1,17 +1,22 @@
 # One-port operator auth candidate (gateway#8, gateway#10). Use it after compose.yaml with gateway and
 # frontend images that implement operator sign-in: only frontend publishes a host port, gateway is
 # private and keeps the operator account file on a named volume. The selected assembly never loads it.
+# It is a loopback development and acceptance assembly: frontend binds 127.0.0.1 whatever UMIR_BIND says
+# and gateway runs in loopback-development cookie mode, so its plain-HTTP edge never leaves the host.
 x-umir-auth-acceptance: candidate
 services:
   gateway:
     ports: !reset []
     environment:
-      OPERATOR_COOKIE_MODE: ${OPERATOR_COOKIE_MODE:-loopback-development}
+      OPERATOR_COOKIE_MODE: loopback-development
       OPERATOR_PUBLIC_ORIGIN: ${OPERATOR_PUBLIC_ORIGIN:?set the exact browser origin of frontend, such as http://127.0.0.1:8080}
       OPERATOR_BOOTSTRAP_LOGIN: ${OPERATOR_BOOTSTRAP_LOGIN:-}
       OPERATOR_BOOTSTRAP_DISPLAY_NAME: ${OPERATOR_BOOTSTRAP_DISPLAY_NAME:-}
       OPERATOR_BOOTSTRAP_PASSWORD_HASH: ${OPERATOR_BOOTSTRAP_PASSWORD_HASH:-}
     volumes:
       - operator-data:/data/operator
+  frontend:
+    ports: !override
+      - "127.0.0.1:${UMIR_WEB_PORT:-8080}:8080"
 volumes:
   operator-data:

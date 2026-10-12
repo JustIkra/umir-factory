@@ -154,15 +154,15 @@ This is a candidate contract and acceptance mode. Full real-process evidence dep
 
 `compose.feedback.yaml` adds private feedback and `telegram-vpn` to the one-port auth candidate. It declares `x-umir-feedback-acceptance: candidate`. Gateway uses `FEEDBACK_URL=http://feedback:8084`; feedback listens on 8084, while the proxy listens on 8080. The feedback service has no host port. SMTP uses the application network; Telegram uses the internal `telegram-link` and VPN-only uplink.
 
-The verified service source is [feedback 3bea71b](https://github.com/JustIkra/umir-feedback/commit/3bea71b09b56f9fb17d39170688bf8d64b014225). Gateway [PR #16](https://github.com/JustIkra/umir-gateway/pull/16) and frontend [PR #3](https://github.com/JustIkra/umir-frontend/pull/3) supply its public boundary. This candidate extends [factory PR #5](https://github.com/JustIkra/umir-factory/pull/5); selected image pins are unchanged.
+The candidate service source is [feedback 366fe265](https://github.com/JustIkra/umir-feedback/commit/366fe265f64581a0b638aec43cf6cf42b7e612ad). Gateway [PR #16](https://github.com/JustIkra/umir-gateway/pull/16) and [PR #17](https://github.com/JustIkra/umir-gateway/pull/17), together with frontend [PR #3](https://github.com/JustIkra/umir-frontend/pull/3), supply its public boundary. This candidate extends [factory PR #5](https://github.com/JustIkra/umir-factory/pull/5); selected image pins are unchanged.
 
 ```sh
 /tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
   --warehouse-ref 3e37af2f74a498c425c2dcb561be1bd3c9c01160 \
   --serving-ref 0fb867e7ff58e3106fa819355fc1ee298da58074 \
-  --gateway-ref d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969 \
+  --gateway-ref 0e7dbfd628fcab71188a67bb903044966ccd4248 \
   --frontend-ref 429ff994abf726d45926fcaf06d8bd3f33d61e50 \
-  --feedback-ref 3bea71b09b56f9fb17d39170688bf8d64b014225
+  --feedback-ref 366fe265f64581a0b638aec43cf6cf42b7e612ad
 ```
 
 Feedback acceptance builds the server and VPN images from the same exact service commit and records their source/revision labels and image identities. It creates private synthetic mail/bot configuration and proxy files for the owned Compose project; no user credentials are used. F01–F05 cover anonymous and session-bound submission, exact replay, identity conflict, validation/consent errors, honeypot acknowledgement, Origin/Fetch Metadata/CSRF, the 16 KiB boundary, and per-context limits with required `Retry-After`. Service-level tests cover journal atomicity, recovery, retention, and provider protocols; public acceptance does not inspect honeypot storage or claim live provider delivery.
@@ -236,7 +236,7 @@ Compose наследует `HEALTHCHECK` из Dockerfile каждого серв
 
 ### Сборка с личным кабинетом оператора
 
-Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend; у gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
+Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend, и только на `127.0.0.1`: `compose.auth.yaml` задаёт этот адрес сам, `UMIR_BIND` на него не влияет, а gateway всегда работает в режиме `loopback-development`. Это сборка для разработки и приёмки, её HTTP-вход не выходит за пределы машины. У gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
 
 ```sh
 docker compose -f compose.yaml -f compose.dev.yaml build gateway
@@ -247,6 +247,18 @@ docker compose -f compose.yaml -f compose.dev.yaml -f compose.auth.yaml up -d --
 ```
 
 `OPERATOR_PUBLIC_ORIGIN` обязателен и должен точно совпадать с адресом frontend в браузере, включая порт (`UMIR_WEB_PORT`). Если хэш записан в `.env`, возьмите его в одинарные кавычки: Compose подставляет `$` в значениях env-файла. Учётная запись создаётся при первом запуске на томе `operator-data`; дальше файл главнее `OPERATOR_BOOTSTRAP_*`. API доступен только через `http://127.0.0.1:8080/api/`, вход описан в [README gateway](https://github.com/JustIkra/umir-gateway#личный-кабинет-оператора).
+
+Если пауза смены пароля не активна и новый пароль допустим, `currentPassword` длиннее 32 Unicode code points отклоняется до проверки учётных данных: `422 PasswordRejected` с `fieldErrors.currentPassword: TooLong`. Такой запрос не расходует счётчик неверных проверок и не отзывает сессию. Пятая фактическая неверная проверка за скользящие 60 секунд отзывает только вызывающую сессию и запускает cooldown на 60 секунд; остальные сессии сохраняются. Пароли не обрезаются и не нормализуются. Подробные ошибки и состояния клиента определены в [OpenAPI](docs/api/openapi.yml) и [design brief](docs/frontend-design-brief.md#вход-и-кабинет-оператора).
+
+### Публичный контур
+
+Публичная сборка на ВМ ещё не развёрнута. Она появится вместе с переводом выбранных пинов на образы с входом оператора. Схема по gateway#8:
+- **HTTPS-вход.** Nginx Proxy Manager принимает HTTPS на 443 и завершает TLS. Его Proxy Host пересылает настроенный домен по сети ZeroTier на `http://<адрес ZeroTier ВМ>:8080`, то есть на frontend Nginx.
+- **Порты.** На ВМ порт хоста есть только у frontend: 8080 и только на адресе ZeroTier. У gateway, serving и warehouse портов на хосте нет.
+- **Режим gateway.** `OPERATOR_COOKIE_MODE=secure`, `OPERATOR_PUBLIC_ORIGIN=https://<домен в виде A-label>`. Cookie остаются `Secure` с префиксом `__Host-`, хотя внутренние участки идут по HTTP: защиту cookie и допустимый origin задаёт настройка, а не заголовки `X-Forwarded-*`.
+- **Повторы.** Ни NPM, ни frontend Nginx не повторяют запросы. Таймаут, разрыв или 502/504 после отправки означают неизвестный исход.
+- **Параметры.** Адрес ZeroTier и домен — параметры развёртывания, в репозитории их нет. Это переменные GitHub Actions `UMIR_BIND`, `UMIR_PUBLIC_URL`, `OPERATOR_PUBLIC_ORIGIN` и `OPERATOR_COOKIE_MODE`. `compose.auth.yaml` для ВМ не подходит: он всегда держит frontend на `127.0.0.1` в режиме `loopback-development`.
+- **Проверка.** Локальные проверки Compose не доказывают публичный TLS и маршрут. Домен и сертификат проверяются отдельно, на самой ВМ.
 
 ## Локальная сборка исходников
 
