@@ -208,6 +208,16 @@ docker compose -f compose.yaml -f compose.dev.yaml -f compose.auth.yaml up -d --
 
 `OPERATOR_PUBLIC_ORIGIN` обязателен и должен точно совпадать с адресом frontend в браузере, включая порт (`UMIR_WEB_PORT`). Если хэш записан в `.env`, возьмите его в одинарные кавычки: Compose подставляет `$` в значениях env-файла. Учётная запись создаётся при первом запуске на томе `operator-data`; дальше файл главнее `OPERATOR_BOOTSTRAP_*`. API доступен только через `http://127.0.0.1:8080/api/`, вход описан в [README gateway](https://github.com/JustIkra/umir-gateway#личный-кабинет-оператора).
 
+### Публичный контур
+
+Публичная сборка на ВМ ещё не развёрнута. Она появится вместе с переводом выбранных пинов на образы с входом оператора. Схема по gateway#8:
+- **HTTPS-вход.** Nginx Proxy Manager принимает HTTPS на 443 и завершает TLS. Его Proxy Host пересылает настроенный домен по сети ZeroTier на `http://<адрес ZeroTier ВМ>:8080`, то есть на frontend Nginx.
+- **Порты.** На ВМ порт хоста есть только у frontend: 8080 и только на адресе ZeroTier. У gateway, serving и warehouse портов на хосте нет.
+- **Режим gateway.** `OPERATOR_COOKIE_MODE=secure`, `OPERATOR_PUBLIC_ORIGIN=https://<домен в виде A-label>`. Cookie остаются `Secure` с префиксом `__Host-`, хотя внутренние участки идут по HTTP: защиту cookie и допустимый origin задаёт настройка, а не заголовки `X-Forwarded-*`.
+- **Повторы.** Ни NPM, ни frontend Nginx не повторяют запросы. Таймаут, разрыв или 502/504 после отправки означают неизвестный исход.
+- **Параметры.** Адрес ZeroTier и домен — параметры развёртывания, в репозитории их нет. Это переменные GitHub Actions `UMIR_BIND`, `UMIR_PUBLIC_URL`, `OPERATOR_PUBLIC_ORIGIN` и `OPERATOR_COOKIE_MODE`. `compose.auth.yaml` для ВМ не подходит: он всегда держит frontend на `127.0.0.1` в режиме `loopback-development`.
+- **Проверка.** Локальные проверки Compose не доказывают публичный TLS и маршрут. Домен и сертификат проверяются отдельно, на самой ВМ.
+
 ## Локальная сборка исходников
 
 Из каталога, который содержит `umir-factory`, клонируйте остальные репозитории:
