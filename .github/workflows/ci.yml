@@ -60,6 +60,10 @@ jobs:
         run: docker compose --env-file .env.example config --quiet
       - name: Validate development Compose
         run: docker compose --env-file .env.example -f compose.yaml -f compose.dev.yaml config --quiet
+      - name: Validate auth candidate Compose
+        env:
+          OPERATOR_PUBLIC_ORIGIN: http://127.0.0.1:8080
+        run: docker compose --env-file .env.example -f compose.yaml -f compose.auth.yaml config --quiet
       - name: Check pinned image identities
         run: |
           "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE"
@@ -67,7 +71,7 @@ jobs:
         run: bash tests/infra/image-checks.sh
       - name: Test assembly verification isolation and failures
         run: bash tests/infra/assembly-checks.sh
-      - name: Resolve HTTP candidate and fault Compose topologies
+      - name: Resolve HTTP candidate, fault and auth Compose topologies
         run: bash tests/infra/http-compose-checks.sh
       - name: Test HTTP acceptance stage activation
         run: bash tests/infra/http-stage-checks.sh
