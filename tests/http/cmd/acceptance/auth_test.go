@@ -156,6 +156,7 @@ func TestAuthCLIRequiresCredentialsTogether(t *testing.T) {
 	for name, extra := range map[string][]string{
 		"auth without credentials": {"--auth"},
 		"auth without password":    {"--auth", "--operator-login", "operator"},
+		"realtime without auth":    {"--realtime"},
 		"credentials without auth": {"--operator-login", "operator", "--operator-password-file", password},
 		"missing password file":    {"--auth", "--operator-login", "operator", "--operator-password-file", password + "-missing"},
 	} {

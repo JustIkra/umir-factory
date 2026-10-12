@@ -28,6 +28,12 @@ func TestHTTPAcceptanceRequiresOneModeAndFourExactRefs(t *testing.T) {
 	if _, err := parseOptions("http-acceptance", valid); err != nil {
 		t.Fatalf("valid candidate options rejected: %v", err)
 	}
+	if _, err := parseOptions("http-acceptance", append(append([]string(nil), valid...), "--realtime")); err == nil {
+		t.Fatal("realtime was accepted without the disposable auth candidate")
+	}
+	if options, err := parseOptions("http-acceptance", append(append([]string(nil), valid...), "--auth", "--realtime")); err != nil || !options.realtime {
+		t.Fatalf("auth realtime candidate = %+v, %v", options, err)
+	}
 
 	for name, args := range map[string][]string{
 		"missing mode": {"--factory-dir", factory},
@@ -54,6 +60,20 @@ func TestHTTPAcceptanceRequiresOneModeAndFourExactRefs(t *testing.T) {
 	}
 }
 
+func TestHTTPRealtimeRequiresCandidateAndAuth(t *testing.T) {
+	factory := t.TempDir()
+	for name, args := range map[string][]string{
+		"selected":               {"--factory-dir", factory, "--selected", "--realtime"},
+		"candidate without auth": append(candidateArgs(factory), "--realtime"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := parseOptions("http-acceptance", args); err == nil {
+				t.Fatal("invalid realtime mode accepted")
+			}
+		})
+	}
+}
+
 func TestHTTPSelectedModeDoesNotAcceptCandidateRefs(t *testing.T) {
 	_, err := parseOptions("http-acceptance", []string{"--factory-dir", t.TempDir(), "--selected", "--warehouse-ref", strings.Repeat("a", 40)})
 	if err == nil {
@@ -69,11 +89,11 @@ func TestHTTPAcceptanceRequiresEveryBlackBoxMatrixOutcome(t *testing.T) {
 		}
 		outcomes = append(outcomes, fmt.Sprintf("H%02d:passed", number))
 	}
-	if err := validateHTTPOutcomes(outcomes, false); err == nil {
+	if err := validateHTTPOutcomes(outcomes, false, false, false); err == nil {
 		t.Fatal("HTTP matrix accepted missing runner-owned H25 evidence")
 	}
 	outcomes = append(outcomes, "H25:passed")
-	if err := validateHTTPOutcomes(outcomes, false); err != nil {
+	if err := validateHTTPOutcomes(outcomes, false, false, false); err != nil {
 		t.Fatalf("complete black-box matrix rejected: %v", err)
 	}
 	for name, invalid := range map[string][]string{
@@ -83,7 +103,7 @@ func TestHTTPAcceptanceRequiresEveryBlackBoxMatrixOutcome(t *testing.T) {
 		"failed scenario":           append(append([]string(nil), outcomes[:len(outcomes)-1]...), "H25:failed"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := validateHTTPOutcomes(invalid, false); err == nil {
+			if err := validateHTTPOutcomes(invalid, false, false, false); err == nil {
 				t.Fatal("invalid HTTP matrix was accepted")
 			}
 		})
@@ -131,6 +151,60 @@ func TestHTTPOverrideIsValidComposeJSONWithOneConfigPerService(t *testing.T) {
 		if !ok || len(ports) != 1 || !strings.HasPrefix(fmt.Sprint(ports[0]), "127.0.0.1::") {
 			t.Errorf("%s control port is not loopback/ephemeral: %#v", fixture, config.Services[fixture]["ports"])
 		}
+	}
+}
+
+func TestRealtimeFaultOverrideKeepsPublicAndInternalWarehousePathsSeparate(t *testing.T) {
+	options := cliOptions{candidate: true, realtime: true, warehouse: strings.Repeat("a", 40), serving: strings.Repeat("b", 40), gateway: strings.Repeat("c", 40), frontend: strings.Repeat("d", 40)}
+	path := filepath.Join(t.TempDir(), "override.json")
+	if err := writeHTTPOverride(path, options, "umir-http-test", "fault-image", "ephemeral-token"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config struct {
+		Services map[string]struct {
+			Environment map[string]string `json:"environment"`
+			Command     []string          `json:"command"`
+			DependsOn   map[string]struct {
+				Condition string `json:"condition"`
+			} `json:"depends_on"`
+		} `json:"services"`
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Services) != 7 {
+		t.Fatalf("realtime fault topology services = %d, want 7", len(config.Services))
+	}
+	if got := config.Services["gateway"].Environment["WAREHOUSE_URL"]; got != "http://http-fault-warehouse-public:8080" {
+		t.Fatalf("gateway public warehouse URL = %q", got)
+	}
+	if got := config.Services["serving"].Environment["WAREHOUSE_INTERNAL_URL"]; got != "http://http-fault-warehouse:8082" {
+		t.Fatalf("serving internal warehouse URL = %q", got)
+	}
+	if got := config.Services["http-fault-warehouse-public"].DependsOn["warehouse"].Condition; got != "service_healthy" {
+		t.Fatalf("public fixture dependency = %q", got)
+	}
+}
+
+func TestRealtimeHTTPOutcomeMatrixRequiresRealtimeResults(t *testing.T) {
+	// The ordinary matrix is required in both modes; explicit realtime adds its own normal/fault evidence.
+	base := make([]string, 0, 38)
+	for number := 1; number <= 25; number++ {
+		if number != 16 && number != 25 {
+			base = append(base, fmt.Sprintf("H%02d:passed", number))
+		}
+	}
+	base = append(base, "H25:passed")
+	if err := validateHTTPOutcomes(base, false, false, true); err == nil {
+		t.Fatal("realtime matrix accepted no realtime outcomes")
+	}
+	complete := append(append([]string(nil), base...), "R01:passed", "R02:passed", "R03:passed", "R04:passed", "R05:passed", "R06:passed", "R07:passed")
+	if err := validateHTTPOutcomes(complete, false, false, true); err != nil {
+		t.Fatalf("complete realtime matrix rejected: %v", err)
 	}
 }
 

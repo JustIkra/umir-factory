@@ -2,6 +2,9 @@
 
 ## Не выпущено
 
+- Добавлена редакция public gateway OpenAPI `1.1.0-draft.1` с candidate-only SSE `GET /api/live`, пятью строгими event schemas, ограничениями потоков и необязательным `X-Umir-Activity: background`. Добавлен private-network контракт warehouse `POST /expiration-runs`; gateway и browser route не объявлены. Handoff, frontend stale-state brief, Go architecture и README отделяют service behavior от pending gateway/Nginx candidate и сохранённых selected pins.
+- Уточнено владение просрочкой: warehouse сохраняет обработку due-expiration при свежих складских операциях и через новый сервисный запрос; автономное warehouse-расписание удалено. Gateway владеет будущим scheduler, реализация которого остаётся внешней зависимостью. Snapshot retry остаётся независимым с `SNAPSHOT_RETRY_INTERVAL` по умолчанию `1s`. Зафиксировано, что отдельный auth service и его письма через общий SMTP binding — pending migration по gateway #18.
+
 - Приёмка frontend/gateway использует межмодульные тесты warehouse/serving и HTTP-проверки реальных сервисов вместо отдельного этапа сценарных бизнес-моков. Обновлены handoff и критерии интеграционного ревью; gateway #1 выполнен, factory #2 остаётся открыт для frontend/Figma и браузерной приёмки.
 
 - Обновлён статус документации: HTTP-адаптеры и Resolve в рамках работающих процессов реализованы; постоянное бизнес-состояние и восстановление после перезапуска остаются следующими задачами. Уточнены Figma/frontend, пять слоёв клиента и граница кабинета оператора. README содержит оставшиеся задачи с зависимостями и ссылки на выполненные gateway #8 и feedback #1.

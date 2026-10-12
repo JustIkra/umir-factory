@@ -19,18 +19,20 @@ import (
 )
 
 type config struct {
-	phase          string
-	gatewayURL     string
-	servingFault   string
-	warehouseFault string
-	controlToken   string
-	factoryDir     string
-	composeProject string
+	phase                string
+	gatewayURL           string
+	servingFault         string
+	warehouseFault       string
+	publicWarehouseFault string
+	controlToken         string
+	factoryDir           string
+	composeProject       string
 	// composeOverrides are the Compose files after compose.yaml, in order.
 	composeOverrides []string
 	// auth signs in through gatewayURL, the public frontend URL, before any business request.
 	auth                 bool
 	feedback             bool
+	realtime             bool
 	operatorLogin        string
 	operatorPasswordFile string
 }
@@ -49,11 +51,13 @@ type suite struct {
 	cfg    config
 	client *http.Client
 	// session is the signed-in operator in auth acceptance; nil sends no credentials.
-	session   *operatorSession
-	serving   *faultControl
-	warehouse *faultControl
-	result    scenarioResult
-	current   string
+	session         *operatorSession
+	serving         *faultControl
+	warehouse       *faultControl
+	publicWarehouse *faultControl
+	liveClient      *http.Client
+	result          scenarioResult
+	current         string
 }
 
 type faultControl struct {
@@ -77,6 +81,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags.StringVar(&cfg.gatewayURL, "gateway-url", "", "public API URL: gateway, or frontend in auth acceptance")
 	flags.StringVar(&cfg.servingFault, "serving-fault-control-url", "", "serving-to-warehouse fault fixture control URL")
 	flags.StringVar(&cfg.warehouseFault, "warehouse-fault-control-url", "", "gateway-to-serving fault fixture control URL")
+	flags.StringVar(&cfg.publicWarehouseFault, "public-warehouse-fault-control-url", "", "gateway-to-public-warehouse fault fixture control URL")
 	flags.StringVar(&cfg.controlToken, "control-token", "", "ephemeral control token")
 	flags.StringVar(&cfg.factoryDir, "factory-dir", "", "absolute factory checkout")
 	flags.StringVar(&cfg.composeProject, "compose-project", "", "owned Compose project for restart scenarios")
@@ -86,6 +91,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	})
 	flags.BoolVar(&cfg.auth, "auth", false, "sign in as the operator through the public frontend URL")
 	flags.BoolVar(&cfg.feedback, "feedback", false, "run public feedback acceptance scenarios (requires --auth)")
+	flags.BoolVar(&cfg.realtime, "realtime", false, "run candidate live stream acceptance scenarios (requires --auth)")
 	flags.StringVar(&cfg.operatorLogin, "operator-login", "", "disposable operator login for auth acceptance")
 	flags.StringVar(&cfg.operatorPasswordFile, "operator-password-file", "", "absolute file with the disposable operator password")
 	if err := flags.Parse(args); err != nil {
@@ -106,6 +112,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if cfg.feedback && (!cfg.auth || cfg.phase != "normal") {
 		diagnostic(stderr, "--feedback requires --auth and --phase normal\n")
+		return 2
+	}
+	if cfg.realtime && !cfg.auth {
+		diagnostic(stderr, "--realtime requires --auth candidate mode\n")
+		return 2
+	}
+	if !cfg.realtime && cfg.publicWarehouseFault != "" {
+		diagnostic(stderr, "--public-warehouse-fault-control-url requires --realtime\n")
 		return 2
 	}
 	if cfg.auth {
@@ -140,11 +154,23 @@ func run(args []string, stdout, stderr io.Writer) int {
 			diagnostic(stderr, "--control-token is required for fault scenarios\n")
 			return 2
 		}
+		if cfg.realtime {
+			if err := validateURL(cfg.publicWarehouseFault, true); err != nil {
+				diagnostic(stderr, "invalid public warehouse fault control URL: %v\n", err)
+				return 2
+			}
+		}
 	}
 	s := &suite{cfg: cfg, client: &http.Client{Timeout: 16 * time.Second}}
+	if cfg.realtime {
+		s.liveClient = &http.Client{}
+	}
 	if cfg.phase == "faults" {
 		s.serving = &faultControl{base: strings.TrimRight(cfg.servingFault, "/"), token: cfg.controlToken, client: &http.Client{Timeout: 32 * time.Second}}
 		s.warehouse = &faultControl{base: strings.TrimRight(cfg.warehouseFault, "/"), token: cfg.controlToken, client: &http.Client{Timeout: 32 * time.Second}}
+		if cfg.realtime {
+			s.publicWarehouse = &faultControl{base: strings.TrimRight(cfg.publicWarehouseFault, "/"), token: cfg.controlToken, client: &http.Client{Timeout: 32 * time.Second}}
+		}
 	}
 	var err error
 	switch {
@@ -159,8 +185,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if err == nil && cfg.feedback {
 			err = s.runFeedback()
 		}
+		if err == nil && cfg.realtime {
+			err = s.runRealtime()
+		}
 	} else if err == nil {
 		err = s.runFaults()
+		if err == nil && cfg.realtime {
+			err = s.realtimeUpstreamFault()
+		}
 	}
 	data, marshalErr := json.Marshal(s.result)
 	if marshalErr != nil {
@@ -560,7 +592,7 @@ func validateRestartConfig(cfg restartConfig, service string) error {
 	if !ownedComposeProject(cfg.project) {
 		return fmt.Errorf("compose project %q is not an owned HTTP acceptance project", cfg.project)
 	}
-	if service != "warehouse" && service != "serving" {
+	if service != "warehouse" && service != "serving" && service != "gateway" {
 		return fmt.Errorf("service %q is not restartable by acceptance scenarios", service)
 	}
 	for _, name := range []string{"compose.yaml", ".env.example"} {

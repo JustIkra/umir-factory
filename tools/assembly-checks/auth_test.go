@@ -48,17 +48,17 @@ func completeOutcomes(auth bool) []string {
 }
 
 func TestAuthAcceptanceRequiresTheAuthScenarios(t *testing.T) {
-	if err := validateHTTPOutcomes(completeOutcomes(true), true); err != nil {
+	if err := validateHTTPOutcomes(completeOutcomes(true), true, false, false); err != nil {
 		t.Fatalf("complete auth matrix rejected: %v", err)
 	}
 	withoutA03 := slices.DeleteFunc(completeOutcomes(true), func(outcome string) bool { return outcome == "A03:passed" })
-	if err := validateHTTPOutcomes(withoutA03, true); err == nil {
+	if err := validateHTTPOutcomes(withoutA03, true, false, false); err == nil {
 		t.Fatal("auth matrix accepted a missing A03")
 	}
-	if err := validateHTTPOutcomes(completeOutcomes(true), false); err == nil {
+	if err := validateHTTPOutcomes(completeOutcomes(true), false, false, false); err == nil {
 		t.Fatal("legacy matrix accepted auth outcomes")
 	}
-	if err := validateHTTPOutcomes(completeOutcomes(false), false); err != nil {
+	if err := validateHTTPOutcomes(completeOutcomes(false), false, false, false); err != nil {
 		t.Fatalf("complete legacy matrix rejected: %v", err)
 	}
 }
@@ -224,6 +224,7 @@ type authPhaseExecutor struct {
 	port           int
 	publishGateway bool
 	faultControls  bool
+	realtime       bool
 	composeEnvs    [][]string
 	harnessEnv     []string
 	portQueries    []string
@@ -247,7 +248,11 @@ func (e *authPhaseExecutor) Run(ctx context.Context, dir string, env []string, n
 				report = append(report, map[string]any{"Service": service, "State": "running", "Health": "healthy", "Publishers": publishers})
 			}
 			if e.faultControls {
-				for index, fixture := range []string{"http-fault-serving", "http-fault-warehouse"} {
+				fixtures := []string{"http-fault-serving", "http-fault-warehouse"}
+				if e.realtime {
+					fixtures = append(fixtures, "http-fault-warehouse-public")
+				}
+				for index, fixture := range fixtures {
 					report = append(report, map[string]any{"Service": fixture, "State": "running", "Health": "healthy", "Publishers": []any{publisher("127.0.0.1", 9090, 18100+index)}})
 				}
 			}
@@ -262,6 +267,49 @@ func (e *authPhaseExecutor) Run(ctx context.Context, dir string, env []string, n
 		return data, nil, err
 	}
 	return e.httpRunnerExecutor.Run(ctx, dir, env, name, args...)
+}
+
+func TestRealtimeFaultPhasePassesPublicWarehouseControlURL(t *testing.T) {
+	factory := runnerTestFactory(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]string{`/api/serving/healthz`: `{"status":"ok","service":"umir-serving"}`, `/api/warehouse/healthz`: `{"status":"ok","service":"umir-warehouse"}`, `/`: `<div id="root"></div>`}[r.URL.Path]
+		if body == "" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := writeTestResponse(w, body); err != nil {
+			t.Errorf("write smoke response: %v", err)
+		}
+	}))
+	defer server.Close()
+	address := strings.TrimPrefix(server.URL, "http://")
+	portText := strings.TrimPrefix(address, "127.0.0.1:")
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(passwordFile, []byte("disposable\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	auth := &authAssembly{port: port, origin: server.URL, login: "operator", displayName: "Приёмка", passwordHash: "$argon2id$hash", passwordFile: passwordFile}
+	executor := &authPhaseExecutor{address: address, port: port, faultControls: true, realtime: true}
+	evidence := httpRunEvidence{PhaseCleanup: map[string]string{}, ContainerIDs: map[string]map[string]string{}, Images: map[string]imageEvidence{}}
+	for _, service := range []string{"warehouse", "serving", "gateway", "frontend", "fault-fixture"} {
+		evidence.Images[service] = imageEvidence{ID: "sha256:local"}
+	}
+	var stdout, stderr strings.Builder
+	result, err := runHTTPPhase(context.Background(), factory, "umir-http-0123456789abcdef01234567-fault", filepath.Join(t.TempDir(), "faults.json"), "faults", "/bin/http-acceptance", "token", cliOptions{candidate: true, auth: true, realtime: true}, auth, &evidence, executor, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("realtime auth fault phase failed: %v; %s", err, stderr.String())
+	}
+	if len(result.Outcomes) == 0 {
+		t.Fatal("realtime fault harness emitted no outcomes")
+	}
+	args := executor.acceptanceArgs[0]
+	if !slices.Contains(args, "--realtime") || valueAfter(args, "--public-warehouse-fault-control-url") != server.URL {
+		t.Fatalf("realtime fault arguments = %v", args)
+	}
 }
 
 func TestAuthPhaseUsesOnlyTheFrontendAndTheOverride(t *testing.T) {
@@ -295,7 +343,7 @@ func TestAuthPhaseUsesOnlyTheFrontendAndTheOverride(t *testing.T) {
 	}
 	override := filepath.Join(t.TempDir(), "compose.normal.json")
 	var stdout, stderr strings.Builder
-	result, err := runHTTPPhase(context.Background(), factory, "umir-http-0123456789abcdef01234567", override, "normal", "/bin/http-acceptance", "token", cliOptions{candidate: true, auth: true}, auth, &evidence, executor, &stdout, &stderr)
+	result, err := runHTTPPhase(context.Background(), factory, "umir-http-0123456789abcdef01234567", override, "normal", "/bin/http-acceptance", "token", cliOptions{candidate: true, auth: true, realtime: true}, auth, &evidence, executor, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("auth phase failed: %v; %s", err, stderr.String())
 	}
@@ -316,7 +364,7 @@ func TestAuthPhaseUsesOnlyTheFrontendAndTheOverride(t *testing.T) {
 		}
 	}
 	args := executor.acceptanceArgs[0]
-	if valueAfter(args, "--gateway-url") != server.URL || !slices.Contains(args, "--auth") ||
+	if valueAfter(args, "--gateway-url") != server.URL || !slices.Contains(args, "--auth") || !slices.Contains(args, "--realtime") ||
 		valueAfter(args, "--operator-login") != "operator" || valueAfter(args, "--operator-password-file") != passwordFile {
 		t.Errorf("harness args = %v", args)
 	}
