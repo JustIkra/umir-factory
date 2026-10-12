@@ -2129,9 +2129,19 @@ paths:
                 documentVersion: "2026-10-12"
               website: ""
       responses:
+        "200":
+          description: Planned service answer. An exact repeat of a stored submissionID with the same normalized
+            content returns the original receipt; no notification job is created again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackReceipt"
+              example:
+                submissionID: 2f6b7c1e-4a3d-4e8b-9c2a-1d5e6f7a8b9c
+                receivedAt: 2026-10-12T12:00:00+03:00
         "201":
           description: The service stored the submission and its two notification jobs; delivery is not confirmed.
-            An exact repeat of a stored submission answers 200 with the original body.
+            A non-empty website also answers 201 and stores nothing.
           content:
             application/json:
               schema:
@@ -2140,15 +2150,65 @@ paths:
                 submissionID: 2f6b7c1e-4a3d-4e8b-9c2a-1d5e6f7a8b9c
                 receivedAt: 2026-10-12T12:00:00+03:00
         "400":
-          $ref: "#/components/responses/InvalidRequest"
+          description: InvalidRequest. Gateway answers OperatorError when the body is not one JSON object; the service
+            answers FeedbackServiceError when the object breaks the request schema or submissionID is not a UUID v4.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - anyOf:
+                      - $ref: "#/components/schemas/OperatorError"
+                      - $ref: "#/components/schemas/FeedbackServiceError"
+                  - properties:
+                      code:
+                        const: InvalidRequest
+              example:
+                code: InvalidRequest
+                message: request body is not a JSON object
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
         "403":
           $ref: "#/components/responses/CsrfRejected"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          description: Planned service answer. SubmissionIdentityConflict; another submission is stored under this
+            submissionID. Nothing was stored; generate a new submissionID only for new content.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/FeedbackServiceError"
+                  - properties:
+                      code:
+                        const: SubmissionIdentityConflict
+              example:
+                code: SubmissionIdentityConflict
+                message: another submission uses this submissionID
+                requestID: 01JA2B3C4D5E6F7G8H9J0KMNPQ
         "413":
           $ref: "#/components/responses/PayloadTooLarge"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: Planned service answer. InvalidFeedback with the rejected fields in fieldErrors, or
+            ConsentRequired when consent is missing (field code ConsentRequired) or names an outdated document
+            (ConsentOutdated). Nothing was stored.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/FeedbackServiceError"
+                  - properties:
+                      code:
+                        enum:
+                          - InvalidFeedback
+                          - ConsentRequired
+              example:
+                code: InvalidFeedback
+                message: some fields are invalid
+                fieldErrors:
+                  email: InvalidFormat
+                requestID: 01JA2B3C4D5E6F7G8H9J0KMNPQ
         "429":
           description: FeedbackRateLimited. The CSRF context or the gateway used up its posts in the window.
           headers:
@@ -2172,6 +2232,21 @@ paths:
                 code: UpstreamUnavailable
                 message: upstream service did not respond
                 outcome: unknown
+        "503":
+          description: Planned service answer. FeedbackStorageUnavailable; the submission was not confirmed as
+            stored. Repeating the same submissionID and content is safe.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/FeedbackServiceError"
+                  - properties:
+                      code:
+                        const: FeedbackStorageUnavailable
+              example:
+                code: FeedbackStorageUnavailable
+                message: the submission was not stored
+                requestID: 01JA2B3C4D5E6F7G8H9J0KMNPQ
         "504":
           description: The service did not answer in time; the outcome is unknown. Repeat with the same submissionID.
           content:
@@ -3842,6 +3917,46 @@ components:
           format: uuid
         receivedAt:
           $ref: "#/components/schemas/MoscowTimestamp"
+    FeedbackServiceError:
+      type: object
+      x-implementation-status: planned
+      description: Error of the umir-feedback service (umir-feedback#1) that the gateway passes through unchanged,
+        with Cache-Control no-store. Choose the user text by code and fieldErrors codes; message is for logs and
+        developers.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - requestID
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidRequest
+            - SubmissionIdentityConflict
+            - InvalidFeedback
+            - ConsentRequired
+            - FeedbackStorageUnavailable
+        message:
+          type: string
+          minLength: 1
+        fieldErrors:
+          type: object
+          description: Only on 422; maps the rejected field to its stable code.
+          additionalProperties:
+            type: string
+            enum:
+              - Required
+              - TooShort
+              - TooLong
+              - InvalidFormat
+              - InvalidCharacters
+              - ConsentRequired
+              - ConsentOutdated
+        requestID:
+          type: string
+          minLength: 1
+          description: The ID the feedback service writes to its log.
     InvalidArgumentError:
       type: object
       description: Invalid request rejected before writing this attempt. Arithmetic overflow and unsupported units
