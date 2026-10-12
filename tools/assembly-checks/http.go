@@ -477,7 +477,11 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		if err != nil {
 			return result, fmt.Errorf("docker compose ps: %s: %w", strings.TrimSpace(string(errOut)), err)
 		}
-		if err := checkPublishedPorts(report, auth.port); err != nil {
+		var controls []string
+		if phase == "faults" {
+			controls = []string{"http-fault-serving", "http-fault-warehouse"}
+		}
+		if err := checkPublishedPorts(report, auth.port, controls); err != nil {
 			return result, fmt.Errorf("verify the %s one-port boundary: %w", phase, err)
 		}
 		published = []string{"frontend"}

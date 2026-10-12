@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -143,9 +144,10 @@ type composePublisher struct {
 }
 
 // checkPublishedPorts proves the one-port boundary from a Compose ps report: frontend publishes exactly
-// its port 8080 on loopback at port, and no other application service publishes anything. An exposed
-// port that is not published reports PublishedPort 0.
-func checkPublishedPorts(report []byte, port int) error {
+// its port 8080 on loopback at port, and no other container of the project publishes anything except the
+// named fault fixtures, whose control port 9090 may be published on loopback only. An exposed port that is
+// not published reports PublishedPort 0.
+func checkPublishedPorts(report []byte, port int, controls []string) error {
 	type container struct {
 		Service    string             `json:"Service"`
 		Publishers []composePublisher `json:"Publishers"`
@@ -167,13 +169,14 @@ func checkPublishedPorts(report []byte, port int) error {
 	}
 	frontend := 0
 	for _, c := range containers {
-		switch c.Service {
-		case "warehouse", "serving", "gateway", "frontend":
-		default:
-			continue
-		}
 		for _, p := range c.Publishers {
 			if p.PublishedPort == 0 {
+				continue
+			}
+			if slices.Contains(controls, c.Service) {
+				if p.URL != "127.0.0.1" || p.TargetPort != 9090 {
+					return fmt.Errorf("%s publishes %s:%d->%d, want its control port on 127.0.0.1 only", c.Service, p.URL, p.PublishedPort, p.TargetPort)
+				}
 				continue
 			}
 			if c.Service != "frontend" {

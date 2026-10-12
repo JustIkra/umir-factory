@@ -50,8 +50,8 @@ func TestAuthCandidateOverridePublishesOnlyTheFrontend(t *testing.T) {
 		"OPERATOR_BOOTSTRAP_DISPLAY_NAME=Приёмка", "OPERATOR_BOOTSTRAP_PASSWORD_HASH=$argon2id$v=19$m=65536,t=2,p=1$c2FsdA$aGFzaA",
 	}
 	config := authComposeOutput(t, docker, factoryDir, env)
-	for _, service := range []string{"warehouse", "serving", "gateway"} {
-		if ports := config.Services[service].Ports; len(ports) != 0 {
+	for service, definition := range config.Services {
+		if ports := definition.Ports; service != "frontend" && len(ports) != 0 {
 			t.Errorf("auth candidate publishes %s ports: %#v", service, ports)
 		}
 	}
