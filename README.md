@@ -88,6 +88,29 @@ Candidate mode verifies each source checkout and builds local test images from t
 
 The manual CI candidate gate accepts four complete commit SHA inputs. Selected HTTP acceptance remains gated on published full-SHA images selected in Compose. Scenario outcomes and image/container identities are retained as JSON evidence. Candidate images use stable local tags derived from each exact source SHA. The fault fixture tag uses the factory commit SHA and dirty-tree content hash. Compose project names remain unique for each run, while Docker reuses these tags and their shared layers. Acceptance cleanup removes only its owned Compose projects; it does not remove cached images.
 
+### Operator auth candidate
+
+`compose.auth.yaml` turns the assembly into the one-port operator auth topology of gateway#8 and gateway#10. Applied after `compose.yaml`, it removes the gateway host port, so frontend is the only application port. It also configures operator sign-in with a required exact `OPERATOR_PUBLIC_ORIGIN` and keeps the account file on the `operator-data` volume. Its top-level line `x-umir-auth-acceptance: candidate` is the explicit capability marker. The selected assembly never loads the file, and nothing detects auth from responses.
+
+```sh
+/tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
+  --warehouse-ref <40-character-sha> --serving-ref <40-character-sha> \
+  --gateway-ref <40-character-sha> --frontend-ref <40-character-sha>
+```
+
+`--auth` requires `--candidate` and the marker. For each run the runner does the following:
+- **Operator.** It creates a disposable operator. The candidate gateway image runs `hash-password` with a random password on stdin, never in argv or the environment. The password stays in a private file of the run workspace.
+- **Port.** It picks a free loopback port that is both the frontend host port and the exact public origin. Before any scenario, `docker compose ps` must show that only frontend publishes a port, exactly `127.0.0.1:<port>->8080`; a published gateway or backend stops the phase.
+- **Requests.** Smoke checks and the harness use the frontend URL for the API. The harness signs in through frontend and sends the session cookie with every request, and the exact `Origin` and `X-CSRF-Token` with every unsafe one.
+- **Scenarios.** Before the business scenarios it records:
+  - A01: business requests without a session get `401` and change nothing, and any success fails the run;
+  - A02: sign-in and `/me`;
+  - A03: missing or wrong tokens, foreign origins and cross-site requests get `403` and change nothing;
+  - A04: logout of a second session.
+- **Result.** The matrix requires A01–A04 in addition to H01–H25. Evidence records `"auth": true`, and cleanup also removes the disposable account volume.
+
+The manual CI candidate gate runs this mode with the `http_auth` input. Selected acceptance keeps its published draft.2 contract until the coordinated image publication and pin update.
+
 Before either phase starts, the runner executes the three warehouse owner, recheck, and HTTP pending tests against the exact selected warehouse source with `go test -race -count=1 -json`. Evidence records the source SHA and test names and preserves raw JSON and stderr files. The runner writes its evidence record before source resolution, image build, or pull can fail, so early failures retain the facts already known.
 The current selected image pins remain unchanged until tested HTTP service commits are published and selected.
 
@@ -105,7 +128,7 @@ make check
 
 ## Gateway OpenAPI
 
-[OpenAPI v1](docs/api/openapi.yml), revision `1.0.0-draft.2`, defines the implemented public gateway contract for 15 business operations and three health routes. Real gateway, serving and warehouse processes exchange business requests over HTTP. Business values use bounded decimal strings and Moscow `+03:00` timestamps; serving recipe/order DTOs map to wire `ingredients` and `acceptedPositions`. [The internal warehouse contract](docs/api/warehouse-internal.yml), revision `1.0.1-draft.1`, defines the private serving-to-warehouse listener and recorded command/attempt results. It references common scalar schemas in `openapi.yml`; distribute both files or bundle the internal document. API revisions are separate from service releases and selected image pins. These documents describe local HTTP source revisions; the selected published images serve this HTTP API.
+[OpenAPI v1](docs/api/openapi.yml), revision `1.0.0-draft.4`, defines the implemented public gateway contract for 15 business operations and three health routes. It also defines the single-operator account routes under `/api/operator`, the session and CSRF requirements of the business guard, and the public `POST /api/feedback` boundary. These are `implemented-candidate`: the auth candidate assembly serves them, and the selected images keep the draft.2 behaviour without authentication. Real gateway, serving and warehouse processes exchange business requests over HTTP. Business values use bounded decimal strings and Moscow `+03:00` timestamps; serving recipe/order DTOs map to wire `ingredients` and `acceptedPositions`. [The internal warehouse contract](docs/api/warehouse-internal.yml), revision `1.0.1-draft.1`, defines the private serving-to-warehouse listener and recorded command/attempt results. It references common scalar schemas in `openapi.yml`; distribute both files or bundle the internal document. API revisions are separate from service releases and selected image pins. These documents describe local HTTP source revisions; the selected published images serve this HTTP API.
 
 Data and confirmation attempts stay in process memory. Restarts lose the state owned by the restarted service; a missing proposal has outcome `unknown`. Resolve is passive and exact retries replay saved results. `ProposalSuperseded` is a normal HTTP 200 result; pending uses 202 and command identity conflicts use 409. Invalid read input returns `unavailable`, rejected modifying input returns `not_committed` for that input, and invalid Resolve input leaves the original confirmation `unknown`. A valid Resolve can replay a saved owner refusal as `not_committed`. Missing warehouse dishes can return a cached `DishNotFound` refusal after a warehouse memory reset. Inventory and transport failures on write paths keep outcome `unknown`. Preparation first evaluates stock through the non-mutating internal `POST /order-evaluations`; its authoritative read errors use `unavailable`, and no proposal is created. A repeated preparation creates a new proposal ID.
 
@@ -144,6 +167,20 @@ Compose наследует `HEALTHCHECK` из Dockerfile каждого серв
 | `UMIR_BIND` | `127.0.0.1` |
 | `UMIR_WEB_PORT` | `8080` |
 | `UMIR_API_PORT` | `8081` |
+
+### Сборка с личным кабинетом оператора
+
+Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend; у gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
+
+```sh
+docker compose -f compose.yaml -f compose.dev.yaml build gateway
+docker run --rm -it umir-gateway:dev hash-password
+export OPERATOR_PUBLIC_ORIGIN=http://127.0.0.1:8080 OPERATOR_BOOTSTRAP_LOGIN=operator \
+  OPERATOR_BOOTSTRAP_DISPLAY_NAME='Оператор' OPERATOR_BOOTSTRAP_PASSWORD_HASH='<PHC из hash-password>'
+docker compose -f compose.yaml -f compose.dev.yaml -f compose.auth.yaml up -d --build --wait --wait-timeout 120
+```
+
+`OPERATOR_PUBLIC_ORIGIN` обязателен и должен точно совпадать с адресом frontend в браузере, включая порт (`UMIR_WEB_PORT`). Если хэш записан в `.env`, возьмите его в одинарные кавычки: Compose подставляет `$` в значениях env-файла. Учётная запись создаётся при первом запуске на томе `operator-data`; дальше файл главнее `OPERATOR_BOOTSTRAP_*`. API доступен только через `http://127.0.0.1:8080/api/`, вход описан в [README gateway](https://github.com/JustIkra/umir-gateway#личный-кабинет-оператора).
 
 ## Локальная сборка исходников
 
