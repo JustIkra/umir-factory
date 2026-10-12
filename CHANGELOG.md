@@ -2,6 +2,7 @@
 
 ## Не выпущено
 
+- OpenAPI draft.4 declares `Cache-Control: no-store` on every operator success response, requires `sessionRevoked` exactly on `PasswordChangeRateLimited`, and bounds `displayName` to 80 code points, as the gateway already does (gateway#8).
 - `compose.auth.yaml` is a loopback development and acceptance assembly: frontend binds `127.0.0.1` whatever `UMIR_BIND` says, and gateway always runs in `loopback-development` cookie mode, so its plain-HTTP edge never leaves the host (gateway#8).
 - Completed the six operator operations' OpenAPI 502/504 responses: read failures are unavailable, and lost modifying responses keep an unknown account or session outcome.
 

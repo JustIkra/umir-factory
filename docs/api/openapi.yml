@@ -1781,6 +1781,8 @@ paths:
         "200":
           description: CSRF token. Send it in X-CSRF-Token with the exact Origin on unsafe requests.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
             Set-Cookie:
               description: Pre-auth cookie of a new anonymous context; HttpOnly, SameSite=Strict, Path=/.
               schema:
@@ -1832,6 +1834,8 @@ paths:
         "200":
           description: Signed in. The body never contains the session ID.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
             Set-Cookie:
               description: The new session cookie.
               schema:
@@ -1911,6 +1915,8 @@ paths:
         "204":
           description: Logged out; the session cookie is cleared.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
             Set-Cookie:
               description: Clears the session cookie.
               schema:
@@ -1939,6 +1945,9 @@ paths:
       responses:
         "200":
           description: Same object as sign-in.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
           content:
             application/json:
               schema:
@@ -1987,6 +1996,9 @@ paths:
       responses:
         "200":
           description: The stored profile.
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
           content:
             application/json:
               schema:
@@ -2054,6 +2066,8 @@ paths:
         "204":
           description: Password changed; every session is revoked and this session's cookie is cleared.
           headers:
+            Cache-Control:
+              $ref: "#/components/headers/NoStore"
             Set-Cookie:
               description: Clears the session cookie.
               schema:
@@ -2444,6 +2458,11 @@ components:
       schema:
         type: string
         const: Session realm="umir-operator"
+    NoStore:
+      description: Every answer of the operator routes, success or error, carries Cache-Control no-store.
+      schema:
+        type: string
+        const: no-store
   responses:
     GatewayReadUnavailable:
       description: The frontend proxy could not obtain the gateway response. No query result is available.
@@ -3756,6 +3775,7 @@ components:
         displayName:
           type: string
           minLength: 2
+          maxLength: 80
           description: Trimmed NFC display name of 2 to 80 Unicode code points.
     OperatorSession:
       type: object
@@ -3858,6 +3878,19 @@ components:
         - code
         - message
         - requestID
+      if:
+        required:
+          - code
+        properties:
+          code:
+            const: PasswordChangeRateLimited
+      then:
+        required:
+          - sessionRevoked
+      else:
+        not:
+          required:
+            - sessionRevoked
       properties:
         code:
           type: string
