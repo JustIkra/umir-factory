@@ -2,6 +2,11 @@
 
 ## Не выпущено
 
+- Added the private feedback/VPN candidate overlay and optional exact feedback source revision to authenticated HTTP acceptance. Synthetic F01–F05 cover the public form while SMTP/VPN are unavailable; selected pins remain unchanged.
+- Completed feedback draft.4 receipt/error schemas and required rate-limit Retry-After; CI accepts an optional feedback_ref through quoted environment arguments.
+
+- **BREAKING:** OpenAPI `1.0.0-draft.4` describes the single-operator account routes of gateway#8 under `/api/operator` and the public `POST /api/feedback` boundary of gateway#10. In the auth assembly every business operation requires the operator session cookie, and unsafe ones also the exact `Origin` and `X-CSRF-Token`; 401, 403 and 503 `AuthUnavailable` come before dispatch. Selected images keep the draft.2 behaviour until the coordinated pin update; draft.3 was never published.
+- Added the one-port operator auth candidate: `compose.auth.yaml` with the `x-umir-auth-acceptance: candidate` marker publishes only frontend and keeps the account on the `operator-data` volume. `umir-checks http-acceptance --candidate --auth` creates a disposable operator per run (hash from the candidate gateway image, password via stdin) and verifies that only frontend publishes a loopback port. The harness signs in through frontend and adds scenarios A01–A04; the manual CI gate gains the `http_auth` input.
 - Distinguished the organizer's recommended technologies from the implemented Go/React/Vite stack and the approved TypeScript/SCSS/Chakra frontend additions and test tooling.
 - Added the project documentation ownership and update rules, with README, AGENTS, OpenAPI, handoff, design brief and changelog responsibilities.
 - Selected HTTP CI activation no longer depends on an optional search tool. Missing, invalid or duplicate stage markers fail instead of silently skipping acceptance.

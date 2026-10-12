@@ -8,6 +8,7 @@ components:
   acceptance: {in: "cmd/acceptance"}
   fault-proxy: {in: "cmd/fault-proxy"}
   faultproxy: {in: "internal/faultproxy"}
+  feedback-fixture: {in: "cmd/feedback-fixture"}
 deps:
   acceptance:
     mayDependOn: [acceptance, faultproxy]
@@ -15,3 +16,5 @@ deps:
     mayDependOn: [fault-proxy, faultproxy]
   faultproxy:
     mayDependOn: [faultproxy]
+  feedback-fixture:
+    mayDependOn: [feedback-fixture]

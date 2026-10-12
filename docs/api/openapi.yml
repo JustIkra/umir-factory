@@ -2,13 +2,18 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Umir gateway API
-  version: 1.0.0-draft.2
+  version: 1.0.0-draft.4
   description: "Public wire contract v1 for frontend → gateway → serving/warehouse HTTP. This revision
     describes the implemented local HTTP sources; the selected factory images serve the
     HTTP API. Use the factory README development build instructions for the current checkouts.
     Business state and confirmation attempts are process-local; restart recovery and durable storage are
-    outside this stage. Definitions are immutable. Editing, history pagination, document upload/OCR,
-    authentication, roles and multiple restaurants are outside this version. All business bodies use
+    outside this stage. Definitions are immutable. Editing, history pagination, document upload/OCR, roles,
+    several operators and multiple restaurants are outside this version. Revision 1.0.0-draft.4 adds the
+    single-operator account API with server sessions and CSRF (gateway#8), the gateway guard of every business
+    route, and the public feedback route (gateway#10). They are implemented in candidate gateway and frontend
+    sources (x-implementation-status implemented-candidate) and served by the one-port auth candidate
+    assembly (compose.auth.yaml); the selected images keep the draft.2 behaviour without authentication until
+    the coordinated pin update. All business bodies use
     application/json. Unknown tagged results and invalid response bodies are protocol failures, never
     proof of a sale. API revision is separate from service releases and exact factory image SHA pins.
     Source rules: [gateway handoff](../gateway-frontend-handoff.md) and [business
@@ -17,7 +22,8 @@ servers:
   - url: /
     description: Same-origin gateway via frontend reverse proxy.
   - url: http://127.0.0.1:8081
-    description: Default local gateway address.
+    description: Selected assembly only. The auth candidate publishes no gateway port; browsers and
+      acceptance use the frontend origin.
 security: []
 tags:
   - name: Catalog
@@ -30,12 +36,23 @@ tags:
     description: Atomic delivery intake, prepared stock and recorded history.
   - name: Health
     description: Process health only.
+  - name: Operator
+    description: The single operator's sign-in, session, profile and password.
+  - name: Feedback
+    description: Public feedback form; the private umir-feedback service owns its content.
 x-wire-version: 1
 x-timezone: Europe/Moscow
 x-core-source-revisions:
   warehouse: 3e37af2f74a498c425c2dcb561be1bd3c9c01160
   serving: 0fb867e7ff58e3106fa819355fc1ee298da58074
 x-adapter-rules:
+  - Gateway guard (auth assembly). Every business route except GET/HEAD health needs the operator session
+    cookie. POST, PUT, PATCH and DELETE also need the exact configured Origin, Sec-Fetch-Site same-origin when
+    sent, and the session token in X-CSRF-Token. Rejections (401 Unauthenticated, 403 InvalidOrigin or
+    InvalidCsrfToken, 405 MethodNotAllowed, 503 AuthUnavailable) use OperatorError and never reach the
+    service, so the request did not run; repeat it after sign-in with the same commandID. Business requests
+    extend an ordinary session's idle deadline. Gateway strips its cookies and X-CSRF-Token before a service
+    and drops service Set-Cookie lines for them.
   - Normalize serving Recipe to wire ingredients and serving Order.Positions to acceptedPositions. History
     uses recorded fields, not enriched DTOs.
   - Convert int/int64 to canonical decimal strings with checked range conversion. Omitted optional ingredient
@@ -70,6 +87,8 @@ paths:
       operationId: getProducts
       summary: List all registered products
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -84,6 +103,8 @@ paths:
                   - productID: сыр/+ &?
                     name: Сыр
                     baseUnit: g
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -106,10 +127,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -140,6 +164,9 @@ paths:
       operationId: registerProduct
       summary: Register an immutable product
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -172,6 +199,10 @@ paths:
                 code: InvalidArgument
                 message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
                 outcome: not_committed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "409":
           description: Definite identity, immutable definition or unique delivery conflict.
           content:
@@ -205,10 +236,13 @@ paths:
         "503":
           description: Inventory is unavailable; the operation outcome remains unknown. This status does not
             establish a terminal refusal.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/InventoryUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Inventory is unavailable; the operation outcome remains unknown.
@@ -230,6 +264,8 @@ paths:
       operationId: getDishCatalog
       summary: List all dish definitions, including unavailable dishes
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -247,6 +283,8 @@ paths:
                       - productID: сыр/+ &?
                         quantity: "40000"
                         baseUnit: g
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -269,10 +307,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -304,6 +345,8 @@ paths:
       operationId: getDish
       summary: Get a dish and its one-portion recipe
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -331,6 +374,8 @@ paths:
                 code: InvalidArgument
                 message: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
                 outcome: unavailable
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "404":
           description: DishNotFound.
           content:
@@ -363,10 +408,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -398,6 +446,9 @@ paths:
       operationId: defineDish
       summary: Define an immutable dish
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -436,6 +487,10 @@ paths:
                 code: InvalidArgument
                 message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
                 outcome: not_committed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "404":
           description: Referenced product or dish does not exist.
           content:
@@ -479,10 +534,13 @@ paths:
         "503":
           description: Inventory is unavailable; the operation outcome remains unknown. This status does not
             establish a terminal refusal.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/InventoryUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Inventory is unavailable; the operation outcome remains unknown.
@@ -504,6 +562,8 @@ paths:
       operationId: getMenu
       summary: List dishes available for one portion
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -517,6 +577,8 @@ paths:
                 dishes:
                   - dishID: паста/+ &?
                     name: Паста
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -539,10 +601,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -574,6 +639,8 @@ paths:
       operationId: getStopList
       summary: List unavailable dishes and one-portion deficits
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -591,6 +658,8 @@ paths:
                       - productID: сыр/+ &?
                         requiredQuantity: "40000"
                         availableQuantity: "0"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -613,10 +682,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -648,6 +720,8 @@ paths:
       operationId: getRecommendations
       summary: Rank independently available dishes by FEFO expiry
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -675,6 +749,8 @@ paths:
                         quantityPerPortion: "20000"
                         baseUnit: g
                         expiresAt: 2026-10-11T12:00:00+03:00
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -697,10 +773,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -732,6 +811,9 @@ paths:
       operationId: prepareOrder
       summary: Prepare an immutable order proposal without reservation
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -791,6 +873,10 @@ paths:
                     code: InvalidArgument
                     message: Warehouse evaluation input is invalid.
                     outcome: unavailable
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "404":
           description: A dish definition is absent during warehouse evaluation. No proposal is prepared.
           content:
@@ -824,10 +910,13 @@ paths:
         "503":
           description: Warehouse evaluation is unavailable. This is an authoritative read error; no proposal
             is prepared. Transport failures still keep outcome unknown.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Warehouse evaluation is unavailable.
@@ -851,6 +940,9 @@ paths:
       operationId: confirmOrder
       summary: Confirm the accepted composition of a saved proposal
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -929,6 +1021,10 @@ paths:
                 code: InvalidArgument
                 message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
                 outcome: not_committed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "404":
           description: Missing proposal with unknown outcome, or a saved owner refusal because a dish is absent
             from warehouse state.
@@ -983,10 +1079,13 @@ paths:
         "503":
           description: Inventory is unavailable; the operation outcome remains unknown. This status does not
             establish a terminal refusal.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/InventoryUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Inventory is unavailable; the operation outcome remains unknown.
@@ -1016,6 +1115,9 @@ paths:
       operationId: resolveOrderConfirmation
       summary: Resolve the original confirmation attempt
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -1104,6 +1206,10 @@ paths:
                     code: InvalidArgument
                     message: Saved warehouse refusal of the original confirmation.
                     outcome: not_committed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "404":
           description: Missing proposal with unknown outcome, or a saved owner refusal because a dish is absent
             from warehouse state.
@@ -1158,10 +1264,13 @@ paths:
         "503":
           description: Inventory is unavailable; the operation outcome remains unknown. This status does not
             establish a terminal refusal.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/InventoryUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Inventory is unavailable; the operation outcome remains unknown.
@@ -1187,6 +1296,8 @@ paths:
       operationId: getInventory
       summary: Read prepared inventory and batch facts
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1214,6 +1325,8 @@ paths:
                         expiresAt: 2026-10-11T12:00:00+03:00
                         receivedQuantity: "9007199254740993"
                         remainingQuantity: "9007199254740993"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -1236,10 +1349,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -1271,6 +1387,8 @@ paths:
       operationId: getExpiringBatches
       summary: List positive batches expiring by an explicit cutoff
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1299,6 +1417,8 @@ paths:
                 code: InvalidArgument
                 message: Missing or invalid query, including cutoffAt earlier than evaluatedAt.
                 outcome: unavailable
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -1321,10 +1441,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -1356,6 +1479,8 @@ paths:
       operationId: getHistory
       summary: Read recorded events in sequence order
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
       responses:
         "200":
           description: Typed successful result. Empty collections remain JSON arrays.
@@ -1466,6 +1591,8 @@ paths:
                         reason: EXPIRATION
                         expiresAt: 2026-10-11T12:00:00+03:00
                         processedAt: 2026-10-11T12:00:00+03:00
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
         "500":
           description: Unexpected service failure; no successful query result.
           content:
@@ -1488,10 +1615,13 @@ paths:
                 outcome: unavailable
         "503":
           description: Current inventory/definition version cannot be prepared or read.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/ReadUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Current inventory/definition version cannot be prepared or read.
@@ -1525,6 +1655,9 @@ paths:
       operationId: receiveDelivery
       summary: Receive all delivery lines atomically
       x-implementation-status: implemented-http
+      security:
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -1565,6 +1698,10 @@ paths:
                 code: InvalidArgument
                 message: "InvalidArgument: invalid fields, units, precision, dates or overflow."
                 outcome: not_committed
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
         "404":
           description: Referenced product or dish does not exist.
           content:
@@ -1608,10 +1745,13 @@ paths:
         "503":
           description: Inventory is unavailable; the operation outcome remains unknown. This status does not
             establish a terminal refusal.
+            In the auth assembly, fail-closed recovery answers OperatorError AuthUnavailable without dispatch.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InventoryUnavailableError"
+                oneOf:
+                  - $ref: "#/components/schemas/InventoryUnavailableError"
+                  - $ref: "#/components/schemas/OperatorError"
               example:
                 code: InventoryUnavailable
                 message: Inventory is unavailable; the operation outcome remains unknown.
@@ -1625,6 +1765,478 @@ paths:
               example:
                 code: UpstreamTimeout
                 message: Upstream timeout; outcome unknown.
+                outcome: unknown
+  /api/operator/csrf:
+    get:
+      tags:
+        - Operator
+      operationId: getCsrfToken
+      summary: CSRF token of the session, or of an anonymous context for sign-in and logout
+      x-implementation-status: implemented-candidate
+      description: With a live session cookie returns that session's token. Otherwise returns the token of an
+        anonymous context and sets its pre-auth cookie (__Host-umir_operator_preauth, or umir_operator_preauth in
+        loopback-development mode); an existing live context keeps its token. Never creates or extends a session.
+        Works during recovery.
+      responses:
+        "200":
+          description: CSRF token. Send it in X-CSRF-Token with the exact Origin on unsafe requests.
+          headers:
+            Set-Cookie:
+              description: Pre-auth cookie of a new anonymous context; HttpOnly, SameSite=Strict, Path=/.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsrfTokenView"
+              example:
+                csrfToken: 3S7yQ0bS9u6m0f5aZr2kVw
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "503":
+          $ref: "#/components/responses/AuthUnavailable"
+  /api/operator/session:
+    post:
+      tags:
+        - Operator
+      operationId: signIn
+      summary: Sign in and open a session
+      x-implementation-status: implemented-candidate
+      description: Needs the exact Origin and the anonymous context's token with its pre-auth cookie (or a live
+        session's token). A successful login replaces the previous session of the request, stores the new session
+        before the cookie is set and sets the session cookie (__Host-umir_operator_session, or
+        umir_operator_session in loopback-development mode; HttpOnly, SameSite=Strict, Path=/). An ordinary session
+        lasts 30 minutes idle and 8 hours from login; rememberMe=true gives a fixed 30-day session whose cookie has
+        Expires and Max-Age. Every credential mismatch is the same InvalidCredentials. Five failed logins within 60
+        seconds start a 60-second cooldown for every login.
+      security:
+        - operatorPreauth: []
+          csrfToken: []
+        - operatorSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInRequest"
+            example:
+              login: operator
+              password: correct horse battery
+              rememberMe: false
+      responses:
+        "200":
+          description: Signed in. The body never contains the session ID.
+          headers:
+            Set-Cookie:
+              description: The new session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorView"
+              example:
+                operator:
+                  id: 7KB6W3EHBMZKTKVRO44KR6KSVH
+                  login: operator
+                  displayName: Оператор
+                session:
+                  expiresAt: 2026-10-12T12:30:00+03:00
+                  idleExpiresAt: 2026-10-12T12:30:00+03:00
+                  absoluteExpiresAt: 2026-10-12T20:00:00+03:00
+                  rememberMe: false
+                  csrfToken: Yb8m1u3n5LwqS0dZr9tKcA
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          description: InvalidCredentials. Login or password is wrong; the answer does not say which.
+          headers:
+            WWW-Authenticate:
+              $ref: "#/components/headers/WWW-Authenticate"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: InvalidCredentials
+                message: login or password is incorrect
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "429":
+          description: LoginRateLimited. The login cooldown is active or the password check queue is full.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: LoginRateLimited
+                message: too many login attempts
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "503":
+          $ref: "#/components/responses/SessionUnavailable"
+    delete:
+      tags:
+        - Operator
+      operationId: signOut
+      summary: Log out
+      x-implementation-status: implemented-candidate
+      description: Idempotent. A live session needs its token; without one, use the token of a fresh anonymous
+        context. The revocation is stored before 204; an absent or expired session needs nothing stored. During
+        recovery only a request without a session cookie can succeed.
+      security:
+        - operatorSession: []
+          csrfToken: []
+        - operatorPreauth: []
+          csrfToken: []
+      responses:
+        "204":
+          description: Logged out; the session cookie is cleared.
+          headers:
+            Set-Cookie:
+              description: Clears the session cookie.
+              schema:
+                type: string
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "503":
+          $ref: "#/components/responses/SessionUnavailable"
+  /api/operator/me:
+    get:
+      tags:
+        - Operator
+      operationId: getCurrentOperator
+      summary: The operator's own view and session deadlines
+      x-implementation-status: implemented-candidate
+      description: Stores an ordinary session's renewed idle deadline before reporting it. If the store definitely
+        fails, answers 200 with the deadline the store already holds. Use it to resolve a lost display-name answer.
+      security:
+        - operatorSession: []
+      responses:
+        "200":
+          description: Same object as sign-in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorView"
+              example:
+                operator:
+                  id: 7KB6W3EHBMZKTKVRO44KR6KSVH
+                  login: operator
+                  displayName: Оператор
+                session:
+                  expiresAt: 2026-10-12T12:45:00+03:00
+                  idleExpiresAt: 2026-10-12T12:45:00+03:00
+                  absoluteExpiresAt: 2026-10-12T20:00:00+03:00
+                  rememberMe: false
+                  csrfToken: Yb8m1u3n5LwqS0dZr9tKcA
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "503":
+          $ref: "#/components/responses/SessionUnavailable"
+  /api/operator/me/display-name:
+    patch:
+      tags:
+        - Operator
+      operationId: updateDisplayName
+      summary: Change the display name
+      x-implementation-status: implemented-candidate
+      description: The name is trimmed of Unicode whitespace, normalized to NFC and must contain 2 to 80 code
+        points without control characters. The account file is replaced atomically before 200.
+      security:
+        - operatorSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisplayNameRequest"
+            example:
+              displayName: Смена 2
+      responses:
+        "200":
+          description: The stored profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorProfileView"
+              example:
+                operator:
+                  id: 7KB6W3EHBMZKTKVRO44KR6KSVH
+                  login: operator
+                  displayName: Смена 2
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: InvalidDisplayName with the reason in fieldErrors.displayName.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: InvalidDisplayName
+                message: display name must contain 2 to 80 characters without control characters
+                fieldErrors:
+                  displayName: TooShort
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "503":
+          $ref: "#/components/responses/AccountUnavailable"
+  /api/operator/me/password:
+    patch:
+      tags:
+        - Operator
+      operationId: changePassword
+      summary: Change the password and end every session
+      x-implementation-status: implemented-candidate
+      description: The new password must contain 8 to 32 Unicode code points; it is not trimmed or normalized.
+        Success stores the new verifier, revokes every session including this one and clears its cookie; sign in
+        again. Wrong current passwords 1 to 4 within 60 seconds, counted for the whole operator, answer 403
+        CurrentPasswordIncorrect. The fifth revokes only the calling session and starts a 60-second cooldown in
+        which every change is refused before any password check. A successful change clears the count.
+      security:
+        - operatorSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeRequest"
+            example:
+              currentPassword: correct horse battery
+              newPassword: another long phrase
+      responses:
+        "204":
+          description: Password changed; every session is revoked and this session's cookie is cleared.
+          headers:
+            Set-Cookie:
+              description: Clears the session cookie.
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: InvalidOrigin or InvalidCsrfToken, or CurrentPasswordIncorrect (wrong current password 1 to 4,
+            nothing changed).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: CurrentPasswordIncorrect
+                message: current password is incorrect
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: PasswordRejected with the reason in fieldErrors.newPassword.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: PasswordRejected
+                message: new password must contain 8 to 32 characters
+                fieldErrors:
+                  newPassword: TooShort
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "429":
+          description: PasswordChangeRateLimited; the password did not change. sessionRevoked=true means this
+            response revoked the calling session, stored the revocation and cleared its cookie; sign in again.
+            sessionRevoked=false means this response revoked nothing and only password changes wait. A revocation
+            that was not stored answers 503 instead, and the cooldown has started anyway.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+            Set-Cookie:
+              description: Clears the session cookie when sessionRevoked is true.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: PasswordChangeRateLimited
+                message: too many wrong current passwords; password changes are paused
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+                sessionRevoked: true
+        "503":
+          $ref: "#/components/responses/AccountUnavailable"
+  /api/feedback:
+    post:
+      tags:
+        - Feedback
+      operationId: submitFeedback
+      summary: Submit the public feedback form
+      x-implementation-status: implemented-candidate
+      description: Public; no operator session is needed and none is extended. Gateway checks the exact Origin and
+        Sec-Fetch-Site, the X-CSRF-Token of the operator's session or of an anonymous context from
+        /api/operator/csrf, 5 posts per 10 minutes per CSRF context and 60 per 10 minutes per gateway process, and a
+        single JSON object of at most 16 KiB. It then sends POST /feedback to the private umir-feedback service
+        without cookies, X-CSRF-Token or the query and returns the service's answer unchanged. Gateway never
+        retries; after a timeout or disconnect repeat the same submissionID and content. The service validates and
+        stores the content (umir-feedback#1); the service answers are implemented by the feedback candidate.
+      security:
+        - operatorPreauth: []
+          csrfToken: []
+        - operatorSession: []
+          csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackSubmission"
+            example:
+              submissionID: 2f6b7c1e-4a3d-4e8b-9c2a-1d5e6f7a8b9c
+              name: Анна
+              email: anna@example.ru
+              message: Спасибо за обед!
+              consent:
+                accepted: true
+                documentVersion: "2026-10-12"
+              website: ""
+      responses:
+        "200":
+          description: The same retained submission ID and normalized content was already stored. No notification jobs are created again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackReceipt"
+              example:
+                submissionID: 2f6b7c1e-4a3d-4e8b-9c2a-1d5e6f7a8b9c
+                receivedAt: 2026-10-12T12:00:00+03:00
+        "201":
+          description: The service stored the submission and its two notification jobs; delivery is not confirmed. A non-empty website instead returns this acknowledgement without storage or jobs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackReceipt"
+              example:
+                submissionID: 2f6b7c1e-4a3d-4e8b-9c2a-1d5e6f7a8b9c
+                receivedAt: 2026-10-12T12:00:00+03:00
+        "400":
+          description: The JSON body or submission ID is invalid. This can be rejected by the gateway or by umir-feedback.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - anyOf:
+                      - $ref: "#/components/schemas/OperatorError"
+                      - $ref: "#/components/schemas/FeedbackError"
+                  - properties:
+                      code:
+                        const: InvalidRequest
+              example:
+                code: InvalidRequest
+                message: InvalidRequest
+                requestID: 0123456789abcdef0123456789abcdef
+        "403":
+          $ref: "#/components/responses/CsrfRejected"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "409":
+          description: The submission ID is already stored with different normalized content. No new request or jobs are created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackError"
+              example:
+                code: SubmissionIdentityConflict
+                message: SubmissionIdentityConflict
+                requestID: 0123456789abcdef0123456789abcdef
+        "422":
+          description: Feedback fields are invalid, consent is missing, or the consent document version is outdated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackError"
+              example:
+                code: InvalidFeedback
+                message: InvalidFeedback
+                fieldErrors:
+                  email: InvalidFormat
+                requestID: 0123456789abcdef0123456789abcdef
+        "429":
+          description: FeedbackRateLimited. The CSRF context or the gateway used up its posts in the window.
+          headers:
+            Retry-After:
+              $ref: "#/components/headers/Retry-After"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorError"
+              example:
+                code: FeedbackRateLimited
+                message: too many feedback posts
+                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+        "503":
+          description: Storage did not confirm the intake write, or the gateway cannot validate the CSRF context. Repeat an unconfirmed submission with the same ID and content.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FeedbackError"
+                  - $ref: "#/components/schemas/OperatorError"
+              example:
+                code: FeedbackStorageUnavailable
+                message: FeedbackStorageUnavailable
+                requestID: 0123456789abcdef0123456789abcdef
+        "502":
+          description: The service did not answer; the outcome is unknown. Repeat with the same submissionID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamUnavailable
+                message: upstream service did not respond
+                outcome: unknown
+        "504":
+          description: The service did not answer in time; the outcome is unknown. Repeat with the same submissionID.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayWriteError"
+              example:
+                code: UpstreamTimeout
+                message: upstream service did not respond in time
                 outcome: unknown
   /healthz:
     get:
@@ -1775,6 +2387,146 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
 components:
+  securitySchemes:
+    operatorSession:
+      type: apiKey
+      in: cookie
+      name: __Host-umir_operator_session
+      description: Opaque server session of the single operator, set by sign-in; HttpOnly, SameSite=Strict, Path=/,
+        Secure. In loopback-development mode the cookie is umir_operator_session without Secure. The gateway
+        stores only a digest of it. Never send it to services or keep it in browser storage.
+    operatorPreauth:
+      type: apiKey
+      in: cookie
+      name: __Host-umir_operator_preauth
+      description: Opaque anonymous CSRF context set by GET /api/operator/csrf without a live session; HttpOnly,
+        SameSite=Strict, Path=/, Secure. In loopback-development mode the cookie is umir_operator_preauth without
+        Secure. Its token is accepted only together with this cookie; sign-in clears it.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: Synchronizer token of the session (from sign-in, /me or /csrf) or of an anonymous context (from
+        /csrf with its pre-auth cookie). Every unsafe request also sends the exact configured Origin.
+  headers:
+    Retry-After:
+      required: true
+      description: Whole seconds, at least 1, until another attempt can succeed.
+      schema:
+        type: integer
+        minimum: 1
+    WWW-Authenticate:
+      description: Session realm="umir-operator" on every 401; browsers show no sign-in prompt for this scheme.
+      schema:
+        type: string
+        const: Session realm="umir-operator"
+  responses:
+    Unauthenticated:
+      description: Unauthenticated. No live operator session; nothing was dispatched. Sign in and repeat.
+      headers:
+        WWW-Authenticate:
+          $ref: "#/components/headers/WWW-Authenticate"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: Unauthenticated
+            message: sign in to continue
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    CsrfRejected:
+      description: InvalidOrigin (missing or foreign Origin, or cross-site Fetch Metadata) or InvalidCsrfToken
+        (missing or wrong X-CSRF-Token). Nothing was dispatched.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: InvalidCsrfToken
+            message: CSRF token is missing or invalid
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    InvalidRequest:
+      description: InvalidRequest. The body is not the expected JSON object, including invalid UTF-8, an unpaired
+        surrogate escape, unknown fields or data after the object.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: InvalidRequest
+            message: request body is not the expected JSON object
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    MethodNotAllowed:
+      description: MethodNotAllowed, with the supported methods in Allow.
+      headers:
+        Allow:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: MethodNotAllowed
+            message: method is not allowed for this route
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    PayloadTooLarge:
+      description: PayloadTooLarge. Account bodies take at most 8 KiB, the feedback form 16 KiB.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: PayloadTooLarge
+            message: request body is too large
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    UnsupportedMediaType:
+      description: UnsupportedMediaType. Send the body as application/json.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: UnsupportedMediaType
+            message: send the body as application/json
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    AuthUnavailable:
+      description: AuthUnavailable. Fail-closed recovery after an unknown account or session write, or an
+        unexpected failure; a controlled restart reloads the account file.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: AuthUnavailable
+            message: authentication is unavailable until the account is recovered
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    SessionUnavailable:
+      description: AuthUnavailable during recovery; SessionStorageUnavailable when a session change definitely was
+        not stored (nothing changed, no cookie set or cleared); SessionUpdateOutcomeUnknown when the write outcome
+        is unknown (the gateway enters recovery).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: SessionStorageUnavailable
+            message: session storage failed; the session was not changed
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+    AccountUnavailable:
+      description: AccountStorageUnavailable when the account file was not replaced (nothing changed, sessions keep
+        working); AccountUpdateOutcomeUnknown when the outcome is unknown (the gateway enters recovery; resolve a
+        display name with /me after restart and a password by signing in); SessionStorageUnavailable or
+        SessionUpdateOutcomeUnknown when a session revocation of the password change limit was not stored;
+        AuthUnavailable during recovery.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OperatorError"
+          example:
+            code: AccountStorageUnavailable
+            message: account storage failed; nothing was changed
+            requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
   schemas:
     ID:
       type: string
@@ -2919,6 +3671,279 @@ components:
           DeliveryReceived: "#/components/schemas/DeliveryReceivedEvent"
           OrderPlaced: "#/components/schemas/OrderPlacedEvent"
           BatchExpired: "#/components/schemas/BatchExpiredEvent"
+    OperatorProfile:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - login
+        - displayName
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Stable opaque profile ID; not the login.
+        login:
+          type: string
+          minLength: 1
+          description: Immutable login identifier; it does not imply an email address.
+        displayName:
+          type: string
+          minLength: 2
+          description: Trimmed NFC display name of 2 to 80 Unicode code points.
+    OperatorSession:
+      type: object
+      description: Session deadlines and the session's CSRF token. The session ID is never in JSON.
+      additionalProperties: false
+      required:
+        - expiresAt
+        - idleExpiresAt
+        - absoluteExpiresAt
+        - rememberMe
+        - csrfToken
+      properties:
+        expiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+          description: The earlier of the idle and absolute deadlines; equal to idleExpiresAt.
+        idleExpiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+          description: Moves with authenticated requests of an ordinary session (30 minutes), never past
+            absoluteExpiresAt. A remembered session has no earlier idle deadline.
+        absoluteExpiresAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+          description: Fixed at login, 8 hours for an ordinary session and 30 days for a remembered one.
+        rememberMe:
+          type: boolean
+        csrfToken:
+          type: string
+          minLength: 1
+    OperatorView:
+      type: object
+      additionalProperties: false
+      required:
+        - operator
+        - session
+      properties:
+        operator:
+          $ref: "#/components/schemas/OperatorProfile"
+        session:
+          $ref: "#/components/schemas/OperatorSession"
+    OperatorProfileView:
+      type: object
+      additionalProperties: false
+      required:
+        - operator
+      properties:
+        operator:
+          $ref: "#/components/schemas/OperatorProfile"
+    CsrfTokenView:
+      type: object
+      additionalProperties: false
+      required:
+        - csrfToken
+      properties:
+        csrfToken:
+          type: string
+          minLength: 1
+    SignInRequest:
+      type: object
+      description: Exact case-sensitive fields; unknown fields are rejected.
+      additionalProperties: false
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+          description: Sent as typed; never trimmed or normalized.
+        rememberMe:
+          type: boolean
+          default: false
+          description: true opens a fixed 30-day session; activity never extends it.
+    DisplayNameRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - displayName
+      properties:
+        displayName:
+          type: string
+    PasswordChangeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          description: 8 to 32 Unicode code points; not trimmed, normalized or truncated.
+    OperatorError:
+      type: object
+      description: Gateway-owned error of the account routes, the business-route guard and the feedback boundary,
+        with Cache-Control no-store. Transport failures keep GatewayReadError and GatewayWriteError. Choose the
+        user text by code and fieldErrors codes; message is for logs and developers.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - requestID
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidRequest
+            - InvalidCredentials
+            - Unauthenticated
+            - InvalidOrigin
+            - InvalidCsrfToken
+            - CurrentPasswordIncorrect
+            - NotFound
+            - MethodNotAllowed
+            - PayloadTooLarge
+            - UnsupportedMediaType
+            - InvalidDisplayName
+            - PasswordRejected
+            - LoginRateLimited
+            - PasswordChangeRateLimited
+            - FeedbackRateLimited
+            - AuthUnavailable
+            - SessionStorageUnavailable
+            - SessionUpdateOutcomeUnknown
+            - AccountStorageUnavailable
+            - AccountUpdateOutcomeUnknown
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code.
+        fieldErrors:
+          type: object
+          description: Only on 422; maps the rejected field to its stable code.
+          additionalProperties:
+            type: string
+            enum:
+              - Required
+              - TooShort
+              - TooLong
+              - InvalidFormat
+              - InvalidCharacters
+        requestID:
+          type: string
+          minLength: 1
+          description: The ID the gateway also writes to its log.
+        sessionRevoked:
+          type: boolean
+          description: Only on PasswordChangeRateLimited. true means this response revoked the calling session and
+            stored the revocation; false means it revoked nothing. Never true when the revocation was not stored.
+    FeedbackSubmission:
+      type: object
+      x-implementation-status: planned
+      description: Owned by the umir-feedback service (umir-feedback#1); the gateway only checks that the body is
+        one JSON object of at most 16 KiB. A non-empty website is a trap that answers a plausible 201 and stores
+        nothing.
+      additionalProperties: false
+      required:
+        - submissionID
+        - name
+        - email
+        - message
+        - consent
+      properties:
+        submissionID:
+          type: string
+          format: uuid
+          pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89aAbB][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$'
+          description: UUID v4 generated by the client; repeat it with identical content after an unknown outcome.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Trimmed NFC, 1 to 100 code points without control characters.
+        email:
+          type: string
+          maxLength: 254
+          description: A single unquoted address at most 254 UTF-8 bytes; only the domain is normalized to lowercase.
+        phone:
+          type: string
+          maxLength: 32
+          description: Optional; digits, space, +, -, ( and ), with 10 to 15 digits.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Trimmed, 1 to 2000 code points; line breaks and tabs are kept.
+        consent:
+          type: object
+          additionalProperties: false
+          required:
+            - accepted
+            - documentVersion
+          properties:
+            accepted:
+              type: boolean
+              const: true
+            documentVersion:
+              type: string
+              minLength: 1
+              maxLength: 128
+        website:
+          type: string
+          description: Must stay empty; the form hides it from people.
+    FeedbackReceipt:
+      type: object
+      x-implementation-status: planned
+      additionalProperties: false
+      required:
+        - submissionID
+        - receivedAt
+      properties:
+        submissionID:
+          type: string
+          format: uuid
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        receivedAt:
+          $ref: "#/components/schemas/MoscowTimestamp"
+    FeedbackError:
+      type: object
+      description: Error returned by the private umir-feedback service without gateway rewriting. Responses use Cache-Control no-store.
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - requestID
+      properties:
+        code:
+          type: string
+          enum:
+            - InvalidRequest
+            - InvalidFeedback
+            - ConsentRequired
+            - SubmissionIdentityConflict
+            - FeedbackStorageUnavailable
+        message:
+          type: string
+          minLength: 1
+          description: Human-readable detail. Do not use it as a machine code.
+        fieldErrors:
+          type: object
+          description: Present for field and consent validation errors.
+          additionalProperties:
+            type: string
+            enum:
+              - Required
+              - TooShort
+              - TooLong
+              - InvalidFormat
+              - InvalidCharacters
+              - ConsentRequired
+              - ConsentOutdated
+        requestID:
+          type: string
+          minLength: 1
     InvalidArgumentError:
       type: object
       description: Invalid request rejected before writing this attempt. Arithmetic overflow and unsupported units
@@ -3320,3 +4345,6 @@ components:
           enum:
             - not_committed
 x-gateway-source-revision: c7a5c02ee3a443f8a72120d64608b85049a18ad3
+x-auth-candidate-revisions:
+  gateway: d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969
+  frontend: 429ff994abf726d45926fcaf06d8bd3f33d61e50

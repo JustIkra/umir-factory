@@ -19,14 +19,20 @@ import (
 )
 
 type config struct {
-	phase           string
-	gatewayURL      string
-	servingFault    string
-	warehouseFault  string
-	controlToken    string
-	factoryDir      string
-	composeProject  string
-	composeOverride string
+	phase          string
+	gatewayURL     string
+	servingFault   string
+	warehouseFault string
+	controlToken   string
+	factoryDir     string
+	composeProject string
+	// composeOverrides are the Compose files after compose.yaml, in order.
+	composeOverrides []string
+	// auth signs in through gatewayURL, the public frontend URL, before any business request.
+	auth                 bool
+	feedback             bool
+	operatorLogin        string
+	operatorPasswordFile string
 }
 
 type scenarioResult struct {
@@ -40,8 +46,10 @@ type scenarioRecord struct {
 }
 
 type suite struct {
-	cfg       config
-	client    *http.Client
+	cfg    config
+	client *http.Client
+	// session is the signed-in operator in auth acceptance; nil sends no credentials.
+	session   *operatorSession
 	serving   *faultControl
 	warehouse *faultControl
 	result    scenarioResult
@@ -66,13 +74,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("http-acceptance", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&cfg.phase, "phase", "", "normal or faults scenario group")
-	flags.StringVar(&cfg.gatewayURL, "gateway-url", "", "public gateway URL")
+	flags.StringVar(&cfg.gatewayURL, "gateway-url", "", "public API URL: gateway, or frontend in auth acceptance")
 	flags.StringVar(&cfg.servingFault, "serving-fault-control-url", "", "serving-to-warehouse fault fixture control URL")
 	flags.StringVar(&cfg.warehouseFault, "warehouse-fault-control-url", "", "gateway-to-serving fault fixture control URL")
 	flags.StringVar(&cfg.controlToken, "control-token", "", "ephemeral control token")
 	flags.StringVar(&cfg.factoryDir, "factory-dir", "", "absolute factory checkout")
 	flags.StringVar(&cfg.composeProject, "compose-project", "", "owned Compose project for restart scenarios")
-	flags.StringVar(&cfg.composeOverride, "compose-override", "", "optional Compose override for restart scenarios")
+	flags.Func("compose-override", "Compose file after compose.yaml for restart scenarios; repeatable", func(value string) error {
+		cfg.composeOverrides = append(cfg.composeOverrides, value)
+		return nil
+	})
+	flags.BoolVar(&cfg.auth, "auth", false, "sign in as the operator through the public frontend URL")
+	flags.BoolVar(&cfg.feedback, "feedback", false, "run public feedback acceptance scenarios (requires --auth)")
+	flags.StringVar(&cfg.operatorLogin, "operator-login", "", "disposable operator login for auth acceptance")
+	flags.StringVar(&cfg.operatorPasswordFile, "operator-password-file", "", "absolute file with the disposable operator password")
 	if err := flags.Parse(args); err != nil {
 		diagnostic(stderr, "invalid acceptance arguments: %v\n", err)
 		return 2
@@ -85,7 +100,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		diagnostic(stderr, "invalid gateway URL: %v\n", err)
 		return 2
 	}
-	restartCfg := restartConfig{factoryDir: cfg.factoryDir, project: cfg.composeProject, override: cfg.composeOverride}
+	if cfg.auth != (cfg.operatorLogin != "") || cfg.auth != (cfg.operatorPasswordFile != "") {
+		diagnostic(stderr, "--auth requires --operator-login and --operator-password-file, and they require --auth\n")
+		return 2
+	}
+	if cfg.feedback && (!cfg.auth || cfg.phase != "normal") {
+		diagnostic(stderr, "--feedback requires --auth and --phase normal\n")
+		return 2
+	}
+	if cfg.auth {
+		if _, err := readPassword(cfg.operatorPasswordFile); err != nil {
+			diagnostic(stderr, "invalid operator credentials: %v\n", err)
+			return 2
+		}
+	}
+	restartCfg := restartConfig{factoryDir: cfg.factoryDir, project: cfg.composeProject, overrides: cfg.composeOverrides}
 	if err := validateRestartConfig(restartCfg, "warehouse"); err != nil {
 		diagnostic(stderr, "invalid owned Compose restart context: %v\n", err)
 		return 2
@@ -95,7 +124,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if cfg.phase == "faults" {
-		if cfg.composeOverride == "" {
+		if len(cfg.composeOverrides) == 0 {
 			diagnostic(stderr, "fault scenarios require --compose-override for the owned six-service topology\n")
 			return 2
 		}
@@ -118,9 +147,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 		s.warehouse = &faultControl{base: strings.TrimRight(cfg.warehouseFault, "/"), token: cfg.controlToken, client: &http.Client{Timeout: 32 * time.Second}}
 	}
 	var err error
-	if cfg.phase == "normal" {
+	switch {
+	case cfg.auth && cfg.phase == "normal":
+		err = s.runAuth()
+	case cfg.auth:
+		s.current = "sign-in"
+		err = s.signInForScenarios()
+	}
+	if err == nil && cfg.phase == "normal" {
 		err = s.runNormal()
-	} else {
+		if err == nil && cfg.feedback {
+			err = s.runFeedback()
+		}
+	} else if err == nil {
 		err = s.runFaults()
 	}
 	data, marshalErr := json.Marshal(s.result)
@@ -205,7 +244,7 @@ func (s *suite) runFaults() error {
 }
 
 func (s *suite) resetMemories() error {
-	config := restartConfig{factoryDir: s.cfg.factoryDir, project: s.cfg.composeProject, override: s.cfg.composeOverride}
+	config := restartConfig{factoryDir: s.cfg.factoryDir, project: s.cfg.composeProject, overrides: s.cfg.composeOverrides}
 	if err := restart(context.Background(), config, "warehouse"); err != nil {
 		return err
 	}
@@ -235,9 +274,11 @@ func (s *suite) record(id string, observations map[string]string) {
 }
 
 type response struct {
-	status int
-	body   map[string]any
-	bytes  []byte
+	status  int
+	body    map[string]any
+	bytes   []byte
+	header  http.Header
+	cookies []*http.Cookie
 }
 
 func (s *suite) call(ctx context.Context, method, path string, payload any) (response, error) {
@@ -252,7 +293,7 @@ func (s *suite) call(ctx context.Context, method, path string, payload any) (res
 	return s.callRaw(ctx, method, path, body, payload != nil)
 }
 
-func (s *suite) callRaw(ctx context.Context, method, path string, body io.Reader, jsonBody bool) (resultValue response, resultErr error) {
+func (s *suite) callRaw(ctx context.Context, method, path string, body io.Reader, jsonBody bool) (response, error) {
 	request, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(s.cfg.gatewayURL, "/")+path, body)
 	if err != nil {
 		return response{}, err
@@ -260,6 +301,11 @@ func (s *suite) callRaw(ctx context.Context, method, path string, body io.Reader
 	if jsonBody {
 		request.Header.Set("Content-Type", "application/json")
 	}
+	s.session.apply(request)
+	return s.send(request)
+}
+
+func (s *suite) send(request *http.Request) (resultValue response, resultErr error) {
 	httpResult, err := s.client.Do(request)
 	if err != nil {
 		return response{}, err
@@ -272,13 +318,15 @@ func (s *suite) callRaw(ctx context.Context, method, path string, body io.Reader
 	if len(data) > 16<<20 {
 		return response{}, errors.New("gateway response exceeded acceptance limit")
 	}
+	result := response{status: httpResult.StatusCode, bytes: data, header: httpResult.Header, cookies: httpResult.Cookies()}
 	parsed := make(map[string]any)
 	if len(data) > 0 {
 		if err := json.Unmarshal(data, &parsed); err != nil {
-			return response{status: httpResult.StatusCode, bytes: data}, nil
+			return result, nil
 		}
 	}
-	return response{status: httpResult.StatusCode, body: parsed, bytes: data}, nil
+	result.body = parsed
+	return result, nil
 }
 
 func (s *suite) expect(method, path string, payload any, status int) (response, error) {
@@ -480,7 +528,8 @@ func contains(values []any, key, expected string) bool {
 }
 
 type restartConfig struct {
-	factoryDir, project, override string
+	factoryDir, project string
+	overrides           []string
 }
 
 func restart(parent context.Context, cfg restartConfig, service string) error {
@@ -488,8 +537,8 @@ func restart(parent context.Context, cfg restartConfig, service string) error {
 		return err
 	}
 	args := []string{"compose", "--project-name", cfg.project, "--file", filepath.Join(cfg.factoryDir, "compose.yaml")}
-	if cfg.override != "" {
-		args = append(args, "--file", cfg.override)
+	for _, override := range cfg.overrides {
+		args = append(args, "--file", override)
 	}
 	args = append(args, "--env-file", filepath.Join(cfg.factoryDir, ".env.example"), "restart", "--timeout", "10", service)
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
@@ -524,11 +573,11 @@ func validateRestartConfig(cfg restartConfig, service string) error {
 			return fmt.Errorf("required factory Compose file %s is not a regular file", name)
 		}
 	}
-	if cfg.override != "" {
-		if !filepath.IsAbs(cfg.override) {
+	for _, override := range cfg.overrides {
+		if !filepath.IsAbs(override) {
 			return errors.New("compose override must be absolute")
 		}
-		info, err := os.Stat(cfg.override)
+		info, err := os.Stat(override)
 		if err != nil {
 			return fmt.Errorf("compose override is unavailable: %w", err)
 		}
