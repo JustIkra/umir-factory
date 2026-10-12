@@ -95,35 +95,61 @@ func TestOnlyTheFrontendMayPublishAPort(t *testing.T) {
 	const port = 18090
 	exposed := []any{publisher("", 8080, 0)}
 	valid := map[string][]any{"warehouse": exposed, "serving": exposed, "gateway": exposed, "frontend": {publisher("127.0.0.1", 8080, port)}}
-	for name, change := range map[string]func(map[string][]any){
-		"frontend only":        func(map[string][]any) {},
-		"gateway published":    func(p map[string][]any) { p["gateway"] = []any{publisher("127.0.0.1", 8080, 18091)} },
-		"warehouse published":  func(p map[string][]any) { p["warehouse"] = []any{publisher("127.0.0.1", 8082, 18092)} },
-		"frontend all hosts":   func(p map[string][]any) { p["frontend"] = []any{publisher("0.0.0.0", 8080, port)} },
-		"frontend other port":  func(p map[string][]any) { p["frontend"] = []any{publisher("127.0.0.1", 8080, port+1)} },
-		"frontend two ports":   func(p map[string][]any) { p["frontend"] = append(p["frontend"], publisher("127.0.0.1", 9000, 18093)) },
-		"frontend unpublished": func(p map[string][]any) { p["frontend"] = exposed },
+	fixtures := []string{"http-fault-serving", "http-fault-warehouse"}
+	for _, test := range []struct {
+		name     string
+		change   func(map[string][]any)
+		fixtures []string
+		ok       bool
+	}{
+		{name: "frontend only", change: func(map[string][]any) {}, ok: true},
+		{name: "gateway published", change: func(p map[string][]any) { p["gateway"] = []any{publisher("127.0.0.1", 8080, 18091)} }},
+		{name: "warehouse published", change: func(p map[string][]any) { p["warehouse"] = []any{publisher("127.0.0.1", 8082, 18092)} }},
+		{name: "another service published", change: func(p map[string][]any) { p["feedback"] = []any{publisher("0.0.0.0", 8080, 18766)} }},
+		{name: "unpublished service", change: func(p map[string][]any) { p["feedback"] = exposed }, ok: true},
+		{name: "fault controls on loopback", change: func(p map[string][]any) {
+			p["http-fault-serving"] = []any{publisher("127.0.0.1", 9090, 18094)}
+			p["http-fault-warehouse"] = []any{publisher("127.0.0.1", 9090, 18095)}
+		}, fixtures: fixtures, ok: true},
+		{name: "fault control outside the faults phase", change: func(p map[string][]any) { p["http-fault-serving"] = []any{publisher("127.0.0.1", 9090, 18094)} }},
+		{name: "fault control on all hosts", change: func(p map[string][]any) { p["http-fault-serving"] = []any{publisher("0.0.0.0", 9090, 18094)} }, fixtures: fixtures},
+		{name: "fault proxy port", change: func(p map[string][]any) { p["http-fault-serving"] = []any{publisher("127.0.0.1", 8080, 18094)} }, fixtures: fixtures},
+		{name: "frontend all hosts", change: func(p map[string][]any) { p["frontend"] = []any{publisher("0.0.0.0", 8080, port)} }},
+		{name: "frontend other port", change: func(p map[string][]any) { p["frontend"] = []any{publisher("127.0.0.1", 8080, port+1)} }},
+		{name: "frontend two ports", change: func(p map[string][]any) { p["frontend"] = append(p["frontend"], publisher("127.0.0.1", 9000, 18093)) }},
+		{name: "frontend unpublished", change: func(p map[string][]any) { p["frontend"] = exposed }},
 	} {
-		t.Run(name, func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			publishers := make(map[string][]any, len(valid))
 			for service, list := range valid {
 				publishers[service] = slices.Clone(list)
 			}
-			change(publishers)
+			test.change(publishers)
 			var report []map[string]any
 			for service, list := range publishers {
 				report = append(report, map[string]any{"Service": service, "State": "running", "Health": "healthy", "Publishers": list})
 			}
-			data, err := json.Marshal(report)
+			array, err := json.Marshal(report)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = checkPublishedPorts(data, port)
-			if (name == "frontend only") != (err == nil) {
-				t.Fatalf("checkPublishedPorts = %v", err)
+			// Compose 2.21 and later print one JSON object per line.
+			var lines []byte
+			for _, container := range report {
+				line, err := json.Marshal(container)
+				if err != nil {
+					t.Fatal(err)
+				}
+				lines = append(append(lines, line...), '\n')
 			}
-			if strings.HasSuffix(name, " published") && !strings.Contains(err.Error(), "only frontend may publish") {
-				t.Fatalf("a published backend was not named as such: %v", err)
+			for format, data := range map[string][]byte{"array": array, "lines": lines} {
+				err := checkPublishedPorts(data, port, test.fixtures)
+				if test.ok != (err == nil) {
+					t.Fatalf("%s: checkPublishedPorts = %v", format, err)
+				}
+				if strings.HasSuffix(test.name, " published") && !strings.Contains(err.Error(), "only frontend may publish") {
+					t.Fatalf("%s: a published service was not named as such: %v", format, err)
+				}
 			}
 		})
 	}
@@ -197,6 +223,7 @@ type authPhaseExecutor struct {
 	address        string
 	port           int
 	publishGateway bool
+	faultControls  bool
 	composeEnvs    [][]string
 	harnessEnv     []string
 	portQueries    []string
@@ -218,6 +245,11 @@ func (e *authPhaseExecutor) Run(ctx context.Context, dir string, env []string, n
 					publishers = []any{publisher("127.0.0.1", 8080, e.port)}
 				}
 				report = append(report, map[string]any{"Service": service, "State": "running", "Health": "healthy", "Publishers": publishers})
+			}
+			if e.faultControls {
+				for index, fixture := range []string{"http-fault-serving", "http-fault-warehouse"} {
+					report = append(report, map[string]any{"Service": fixture, "State": "running", "Health": "healthy", "Publishers": []any{publisher("127.0.0.1", 9090, 18100+index)}})
+				}
 			}
 			data, err := json.Marshal(report)
 			return data, nil, err
@@ -299,6 +331,53 @@ func TestAuthPhaseUsesOnlyTheFrontendAndTheOverride(t *testing.T) {
 	}
 	if !slices.Contains(executor.harnessEnv, "OPERATOR_PUBLIC_ORIGIN="+server.URL) {
 		t.Error("the harness cannot restart services without the auth environment")
+	}
+	if !slices.Contains(evidence.RedactedComposeFacts, "api="+server.URL) || slices.ContainsFunc(evidence.RedactedComposeFacts, func(fact string) bool { return strings.HasPrefix(fact, "gateway=") }) {
+		t.Errorf("auth Compose facts = %v, want the frontend-routed api fact only", evidence.RedactedComposeFacts)
+	}
+}
+
+func TestAuthFaultsPhaseAcceptsOnlyTheFaultControls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]string{"/api/serving/healthz": `{"status":"ok","service":"umir-serving"}`, "/api/warehouse/healthz": `{"status":"ok","service":"umir-warehouse"}`, "/": `<div id="root"></div>`}[r.URL.Path]
+		if body == "" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := writeTestResponse(w, body); err != nil {
+			t.Errorf("write smoke response: %v", err)
+		}
+	}))
+	defer server.Close()
+	address := strings.TrimPrefix(server.URL, "http://")
+	_, portText, _ := strings.Cut(address, ":")
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	passwordFile := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(passwordFile, []byte("disposable\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, publishGateway := range []bool{false, true} {
+		auth := &authAssembly{port: port, origin: server.URL, login: "operator", passwordFile: passwordFile}
+		executor := &authPhaseExecutor{address: address, port: port, faultControls: true, publishGateway: publishGateway}
+		evidence := httpRunEvidence{PhaseCleanup: map[string]string{}, ContainerIDs: map[string]map[string]string{}, Images: map[string]imageEvidence{}}
+		for _, service := range []string{"warehouse", "serving", "gateway", "frontend", "fault-fixture"} {
+			evidence.Images[service] = imageEvidence{ID: "sha256:local"}
+		}
+		override := filepath.Join(t.TempDir(), "compose.faults.json")
+		var stdout, stderr strings.Builder
+		_, err := runHTTPPhase(context.Background(), runnerTestFactory(t), "umir-http-0123456789abcdef01234567-fault", override, "faults", "/bin/http-acceptance", "token", cliOptions{candidate: true, auth: true}, auth, &evidence, executor, &stdout, &stderr)
+		if publishGateway {
+			if err == nil || !strings.Contains(err.Error(), "one-port boundary") {
+				t.Fatalf("a published gateway passed the auth faults phase: %v", err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("the fault controls failed the auth faults phase: %v; %s", err, stderr.String())
+		}
 	}
 }
 

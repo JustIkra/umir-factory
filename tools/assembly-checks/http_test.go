@@ -325,6 +325,11 @@ func TestSelectedHTTPRunnerUsesIsolatedProjectAndCleansAfterAcceptanceFailure(t 
 	if _, err := os.Stat(evidence.ServiceTests["warehouse"].RawJSONFile); err != nil {
 		t.Fatalf("raw service test JSON missing: %v", err)
 	}
+	// Selected evidence keeps its gateway fact; only auth acceptance names the frontend-routed API.
+	gateway := "gateway=http://" + executor.port
+	if !slices.Contains(evidence.RedactedComposeFacts, gateway) || slices.ContainsFunc(evidence.RedactedComposeFacts, func(fact string) bool { return strings.HasPrefix(fact, "api=") }) {
+		t.Fatalf("selected Compose facts = %v, want %s and no api fact", evidence.RedactedComposeFacts, gateway)
+	}
 }
 
 func TestSelectedHTTPRunnerCleansPartialComposeStartAndKeepsStartStatus(t *testing.T) {

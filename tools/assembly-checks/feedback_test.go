@@ -260,7 +260,7 @@ func TestFeedbackComposeRejectsPublishedSidecarPorts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := checkPublishedPorts(report, port); err == nil || !strings.Contains(err.Error(), "only frontend may publish") {
+		if err := checkPublishedPorts(report, port, nil); err == nil || !strings.Contains(err.Error(), "only frontend may publish") {
 			t.Errorf("%s published a host port without rejection: %v", service, err)
 		}
 	}

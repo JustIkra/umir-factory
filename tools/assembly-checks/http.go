@@ -519,7 +519,11 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		if err != nil {
 			return result, fmt.Errorf("docker compose ps: %s: %w", strings.TrimSpace(string(errOut)), err)
 		}
-		if err := checkPublishedPorts(report, auth.port); err != nil {
+		var controls []string
+		if phase == "faults" {
+			controls = []string{"http-fault-serving", "http-fault-warehouse"}
+		}
+		if err := checkPublishedPorts(report, auth.port, controls); err != nil {
 			return result, fmt.Errorf("verify the %s one-port boundary: %w", phase, err)
 		}
 		published = []string{"frontend"}
@@ -553,7 +557,11 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		return result, fmt.Errorf("%s health/smoke failed: %w", phase, err)
 	}
 	evidence.Smoke = phase + ":passed"
-	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, "api="+api, "frontend="+addresses["frontend"])
+	apiFact := "gateway=" + api
+	if auth != nil {
+		apiFact = "api=" + api
+	}
+	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, apiFact, "frontend="+addresses["frontend"])
 	args := []string{"--phase", phase, "--gateway-url", api}
 	args = append(args, "--factory-dir", factoryDir, "--compose-project", project)
 	harnessEnv := commandEnv()

@@ -101,7 +101,7 @@ The manual CI candidate gate accepts four complete commit SHA inputs. Selected H
 
 `--auth` requires `--candidate` and the marker. For each run the runner does the following:
 - **Operator.** It creates a disposable operator. The candidate gateway image runs `hash-password` with a random password on stdin, never in argv or the environment. The password stays in a private file of the run workspace.
-- **Port.** It picks a free loopback port that is both the frontend host port and the exact public origin. Before any scenario, `docker compose ps` must show that only frontend publishes a port, exactly `127.0.0.1:<port>->8080`; a published gateway or backend stops the phase.
+- **Port.** It picks a free loopback port that is both the frontend host port and the exact public origin. Before any scenario, `docker compose ps` must show that only frontend publishes a port, exactly `127.0.0.1:<port>->8080`. Any other published container of the project stops the phase; the only exception is the control port 9090 of the two fault fixtures in the faults phase, on `127.0.0.1` only.
 - **Requests.** Smoke checks and the harness use the frontend URL for the API. The harness signs in through frontend and sends the session cookie with every request, and the exact `Origin` and `X-CSRF-Token` with every unsafe one.
 - **Scenarios.** Before the business scenarios it records:
   - A01: business requests without a session get `401` and change nothing, and any success fails the run;
