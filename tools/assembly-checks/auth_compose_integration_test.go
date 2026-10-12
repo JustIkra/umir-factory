@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -74,6 +75,15 @@ func TestAuthCandidateOverridePublishesOnlyTheFrontend(t *testing.T) {
 	}
 	if _, ok := config.Volumes["operator-data"]; !ok {
 		t.Error("the operator-data volume is not declared")
+	}
+	// The candidate is a loopback development assembly: a public bind or another cookie mode in the
+	// environment never exposes its HTTP edge beyond the host.
+	exposed := authComposeOutput(t, docker, factoryDir, append(slices.Clone(env), "UMIR_BIND=0.0.0.0", "OPERATOR_COOKIE_MODE=secure"))
+	if ports := exposed.Services["frontend"].Ports; len(ports) != 1 || ports[0].HostIP != "127.0.0.1" || ports[0].Published != "18080" {
+		t.Errorf("with UMIR_BIND=0.0.0.0 frontend ports = %#v, want only 127.0.0.1:18080", ports)
+	}
+	if mode := exposed.Services["gateway"].Environment["OPERATOR_COOKIE_MODE"]; mode != "loopback-development" {
+		t.Errorf("OPERATOR_COOKIE_MODE = %q, want the fixed loopback-development mode", mode)
 	}
 	// The public origin is required: the gateway must never start with a guessed one.
 	args := authComposeArgs(factoryDir)

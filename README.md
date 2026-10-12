@@ -196,7 +196,7 @@ Compose наследует `HEALTHCHECK` из Dockerfile каждого серв
 
 ### Сборка с личным кабинетом оператора
 
-Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend; у gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
+Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend, и только на `127.0.0.1`: `compose.auth.yaml` задаёт этот адрес сам, `UMIR_BIND` на него не влияет, а gateway всегда работает в режиме `loopback-development`. Это сборка для разработки и приёмки, её HTTP-вход не выходит за пределы машины. У gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
 
 ```sh
 docker compose -f compose.yaml -f compose.dev.yaml build gateway
