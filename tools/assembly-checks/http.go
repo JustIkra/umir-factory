@@ -28,6 +28,7 @@ var httpRepositories = map[string]string{
 
 type httpRunEvidence struct {
 	Mode                 string                         `json:"mode"`
+	Auth                 bool                           `json:"auth,omitempty"`
 	Project              string                         `json:"project"`
 	Projects             map[string]string              `json:"projects"`
 	Sources              map[string]string              `json:"sourceSHAs"`
@@ -127,6 +128,14 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 			writeFailure(stderr, "write HTTP acceptance evidence: %v\n", err)
 		}
 	}()
+	if options.auth {
+		evidence.Auth = true
+		evidence.Stage = "verify-auth-marker"
+		if err := verifyAuthMarker(factoryDir); err != nil {
+			writeFailure(stderr, "auth candidate marker: %v\n", err)
+			return 2
+		}
+	}
 	evidence.Stage = "identify-factory"
 	dirtySHA, err := factoryDirtyIdentity(ctx, factoryDir, executor)
 	if err != nil {
@@ -201,7 +210,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		}
 		composeArgs := composeArgsBase(project, factoryDir)
 		evidence.Stage = "pull-selected-images"
-		if err := runCommand(ctx, executor, factoryDir, composeEnvironment(), "docker", append(composeArgs, "pull"), stdout, stderr); err != nil {
+		if err := runCommand(ctx, executor, factoryDir, composeEnvironment(nil), "docker", append(composeArgs, "pull"), stdout, stderr); err != nil {
 			writeFailure(stderr, "pull selected images failed: %v\n", err)
 			return processCode(err)
 		}
@@ -261,6 +270,15 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		}
 	}
 
+	var auth *authAssembly
+	if options.auth {
+		evidence.Stage = "prepare-operator"
+		auth, err = prepareAuthAssembly(ctx, executor, factoryDir, tempDir, evidence.Images["gateway"].Ref, freeLoopbackPort)
+		if err != nil {
+			writeFailure(stderr, "prepare the disposable operator: %v\n", err)
+			return processCode(err)
+		}
+	}
 	acceptanceBin := filepath.Join(tempDir, "http-acceptance")
 	evidence.Stage = "build-acceptance-harness"
 	if err := runCommand(ctx, executor, testModule, commandEnv("GOWORK=off"), "go", []string{"build", "-o", acceptanceBin, "./cmd/acceptance"}, stdout, stderr); err != nil {
@@ -290,7 +308,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		return 1
 	}
 	evidence.Stage = "normal-phase"
-	normalResult, err := runHTTPPhase(ctx, factoryDir, normalProject, normalOverride, "normal", acceptanceBin, faultToken, options, &evidence, executor, stdout, stderr)
+	normalResult, err := runHTTPPhase(ctx, factoryDir, normalProject, normalOverride, "normal", acceptanceBin, faultToken, options, auth, &evidence, executor, stdout, stderr)
 	evidence.Outcomes = append(evidence.Outcomes, normalResult.Outcomes...)
 	evidence.Observations = append(evidence.Observations, normalResult.Observations...)
 	if err != nil {
@@ -300,7 +318,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		return processCode(err)
 	}
 	evidence.Stage = "fault-phase"
-	faultResult, err := runHTTPPhase(ctx, factoryDir, faultProject, faultOverride, "faults", acceptanceBin, faultToken, options, &evidence, executor, stdout, stderr)
+	faultResult, err := runHTTPPhase(ctx, factoryDir, faultProject, faultOverride, "faults", acceptanceBin, faultToken, options, auth, &evidence, executor, stdout, stderr)
 	evidence.Outcomes = append(evidence.Outcomes, faultResult.Outcomes...)
 	evidence.Observations = append(evidence.Observations, faultResult.Observations...)
 	if err != nil {
@@ -311,7 +329,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 	}
 	evidence.Outcomes = append(evidence.Outcomes, "H25:passed")
 	evidence.Stage = "validate-matrix"
-	if err := validateHTTPOutcomes(evidence.Outcomes); err != nil {
+	if err := validateHTTPOutcomes(evidence.Outcomes, options.auth); err != nil {
 		writeFailure(stderr, "HTTP acceptance matrix incomplete: %v\n", err)
 		return 1
 	}
@@ -345,12 +363,21 @@ func randomToken() (string, error) {
 	return hex.EncodeToString(bytes[:]), nil
 }
 
-func composeEnvironment() []string {
-	return commandEnv("UMIR_BIND=127.0.0.1", "UMIR_WEB_PORT=0", "UMIR_API_PORT=0")
+// composeEnvironment uses ephemeral loopback ports, or the fixed frontend port and operator settings of
+// an auth run.
+func composeEnvironment(auth *authAssembly) []string {
+	values := []string{"UMIR_BIND=127.0.0.1", "UMIR_WEB_PORT=0", "UMIR_API_PORT=0"}
+	if auth != nil {
+		values = append(values, auth.composeEnv()...)
+	}
+	return commandEnv(values...)
 }
 
-func composeHTTPArgs(project, factoryDir, overridePath string) []string {
+func composeHTTPArgs(project, factoryDir string, auth *authAssembly, overridePath string) []string {
 	args := []string{"compose", "--project-name", project, "--file", filepath.Join(factoryDir, "compose.yaml")}
+	if auth != nil {
+		args = append(args, "--file", filepath.Join(factoryDir, authOverrideFile))
+	}
 	if overridePath != "" {
 		args = append(args, "--file", overridePath)
 	}
@@ -390,9 +417,14 @@ type httpPhaseResult struct {
 	Observations []json.RawMessage `json:"observations"`
 }
 
-func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase, acceptanceBin, token string, options cliOptions, evidence *httpRunEvidence, executor commandExecutor, stdout, stderr io.Writer) (result httpPhaseResult, resultErr error) {
-	composeArgs := composeHTTPArgs(project, factoryDir, overridePath)
-	env := composeEnvironment()
+func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase, acceptanceBin, token string, options cliOptions, auth *authAssembly, evidence *httpRunEvidence, executor commandExecutor, stdout, stderr io.Writer) (result httpPhaseResult, resultErr error) {
+	composeArgs := composeHTTPArgs(project, factoryDir, auth, overridePath)
+	env := composeEnvironment(auth)
+	down := []string{"down", "--remove-orphans"}
+	if auth != nil {
+		// The account volume holds only this run's disposable operator.
+		down = append(down, "--volumes")
+	}
 	upAttempted := false
 	defer func() {
 		if !upAttempted {
@@ -405,7 +437,7 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 			cancel()
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		cleanupErr := runCommand(cleanupCtx, executor, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), "down", "--remove-orphans"), io.Discard, stderr)
+		cleanupErr := runCommand(cleanupCtx, executor, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), down...), io.Discard, stderr)
 		cancel()
 		if cleanupErr != nil {
 			evidence.PhaseCleanup[phase] = "failed"
@@ -439,12 +471,31 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	}
 	evidence.ContainerIDs[phase] = containerIDs
 	addresses := make(map[string]string, 4)
-	for _, service := range []string{"gateway", "frontend"} {
-		published, err := composePort(ctx, executor, factoryDir, env, composeArgs, service, 8080)
+	published := []string{"gateway", "frontend"}
+	if auth != nil {
+		report, errOut, err := executor.Run(ctx, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), "ps", "--format", "json")...)
+		if err != nil {
+			return result, fmt.Errorf("docker compose ps: %s: %w", strings.TrimSpace(string(errOut)), err)
+		}
+		if err := checkPublishedPorts(report, auth.port); err != nil {
+			return result, fmt.Errorf("verify the %s one-port boundary: %w", phase, err)
+		}
+		published = []string{"frontend"}
+	}
+	for _, service := range published {
+		address, err := composePort(ctx, executor, factoryDir, env, composeArgs, service, 8080)
 		if err != nil {
 			return result, err
 		}
-		addresses[service] = published
+		addresses[service] = address
+	}
+	api := addresses["gateway"]
+	if auth != nil {
+		if addresses["frontend"] != auth.origin {
+			return result, fmt.Errorf("frontend answers at %s, not at the configured origin %s", addresses["frontend"], auth.origin)
+		}
+		// The browser reaches the API only through frontend.
+		api = addresses["frontend"]
 	}
 	controls := make(map[string]string)
 	if phase == "faults" {
@@ -456,20 +507,26 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 			controls[fixture] = published
 		}
 	}
-	if err := runSmoke(ctx, defaultHTTPClient(), smokeTargets{Web: addresses["frontend"], API: addresses["gateway"]}); err != nil {
+	if err := runSmoke(ctx, defaultHTTPClient(), smokeTargets{Web: addresses["frontend"], API: api}); err != nil {
 		return result, fmt.Errorf("%s health/smoke failed: %w", phase, err)
 	}
 	evidence.Smoke = phase + ":passed"
-	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, "gateway="+addresses["gateway"], "frontend="+addresses["frontend"])
-	args := []string{"--phase", phase, "--gateway-url", addresses["gateway"]}
+	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, "api="+api, "frontend="+addresses["frontend"])
+	args := []string{"--phase", phase, "--gateway-url", api}
 	args = append(args, "--factory-dir", factoryDir, "--compose-project", project)
+	harnessEnv := commandEnv()
+	if auth != nil {
+		args = append(args, "--auth", "--operator-login", auth.login, "--operator-password-file", auth.passwordFile, "--compose-override", filepath.Join(factoryDir, authOverrideFile))
+		// Restarts resolve compose.auth.yaml, which needs the same settings.
+		harnessEnv = env
+	}
 	if overridePath != "" {
 		args = append(args, "--compose-override", overridePath)
 	}
 	if phase == "faults" {
 		args = append(args, "--serving-fault-control-url", controls["http-fault-serving"], "--warehouse-fault-control-url", controls["http-fault-warehouse"], "--control-token", token)
 	}
-	out, errOut, err := executor.Run(ctx, factoryDir, commandEnv(), acceptanceBin, args...)
+	out, errOut, err := executor.Run(ctx, factoryDir, harnessEnv, acceptanceBin, args...)
 	if writeErr := writeAll(stdout, out); writeErr != nil {
 		return result, writeErr
 	}
@@ -615,13 +672,19 @@ func writeHTTPImageOverride(path string, options cliOptions, project string) err
 	return os.WriteFile(path, append(content, '\n'), 0o600)
 }
 
-func validateHTTPOutcomes(outcomes []string) error {
-	want := make(map[string]bool, 24)
+// validateHTTPOutcomes requires H01–H25 except the service-only H16, and A01–A04 in auth acceptance.
+func validateHTTPOutcomes(outcomes []string, auth bool) error {
+	want := make(map[string]bool, 28)
 	for number := 1; number <= 25; number++ {
 		if number == 16 {
 			continue
 		}
 		want[fmt.Sprintf("H%02d", number)] = false
+	}
+	if auth {
+		for number := 1; number <= 4; number++ {
+			want[fmt.Sprintf("A%02d", number)] = false
+		}
 	}
 	for _, outcome := range outcomes {
 		parts := strings.SplitN(outcome, ":", 2)

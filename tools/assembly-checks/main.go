@@ -22,9 +22,14 @@ type commandExecutor interface {
 type osExecutor struct{}
 
 func (*osExecutor) Run(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, []byte, error) {
+	return runOS(ctx, dir, env, nil, name, args...)
+}
+
+func runOS(ctx context.Context, dir string, env []string, stdin io.Reader, name string, args ...string) ([]byte, []byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Env = env
+	cmd.Stdin = stdin
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -103,17 +108,19 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 }
 
 type cliOptions struct {
-	factoryDir   string
-	envFile      string
-	webURL       string
-	apiURL       string
-	local        bool
-	warehouse    string
-	serving      string
-	gateway      string
-	frontend     string
-	candidate    bool
-	selected     bool
+	factoryDir string
+	envFile    string
+	webURL     string
+	apiURL     string
+	local      bool
+	warehouse  string
+	serving    string
+	gateway    string
+	frontend   string
+	candidate  bool
+	selected   bool
+	// auth runs the candidate as the one-port operator auth assembly of compose.auth.yaml.
+	auth         bool
 	githubOutput string
 }
 
@@ -133,6 +140,7 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	if command == "http-acceptance" {
 		flags.BoolVar(&options.candidate, "candidate", false, "build exact supplied commits as local test images")
 		flags.BoolVar(&options.selected, "selected", false, "pull and verify the selected published images")
+		flags.BoolVar(&options.auth, "auth", false, "run the candidate as the one-port operator auth assembly")
 		flags.StringVar(&options.warehouse, "warehouse-ref", "", "full warehouse commit SHA")
 		flags.StringVar(&options.serving, "serving-ref", "", "full serving commit SHA")
 		flags.StringVar(&options.gateway, "gateway-ref", "", "full gateway commit SHA")
@@ -172,6 +180,9 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	if command == "http-acceptance" {
 		if options.candidate == options.selected {
 			return options, errors.New("choose exactly one of --candidate or --selected")
+		}
+		if options.auth && !options.candidate {
+			return options, errors.New("--auth requires --candidate: the selected assembly keeps its published contract")
 		}
 		refs := []string{options.warehouse, options.serving, options.gateway, options.frontend}
 		if options.candidate {

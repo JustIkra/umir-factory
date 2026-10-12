@@ -69,11 +69,11 @@ func TestHTTPAcceptanceRequiresEveryBlackBoxMatrixOutcome(t *testing.T) {
 		}
 		outcomes = append(outcomes, fmt.Sprintf("H%02d:passed", number))
 	}
-	if err := validateHTTPOutcomes(outcomes); err == nil {
+	if err := validateHTTPOutcomes(outcomes, false); err == nil {
 		t.Fatal("HTTP matrix accepted missing runner-owned H25 evidence")
 	}
 	outcomes = append(outcomes, "H25:passed")
-	if err := validateHTTPOutcomes(outcomes); err != nil {
+	if err := validateHTTPOutcomes(outcomes, false); err != nil {
 		t.Fatalf("complete black-box matrix rejected: %v", err)
 	}
 	for name, invalid := range map[string][]string{
@@ -83,7 +83,7 @@ func TestHTTPAcceptanceRequiresEveryBlackBoxMatrixOutcome(t *testing.T) {
 		"failed scenario":           append(append([]string(nil), outcomes[:len(outcomes)-1]...), "H25:failed"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := validateHTTPOutcomes(invalid); err == nil {
+			if err := validateHTTPOutcomes(invalid, false); err == nil {
 				t.Fatal("invalid HTTP matrix was accepted")
 			}
 		})
