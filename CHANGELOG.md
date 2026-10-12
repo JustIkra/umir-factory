@@ -2,8 +2,17 @@
 
 ## Не выпущено
 
+- Согласованы OpenAPI, README и состояния клиента с проверкой длины `currentPassword` до credential verification: без активной паузы и при допустимом новом пароле значение длиннее 32 Unicode code points получает `422 PasswordRejected` и `fieldErrors.currentPassword: TooLong`, не увеличивает счётчик неверных проверок и не отзывает сессию. Уточнены точные JSON-ключи, запрет дублей и `null` в запросах кабинета. При интеграции сохранены актуальные статусы HTTP/Resolve, frontend и будущего auth из main.
+
 - OpenAPI draft.4 declares `Cache-Control: no-store` on every operator success response, requires `sessionRevoked` exactly on `PasswordChangeRateLimited`, and bounds `displayName` to 80 code points, as the gateway already does (gateway#8).
 - `compose.auth.yaml` is a loopback development and acceptance assembly: frontend binds `127.0.0.1` whatever `UMIR_BIND` says, and gateway always runs in `loopback-development` cookie mode, so its plain-HTTP edge never leaves the host (gateway#8).
+
+- Зафиксирована локальная политика runtime-секретов: `.env.secrets/` с закрытыми правами, исключение файлов из Docker build context и ограничения Compose file-backed secrets. Уточнено, что feedback отправляет уведомления формы, а будущий приватный auth владеет аккаунтом/сессиями/OTP и отправляет собственную почту через общую SMTP-привязку. OTP PR #3 уже в feedback main (merge `e98747a1`) и выключен по умолчанию; его код остаётся кандидатом переноса/повторного использования по Gateway #18. Опубликованный feedback SMTP fix `6c59bbf0` исправляет выбор PLAIN/LOGIN; доставка письма не подтверждена.
+
+- Приёмка frontend/gateway использует межмодульные тесты warehouse/serving и HTTP-проверки реальных сервисов вместо отдельного этапа сценарных бизнес-моков. Обновлены handoff и критерии интеграционного ревью; gateway #1 выполнен, factory #2 остаётся открыт для frontend/Figma и браузерной приёмки.
+
+- Обновлён статус документации: HTTP-адаптеры и Resolve в рамках работающих процессов реализованы; постоянное бизнес-состояние и восстановление после перезапуска остаются следующими задачами. Уточнены Figma/frontend, пять слоёв клиента и граница кабинета оператора. README содержит оставшиеся задачи с зависимостями и ссылки на выполненные gateway #8 и feedback #1.
+
 - Completed the six operator operations' OpenAPI 502/504 responses: read failures are unavailable, and lost modifying responses keep an unknown account or session outcome.
 
 - Added the private feedback/VPN candidate overlay and optional exact feedback source revision to authenticated HTTP acceptance. Synthetic F01–F05 cover the public form while SMTP/VPN are unavailable; selected pins remain unchanged.

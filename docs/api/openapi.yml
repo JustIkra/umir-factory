@@ -2045,10 +2045,14 @@ paths:
       operationId: changePassword
       summary: Change the password and end every session
       x-implementation-status: implemented-candidate
-      description: The new password must contain 8 to 32 Unicode code points; it is not trimmed or normalized.
+      description: The new password must contain 8 to 32 Unicode code points; neither password is trimmed or
+        normalized. An active cooldown answers 429 before field validation. Otherwise newPassword is validated
+        first. If it is valid, a currentPassword longer than 32 code points answers 422 PasswordRejected with
+        fieldErrors.currentPassword=TooLong before credential verification; it does not count as a failed check
+        or revoke a session.
         Success stores the new verifier, revokes every session including this one and clears its cookie; sign in
-        again. Wrong current passwords 1 to 4 within 60 seconds, counted for the whole operator, answer 403
-        CurrentPasswordIncorrect. The fifth revokes only the calling session and starts a 60-second cooldown in
+        again. Actual wrong current-password verifications 1 to 4 within 60 seconds, counted for the whole operator,
+        answer 403 CurrentPasswordIncorrect. The fifth revokes only the calling session and starts a 60-second cooldown in
         which every change is refused before any password check. A successful change clears the count.
       security:
         - operatorSession: []
@@ -2094,17 +2098,29 @@ paths:
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
-          description: PasswordRejected with the reason in fieldErrors.newPassword.
+          description: PasswordRejected with the reason in fieldErrors.currentPassword or fieldErrors.newPassword.
+            Outside an active cooldown, newPassword is validated first; currentPassword TooLong is returned when the
+            new password is valid. Invalid current-password length does not consume the wrong-password counter or
+            revoke a session.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OperatorError"
-              example:
-                code: PasswordRejected
-                message: new password must contain 8 to 32 characters
-                fieldErrors:
-                  newPassword: TooShort
-                requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+              examples:
+                currentPasswordTooLong:
+                  value:
+                    code: PasswordRejected
+                    message: password field is invalid
+                    fieldErrors:
+                      currentPassword: TooLong
+                    requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
+                newPasswordTooShort:
+                  value:
+                    code: PasswordRejected
+                    message: password field is invalid
+                    fieldErrors:
+                      newPassword: TooShort
+                    requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
         "429":
           description: PasswordChangeRateLimited; the password did not change. sessionRevoked=true means this
             response revoked the calling session, stored the revocation and cleared its cookie; sign in again.
@@ -2532,7 +2548,8 @@ components:
             requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
     InvalidRequest:
       description: InvalidRequest. The body is not the expected JSON object, including invalid UTF-8, an unpaired
-        surrogate escape, unknown fields or data after the object.
+        surrogate escape, unknown or wrong-case fields, duplicate object keys, null field values or data after
+        the object. Account request fields use exact case-sensitive names.
       content:
         application/json:
           schema:
@@ -3865,6 +3882,10 @@ components:
       properties:
         currentPassword:
           type: string
+          maxLength: 32
+          description: Sent as typed; never trimmed or normalized. Outside an active cooldown and after newPassword
+            passes field validation, a value over 32 Unicode code points is rejected before credential
+            verification without consuming the failed-check counter or revoking a session.
         newPassword:
           type: string
           description: 8 to 32 Unicode code points; not trimmed, normalized or truncated.
@@ -4446,5 +4467,5 @@ components:
             - not_committed
 x-gateway-source-revision: c7a5c02ee3a443f8a72120d64608b85049a18ad3
 x-auth-candidate-revisions:
-  gateway: d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969
+  gateway: 0e7dbfd628fcab71188a67bb903044966ccd4248
   frontend: 429ff994abf726d45926fcaf06d8bd3f33d61e50

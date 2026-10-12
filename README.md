@@ -21,7 +21,7 @@
 
 Остатки и индекс истечения публикуются вместе после полной команды; полная сверка нужна при восстановлении или известном сбое. Чистые расчёты используют захваченное неизменяемое состояние. GetMenu показывает только доступные блюда без количества порций. Снапшоты сохраняются в фоне после полных команд; точка восстановления меняется только после успешного сохранения.
 
-Решение рассчитано на один ресторан. Время — `Europe/Moscow`. Регистрация пользователей, роли приложения и несколько ресторанов находятся вне базовой версии.
+Решение рассчитано на один ресторан. Время — `Europe/Moscow`. Регистрация пользователей, роли приложения и несколько ресторанов находятся вне базовой бизнес-версии. Отдельное расширение gateway реализует личный кабинет одного оператора; OTP-регистрация, OTP-вход и восстановление пароля остаются самостоятельными задачами и не меняют бизнес-контракты.
 
 Основной документ бизнес-контрактов — [docs/business-core.md](docs/business-core.md). При расхождении описаний контрактов в README и docs приоритет имеет docs. Согласованные правила сохранены в документе; отдельно обозначенные предложения остаются на рассмотрении.
 
@@ -29,7 +29,30 @@
 
 ## Текущее состояние
 
-Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Реальные HTTP-процессы обслуживают публичный API через gateway; serving обращается к private listener warehouse на 8082. Warehouse запускает таймер истечения и snapshot worker; оба сервиса ожидают завершения своих обработчиков. Фабрика отдельно проверяет HTTP-сценарии и сетевые сбои на четырёх точных исходниках или опубликованных образах. Постоянное хранение и экраны остаются следующим этапом. Выбранные в compose.yaml образы не меняются вместе с исходным кодом рабочих веток.
+Статус на 2026-10-12. Реализация в исходниках, выбранные образы и развёртывание проверяются отдельно.
+
+Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Реальные HTTP-процессы обслуживают публичный API через gateway; serving обращается к private listener warehouse на 8082. Warehouse запускает таймер истечения и snapshot worker; оба сервиса ожидают завершения своих обработчиков. HTTP-адаптеры и разрешение незавершённых попыток в рамках работающих процессов реализованы. События и снапшоты хранятся только в памяти: постоянное состояние бизнес-ядра и восстановление попытки после перезапуска остаются следующей задачей. Фабрика отдельно проверяет HTTP-сценарии и сетевые сбои на четырёх точных исходниках или опубликованных образах. Выбранные в compose.yaml образы не меняются вместе с исходным кодом рабочих веток.
+
+Gateway main пока содержит аккаунт и сессии одного оператора вместе с интеграцией формы обратной связи. Форма и её уведомления по SMTP/Telegram остаются в feedback. Исправление SMTP-клиента опубликовано в [feedback commit `6c59bbf0`](https://github.com/JustIkra/umir-feedback/commit/6c59bbf0ad19048a5ddd0fe47d771c1c567ca4dd): после TLS он предпочитает объявленный PLAIN, а если его нет — использует объявленный LOGIN; отказ AUTH не запускает повторную попытку другим механизмом. Проверка подтвердила TLS, AUTH и MAIL FROM; реальная доставка письма не проверялась. Выбранные образы остаются на прежних SHA.
+
+Будущий приватный `umir-auth` будет владеть аккаунтами, сессиями и OTP и отправлять собственные письма через ту же SMTP-привязку, что и feedback. Перенос делает JustIkra по [Gateway #18](https://github.com/JustIkra/umir-gateway/issues/18); реализация auth service и перенос ещё не выполнены, gateway сейчас по-прежнему владеет аккаунтом и сессиями. OTP-код из [feedback PR #3](https://github.com/JustIkra/umir-feedback/pull/3) теперь находится в feedback main ([merge commit `e98747a1`](https://github.com/JustIkra/umir-feedback/commit/e98747a1771cd3de1e6defa1c849fdff3ea88154)) и выключен по умолчанию. Это код для переноса или повторного использования; интеграция и окончательный контракт будущего auth ещё не определены. Пины, production delivery и deployment не менялись.
+
+Frontend main на `d580d08` рендерит `null`. Опубликованная ветка [feat/frontend-quality, `962f7a9`](https://github.com/JustIkra/umir-frontend/commit/962f7a9ef1f2d5d2b7218e181e8f59bfb490c5c4) содержит TypeScript, React, SCSS, пять слоёв, Bun 1.4.3 и 35 quality-тестов. Она ещё не объединена с main; экранов и API-клиента нет в обеих версиях. Chakra UI запланирована, Stylelint отложен. [Figma Screens](https://www.figma.com/design/6Y1Jglyvc1xVsTzII54A2u/UmirHack?node-id=42-2) уже существует; оставшиеся экраны, результаты заказа и исправления переходов описаны в [дизайн-брифе](docs/frontend-design-brief.md).
+
+## Оставшиеся задачи
+
+Рекомендуемый порядок: завершить дизайн и перенести quality-каркас в main → реализовать API-клиент и UI → проверить браузерный путь через frontend → gateway → реальные serving/warehouse. Межмодульные тесты двух Runtime в tests/business и HTTP-приёмка реальных процессов в tests/http уже реализованы. Они используются как основа общей приёмки. Следующие issues отражают незакрытые критерии на 2026-10-12.
+
+| Приоритет | Issue и владелец | Оставшаяся работа | Зависимость |
+| --- | --- | --- | --- |
+| 1 | [Factory #2](https://github.com/JustIkra/umir-factory/issues/2) — factory | Завершить общий frontend/Figma handoff и браузерную приёмку на реальных сервисах; межмодульные и HTTP-проверки backend уже есть. | Реализация экранов frontend #1. |
+| 1 | [Frontend #1](https://github.com/JustIkra/umir-frontend/issues/1) — frontend | Перенести quality-каркас в main; завершить Figma (каталог, создание, рецептуры, четыре исхода заказа и корректные Submit-переходы), API/UI, восстановление pending и browser checks. | Реальные HTTP-сервисы готовы; browser evidence входит в общий handoff factory #2. |
+| 2 | [Gateway #10](https://github.com/JustIkra/umir-gateway/issues/10) — gateway + frontend | Завершить UX ожидания сессии: предупреждения о простое и абсолютном сроке, продолжение сессии по действию пользователя. Feedback route и серверная интеграция уже есть. | Экраны и browser acceptance frontend #1. |
+| 3 | [Gateway #18](https://github.com/JustIkra/umir-gateway/issues/18) — gateway, JustIkra | Перенести владение аккаунтами, сессиями и OTP в будущий приватный auth service; auth отправляет собственные письма через общую с feedback SMTP-привязку. | Auth service и миграция ещё не реализованы. OTP-код из feedback PR #3 уже в main, но выключен по умолчанию и остаётся кандидатом для переноса/повторного использования, не финальной интеграцией. |
+| 3 | [Feedback #2](https://github.com/JustIkra/umir-feedback/issues/2), [Gateway #13](https://github.com/JustIkra/umir-gateway/issues/13) — прежний кандидат | Эти задачи описывали OTP через feedback private challenge API. Их исходные границы заменены решением для Gateway #18; согласовать нужный API в рамках миграции, не выводить контракт из кандидата PR #3. | Auth #18. |
+| 4 | [Gateway #12](https://github.com/JustIkra/umir-gateway/issues/12) — gateway + frontend | Предыдущая постановка OTP-входа и восстановления пароля предшествует решению вынести auth и отправку писем в приватный сервис. | Уточнить контракт и клиент при выполнении Gateway #18. |
+
+На 2026-10-12 [Gateway #1](https://github.com/JustIkra/umir-gateway/issues/1), [Gateway #8](https://github.com/JustIkra/umir-gateway/issues/8) и [Feedback #1](https://github.com/JustIkra/umir-feedback/issues/1) закрыты как выполненные для сервисного кода и согласованной исходной интеграции. Приёмка gateway #1 подтверждается межмодульными тестами и HTTP-проверками реальных сервисов. В комментариях приведены merged PR и evidence. Их закрытие не меняет selected pins и не подтверждает deployment. Публикация новых SHA, настройка секретов на ВМ и проверка реальных каналов доставки остаются отдельным этапом.
 
 ## Бизнес-ядро и разработка
 
@@ -40,15 +63,15 @@ Warehouse и serving предоставляют независимые Go-мод
 | Область | Рекомендуется организаторами | Используется в проекте |
 | --- | --- | --- |
 | Backend | C#/.NET/ASP.NET, Java, Go | Go, net/http, хранилища в памяти |
-| Frontend | JavaScript или TypeScript со SCSS, React, Chakra | JavaScript и React/Vite; TypeScript, SCSS и Chakra UI разрешены для frontend PR |
-| Типы и тесты frontend | Конкретные инструменты не заданы | Разрешены openapi-typescript, tsc, Vitest и Playwright; добавляются при реализации frontend |
+| Frontend | JavaScript или TypeScript со SCSS, React, Chakra | В main JavaScript и React/Vite; в опубликованной quality-ветке TypeScript и SCSS. Chakra UI запланирована. |
+| Типы и тесты frontend | Конкретные инструменты не заданы | В quality-ветке TypeScript, ESLint, dependency-cruiser и Bun. openapi-typescript и browser/E2E-проверки добавляются при реализации клиента и экранов. |
 | Проверка и сборка системы | Конкретные инструменты не заданы | Go/race и HTTP-проверки фабрики, Docker Compose, Nginx, GitHub Actions |
 
 Таблица различает установленный стек и согласованные дополнения. Правила подключения frontend-инструментов находятся в [handoff](docs/gateway-frontend-handoff.md#11-стек-и-проверки-frontend) и README frontend. Рекомендации презентации не меняют согласованные бизнес-контракты и владельцев сервисов.
 
 Начните с [business-core](docs/business-core.md), затем прочитайте [архитектуру Go](docs/go-architecture.md) и README изменяемого сервиса. Эти документы задают поведение и границы исходного ядра; сетевую интеграцию контейнеров нужно проверить отдельно.
 
-Отдельный разработчик может параллельно выполнять [задачу gateway/frontend](docs/gateway-frontend-handoff.md) на сценарных HTTP-моках. Эта спецификация определяет интерфейсы gateway, wire contract и границу подключения реальных сервисов. [Задание на Figma](docs/frontend-design-brief.md) описывает дизайн и evidence; [проектный review-skill](skills/umir-pr-review/SKILL.md) хранит особенности будущих PR. Порядок начала работы и список задач находятся в связанных GitHub issues. Моки не подменяют приёмку реального бизнес-ядра или сетевого восстановления.
+Отдельный разработчик может выполнять [задачу gateway/frontend](docs/gateway-frontend-handoff.md) с уже реализованными HTTP-сервисами. Эта спецификация определяет интерфейсы gateway, wire contract и межмодульную приёмку. [Задание на Figma](docs/frontend-design-brief.md) описывает дизайн и evidence; [проектный review-skill](skills/umir-pr-review/SKILL.md) хранит особенности будущих PR. Порядок начала работы и список задач находятся в связанных GitHub issues. Межмодульные, HTTP и браузерные проверки подтверждают разные уровни поведения; восстановление бизнес-состояния после перезапуска остаётся отдельной задачей.
 
 | Репозиторий | Работа первого этапа | Свидетельство результата |
 | --- | --- | --- |
@@ -122,7 +145,7 @@ The verified service source is [feedback 3bea71b](https://github.com/JustIkra/um
 /tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
   --warehouse-ref 3e37af2f74a498c425c2dcb561be1bd3c9c01160 \
   --serving-ref 0fb867e7ff58e3106fa819355fc1ee298da58074 \
-  --gateway-ref d01bef4f4ab79cfa6d7d3e3977bcc6f38bb9a969 \
+  --gateway-ref 0e7dbfd628fcab71188a67bb903044966ccd4248 \
   --frontend-ref 429ff994abf726d45926fcaf06d8bd3f33d61e50 \
   --feedback-ref 3bea71b09b56f9fb17d39170688bf8d64b014225
 ```
@@ -133,7 +156,9 @@ VPN health can be unavailable in the synthetic run. The runner waits for applica
 
 For runtime composition, apply `compose.yaml`, `compose.auth.yaml`, then `compose.feedback.yaml`. Set `FEEDBACK_IMAGE` and `TELEGRAM_VPN_IMAGE` to tested full-SHA images. Set `FEEDBACK_ENV_FILE` to closed mail/bot and public configuration. Set `TELEGRAM_VPN_SUBSCRIPTION_URL_FILE` to a closed raw URL file and `TELEGRAM_PROXY_USERNAME_FILE`/`TELEGRAM_PROXY_PASSWORD_FILE` to separate random credentials. Set `TELEGRAM_VPN_DNS` to the controlled bootstrap resolver. The dotenv file from a secret form is not a raw URL file. Compose file-backed secrets do not reliably apply UID/mode; provision source files for UID/GID 65532 with mode 0400 or 0600. Existing state directories require owner 65532 and mode 0700.
 
-Feedback stores requests in its volume and physically removes them after required `FEEDBACK_RETENTION_DAYS`; acceptance uses 30 days and consent version v1. Deployed retention and placement must be configured before selection. Operator email copies are outside this retention. Telegram receives only the ID and Moscow time. See the [service README](https://github.com/JustIkra/umir-feedback#readme) for queue, retry, export/delete, capacity, and configuration details. Registration codes and their Figma email remain [feedback #2](https://github.com/JustIkra/umir-feedback/issues/2) and [gateway #13](https://github.com/JustIkra/umir-gateway/issues/13).
+Project runtime credentials are kept locally under the Git-ignored `.env.secrets/` directory. Keep the directory at mode `0700` and files at `0600` or `0400`. Prepared dotenv files are `feedback.env`, `telegram-vpn.env`, `auth-smtp.env`, and `auth-mail.env`; raw per-service files are grouped under `feedback/`, `auth/`, and `vpn/`. Names describe configuration only; the files contain private values and must stay out of Git and build contexts. The factory `.dockerignore` excludes `.env`, `.env.*`, and `.env.secrets/` while allowing `.env.example`. Prepared files are configuration inputs, not a complete runtime environment. Add all required service settings and validate them against the service README. This protects Docker build contexts; it does not configure Compose or inject these files into containers. File-backed Docker secrets need explicit runtime wiring, and the source files must actually be readable by UID/GID 65532 with the required mode on Linux because Compose file-secret UID/mode settings are advisory for bind-mounted files.
+
+Feedback stores requests in its volume and physically removes them after required `FEEDBACK_RETENTION_DAYS`; acceptance uses 30 days and consent version v1. Deployed retention and placement must be configured before selection. Operator email copies are outside this retention. Telegram receives only the ID and Moscow time. See the [service README](https://github.com/JustIkra/umir-feedback#readme) for queue, retry, export/delete, capacity, and configuration details. OTP ownership and migration are tracked in [gateway #18](https://github.com/JustIkra/umir-gateway/issues/18); the OTP code merged through [feedback PR #3](https://github.com/JustIkra/umir-feedback/pull/3) is disabled by default and remains only a transfer/reuse candidate.
 
 Before either phase starts, the runner executes the three warehouse owner, recheck, and HTTP pending tests against the exact selected warehouse source with `go test -race -count=1 -json`. Evidence records the source SHA and test names and preserves raw JSON and stderr files. The runner writes its evidence record before source resolution, image build, or pull can fail, so early failures retain the facts already known.
 The current selected image pins remain unchanged until tested HTTP service commits are published and selected.
@@ -207,6 +232,8 @@ docker compose -f compose.yaml -f compose.dev.yaml -f compose.auth.yaml up -d --
 ```
 
 `OPERATOR_PUBLIC_ORIGIN` обязателен и должен точно совпадать с адресом frontend в браузере, включая порт (`UMIR_WEB_PORT`). Если хэш записан в `.env`, возьмите его в одинарные кавычки: Compose подставляет `$` в значениях env-файла. Учётная запись создаётся при первом запуске на томе `operator-data`; дальше файл главнее `OPERATOR_BOOTSTRAP_*`. API доступен только через `http://127.0.0.1:8080/api/`, вход описан в [README gateway](https://github.com/JustIkra/umir-gateway#личный-кабинет-оператора).
+
+Если пауза смены пароля не активна и новый пароль допустим, `currentPassword` длиннее 32 Unicode code points отклоняется до проверки учётных данных: `422 PasswordRejected` с `fieldErrors.currentPassword: TooLong`. Такой запрос не расходует счётчик неверных проверок и не отзывает сессию. Пятая фактическая неверная проверка за скользящие 60 секунд отзывает только вызывающую сессию и запускает cooldown на 60 секунд; остальные сессии сохраняются. Пароли не обрезаются и не нормализуются. Подробные ошибки и состояния клиента определены в [OpenAPI](docs/api/openapi.yml) и [design brief](docs/frontend-design-brief.md#вход-и-кабинет-оператора).
 
 ### Публичный контур
 
