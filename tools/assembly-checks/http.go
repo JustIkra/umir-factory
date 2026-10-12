@@ -515,7 +515,11 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		return result, fmt.Errorf("%s health/smoke failed: %w", phase, err)
 	}
 	evidence.Smoke = phase + ":passed"
-	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, "api="+api, "frontend="+addresses["frontend"])
+	apiFact := "gateway=" + api
+	if auth != nil {
+		apiFact = "api=" + api
+	}
+	evidence.RedactedComposeFacts = append(evidence.RedactedComposeFacts, "project="+project, "phase="+phase, apiFact, "frontend="+addresses["frontend"])
 	args := []string{"--phase", phase, "--gateway-url", api}
 	args = append(args, "--factory-dir", factoryDir, "--compose-project", project)
 	harnessEnv := commandEnv()

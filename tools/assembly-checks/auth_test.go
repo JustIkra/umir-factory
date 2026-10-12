@@ -332,6 +332,9 @@ func TestAuthPhaseUsesOnlyTheFrontendAndTheOverride(t *testing.T) {
 	if !slices.Contains(executor.harnessEnv, "OPERATOR_PUBLIC_ORIGIN="+server.URL) {
 		t.Error("the harness cannot restart services without the auth environment")
 	}
+	if !slices.Contains(evidence.RedactedComposeFacts, "api="+server.URL) || slices.ContainsFunc(evidence.RedactedComposeFacts, func(fact string) bool { return strings.HasPrefix(fact, "gateway=") }) {
+		t.Errorf("auth Compose facts = %v, want the frontend-routed api fact only", evidence.RedactedComposeFacts)
+	}
 }
 
 func TestAuthFaultsPhaseAcceptsOnlyTheFaultControls(t *testing.T) {
