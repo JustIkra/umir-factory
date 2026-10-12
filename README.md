@@ -39,19 +39,18 @@ Frontend main на `d580d08` рендерит `null`. Опубликованна
 
 ## Оставшиеся задачи
 
-Рекомендуемый порядок интеграции: дизайн и перенос quality-каркаса в main → сценарные HTTP-моки → API-клиент и UI → браузерная приёмка через frontend → gateway → моки. Следующие issues отражают незакрытые критерии на 2026-10-12.
+Рекомендуемый порядок: завершить дизайн и перенести quality-каркас в main → реализовать API-клиент и UI → проверить браузерный путь через frontend → gateway → реальные serving/warehouse. Межмодульные тесты двух Runtime в tests/business и HTTP-приёмка реальных процессов в tests/http уже реализованы. Они используются как основа общей приёмки. Следующие issues отражают незакрытые критерии на 2026-10-12.
 
 | Приоритет | Issue и владелец | Оставшаяся работа | Зависимость |
 | --- | --- | --- | --- |
-| 1 | [Factory #2](https://github.com/JustIkra/umir-factory/issues/2) — factory | Добавить scripted serving/warehouse HTTP mocks, воспроизводимый mock stack и полный handoff; контракты и gateway уже частично реализованы. | Основа для gateway #1 и браузерной приёмки frontend #1. |
-| 1 | [Frontend #1](https://github.com/JustIkra/umir-frontend/issues/1) — frontend | Перенести quality-каркас в main; завершить Figma (каталог, создание, рецептуры, четыре исхода заказа и корректные Submit-переходы), API/UI, восстановление pending и browser checks. | Идёт после фиксации design/quality-интеграции; UI/API проверяется после готовности mock stack из factory #2. |
-| 2 | [Gateway #1](https://github.com/JustIkra/umir-gateway/issues/1) — gateway | Закрыть общую задачу только после scripted factory HTTP mocks и проверки gateway через них; HTTP-интерфейсы и часть тестов уже реализованы. | Factory #2 mock stack. |
+| 1 | [Factory #2](https://github.com/JustIkra/umir-factory/issues/2) — factory | Завершить общий frontend/Figma handoff и браузерную приёмку на реальных сервисах; межмодульные и HTTP-проверки backend уже есть. | Реализация экранов frontend #1. |
+| 1 | [Frontend #1](https://github.com/JustIkra/umir-frontend/issues/1) — frontend | Перенести quality-каркас в main; завершить Figma (каталог, создание, рецептуры, четыре исхода заказа и корректные Submit-переходы), API/UI, восстановление pending и browser checks. | Реальные HTTP-сервисы готовы; browser evidence входит в общий handoff factory #2. |
 | 2 | [Gateway #10](https://github.com/JustIkra/umir-gateway/issues/10) — gateway + frontend | Завершить UX ожидания сессии: предупреждения о простое и абсолютном сроке, продолжение сессии по действию пользователя. Feedback route и серверная интеграция уже есть. | Экраны и browser acceptance frontend #1. |
 | 3 | [Feedback #2](https://github.com/JustIkra/umir-feedback/issues/2) — feedback | Реализовать durable OTP challenges и письмо регистрации по Figma; SMTP-секреты остаются у feedback. | Затем gateway #13 подключает private challenge API. |
 | 3 | [Gateway #13](https://github.com/JustIkra/umir-gateway/issues/13) — gateway | Добавить подтверждение регистрации через private feedback challenge API и закрытую регистрацию одного оператора. | Feedback #2. |
 | 4 | [Gateway #12](https://github.com/JustIkra/umir-gateway/issues/12) — gateway + frontend | Сначала принять архитектурное/API-решение по OTP-входу и сбросу пароля; затем согласовать OpenAPI, миграцию и клиент. Секреты отправки должны оставаться в feedback. | Новая архитектурная/API договорённость; реализацию не начинать до неё. |
 
-На 2026-10-12 [Gateway #8](https://github.com/JustIkra/umir-gateway/issues/8) и [Feedback #1](https://github.com/JustIkra/umir-feedback/issues/1) закрыты как выполненные для сервисного кода и согласованной исходной интеграции. В комментариях приведены merged PR и evidence. Их закрытие не меняет selected pins и не подтверждает deployment. Публикация новых SHA, настройка секретов на ВМ и проверка реальных каналов доставки остаются отдельным этапом.
+На 2026-10-12 [Gateway #1](https://github.com/JustIkra/umir-gateway/issues/1), [Gateway #8](https://github.com/JustIkra/umir-gateway/issues/8) и [Feedback #1](https://github.com/JustIkra/umir-feedback/issues/1) закрыты как выполненные для сервисного кода и согласованной исходной интеграции. Приёмка gateway #1 подтверждается межмодульными тестами и HTTP-проверками реальных сервисов. В комментариях приведены merged PR и evidence. Их закрытие не меняет selected pins и не подтверждает deployment. Публикация новых SHA, настройка секретов на ВМ и проверка реальных каналов доставки остаются отдельным этапом.
 
 ## Бизнес-ядро и разработка
 
@@ -70,7 +69,7 @@ Frontend main на `d580d08` рендерит `null`. Опубликованна
 
 Начните с [business-core](docs/business-core.md), затем прочитайте [архитектуру Go](docs/go-architecture.md) и README изменяемого сервиса. Эти документы задают поведение и границы исходного ядра; сетевую интеграцию контейнеров нужно проверить отдельно.
 
-Отдельный разработчик может параллельно выполнять [задачу gateway/frontend](docs/gateway-frontend-handoff.md) на сценарных HTTP-моках. Эта спецификация определяет интерфейсы gateway, wire contract и границу подключения реальных сервисов. [Задание на Figma](docs/frontend-design-brief.md) описывает дизайн и evidence; [проектный review-skill](skills/umir-pr-review/SKILL.md) хранит особенности будущих PR. Порядок начала работы и список задач находятся в связанных GitHub issues. Моки не подменяют приёмку реального бизнес-ядра или сетевого восстановления.
+Отдельный разработчик может выполнять [задачу gateway/frontend](docs/gateway-frontend-handoff.md) с уже реализованными HTTP-сервисами. Эта спецификация определяет интерфейсы gateway, wire contract и межмодульную приёмку. [Задание на Figma](docs/frontend-design-brief.md) описывает дизайн и evidence; [проектный review-skill](skills/umir-pr-review/SKILL.md) хранит особенности будущих PR. Порядок начала работы и список задач находятся в связанных GitHub issues. Межмодульные, HTTP и браузерные проверки подтверждают разные уровни поведения; восстановление бизнес-состояния после перезапуска остаётся отдельной задачей.
 
 | Репозиторий | Работа первого этапа | Свидетельство результата |
 | --- | --- | --- |
