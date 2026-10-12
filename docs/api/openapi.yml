@@ -1810,7 +1810,10 @@ paths:
         Expires and Max-Age. Every credential mismatch is the same InvalidCredentials. Five failed logins within 60
         seconds start a 60-second cooldown for every login.
       security:
-        - csrfToken: []
+        - operatorPreauth: []
+          csrfToken: []
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -1894,7 +1897,8 @@ paths:
       security:
         - operatorSession: []
           csrfToken: []
-        - csrfToken: []
+        - operatorPreauth: []
+          csrfToken: []
       responses:
         "204":
           description: Logged out; the session cookie is cleared.
@@ -2105,7 +2109,10 @@ paths:
         retries; after a timeout or disconnect repeat the same submissionID and content. The service validates and
         stores the content (umir-feedback#1, x-implementation-status planned for the service answers).
       security:
-        - csrfToken: []
+        - operatorPreauth: []
+          csrfToken: []
+        - operatorSession: []
+          csrfToken: []
       requestBody:
         required: true
         content:
@@ -2332,6 +2339,13 @@ components:
       description: Opaque server session of the single operator, set by sign-in; HttpOnly, SameSite=Strict, Path=/,
         Secure. In loopback-development mode the cookie is umir_operator_session without Secure. The gateway
         stores only a digest of it. Never send it to services or keep it in browser storage.
+    operatorPreauth:
+      type: apiKey
+      in: cookie
+      name: __Host-umir_operator_preauth
+      description: Opaque anonymous CSRF context set by GET /api/operator/csrf without a live session; HttpOnly,
+        SameSite=Strict, Path=/, Secure. In loopback-development mode the cookie is umir_operator_preauth without
+        Secure. Its token is accepted only together with this cookie; sign-in clears it.
     csrfToken:
       type: apiKey
       in: header
