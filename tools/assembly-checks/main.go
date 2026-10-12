@@ -119,6 +119,7 @@ type cliOptions struct {
 	frontend   string
 	candidate  bool
 	selected   bool
+	realtime   bool
 	// auth runs the candidate as the one-port operator auth assembly of compose.auth.yaml.
 	auth         bool
 	feedbackRef  string
@@ -142,6 +143,7 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		flags.BoolVar(&options.candidate, "candidate", false, "build exact supplied commits as local test images")
 		flags.BoolVar(&options.selected, "selected", false, "pull and verify the selected published images")
 		flags.BoolVar(&options.auth, "auth", false, "run the candidate as the one-port operator auth assembly")
+		flags.BoolVar(&options.realtime, "realtime", false, "require and test the candidate realtime stream")
 		flags.StringVar(&options.feedbackRef, "feedback-ref", "", "full feedback service commit SHA for private feedback acceptance")
 		flags.StringVar(&options.warehouse, "warehouse-ref", "", "full warehouse commit SHA")
 		flags.StringVar(&options.serving, "serving-ref", "", "full serving commit SHA")
@@ -185,6 +187,9 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		}
 		if options.auth && !options.candidate {
 			return options, errors.New("--auth requires --candidate: the selected assembly keeps its published contract")
+		}
+		if options.realtime && (!options.candidate || !options.auth) {
+			return options, errors.New("--realtime requires --candidate and --auth")
 		}
 		if options.feedbackRef != "" {
 			if !options.candidate || !options.auth {

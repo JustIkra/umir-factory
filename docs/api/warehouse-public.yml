@@ -1,0 +1,103 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Umir warehouse public service API
+  version: 1.0.0-draft.1
+  description: >-
+    Private-network gateway-to-warehouse service contract. The listener is not exposed to browsers and this
+    operation has no gateway route. In particular, GET/POST /api/warehouse/expiration-runs is not declared and
+    the gateway returns 404 for /api/warehouse/expiration-runs. Shared scalar and error schemas are in
+    ./openapi.yml; distribute both documents or bundle before publishing.
+servers:
+  - url: http://warehouse:8080
+    description: Warehouse public business listener on the owned Compose network.
+security: []
+paths:
+  /expiration-runs:
+    post:
+      operationId: runExpirations
+      summary: Apply all due warehouse expirations
+      description: >-
+        Send no query parameters and exactly zero request-body bytes. Content-Type is not required. Any nonempty
+        body, including `{}`, is invalid even when Content-Length is unknown. The caller supplies no time or
+        command ID. Expiration decisions and event idempotency remain owned by warehouse. EvaluatedAt,
+        StateVersion and Expired come from the same atomic preparation; a successful repeat with no newly due
+        batches returns `expired: []`. Empty expired results are always JSON arrays.
+      x-implementation-status: implemented-candidate
+      responses:
+        "200":
+          description: One atomically evaluated expiration run.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ExpirationRun"}
+              example:
+                evaluatedAt: 2026-10-12T17:00:00+03:00
+                stateVersion: "42"
+                expired: []
+        "400":
+          description: Query parameters or a nonempty request body are invalid.
+          content:
+            application/json:
+              schema: {$ref: "./openapi.yml#/components/schemas/InvalidArgumentError"}
+              example: {code: InvalidArgument, message: request must not contain a body or query, outcome: not_committed}
+        "405":
+          description: MethodNotAllowed. The warehouse public listener does not include a gateway request ID.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MethodNotAllowedError"}
+              example: {code: MethodNotAllowed, message: method is not allowed for this route, outcome: unavailable}
+        "500":
+          description: Unknown write outcome, concurrent modification or unexpected warehouse failure.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ExpirationRunUnknownError"}
+              example: {code: InternalError, message: Warehouse operation outcome is unknown., outcome: unknown}
+        "503":
+          description: Warehouse inventory preparation is unavailable. The write outcome is unknown.
+          content:
+            application/json:
+              schema: {$ref: "./openapi.yml#/components/schemas/InventoryUnavailableError"}
+              example: {code: InventoryUnavailable, message: inventory is unavailable; expiration outcome is unknown, outcome: unknown}
+        "504":
+          description: The warehouse request exceeded its time budget. The write outcome is unknown.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ExpirationRunTimeoutError"}
+              example: {code: UpstreamTimeout, message: Warehouse request exceeded its time budget., outcome: unknown}
+components:
+  schemas:
+    ExpirationRunUnknownError:
+      type: object
+      additionalProperties: false
+      required: [code, message, outcome]
+      properties:
+        code: {type: string, const: InternalError}
+        message: {type: string, minLength: 1}
+        outcome: {type: string, const: unknown}
+    ExpirationRunTimeoutError:
+      type: object
+      additionalProperties: false
+      required: [code, message, outcome]
+      properties:
+        code: {type: string, const: UpstreamTimeout}
+        message: {type: string, minLength: 1}
+        outcome: {type: string, const: unknown}
+    MethodNotAllowedError:
+      type: object
+      additionalProperties: false
+      required: [code, message, outcome]
+      properties:
+        code: {type: string, const: MethodNotAllowed}
+        message: {type: string, minLength: 1}
+        outcome: {type: string, const: unavailable}
+    ExpirationRun:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, stateVersion, expired]
+      properties:
+        evaluatedAt: {$ref: "./openapi.yml#/components/schemas/MoscowTimestamp"}
+        stateVersion: {$ref: "./openapi.yml#/components/schemas/NonNegativeInt64"}
+        expired:
+          type: array
+          items: {$ref: "./openapi.yml#/components/schemas/ExpiryResult"}
+          minItems: 0

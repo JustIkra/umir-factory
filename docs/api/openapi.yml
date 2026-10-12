@@ -2,9 +2,9 @@ openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: Umir gateway API
-  version: 1.0.0-draft.4
+  version: 1.1.0-draft.1
   description: "Public wire contract v1 for frontend → gateway → serving/warehouse HTTP. This revision
-    describes the implemented local HTTP sources; the selected factory images serve the
+    describes implemented local HTTP sources and candidate contracts; the selected factory images serve the
     HTTP API. Use the factory README development build instructions for the current checkouts.
     Business state and confirmation attempts are process-local; restart recovery and durable storage are
     outside this stage. Definitions are immutable. Editing, history pagination, document upload/OCR, roles,
@@ -13,7 +13,9 @@ info:
     route, and the public feedback route (gateway#10). They are implemented in candidate gateway and frontend
     sources (x-implementation-status implemented-candidate) and served by the one-port auth candidate
     assembly (compose.auth.yaml); the selected images keep the draft.2 behaviour without authentication until
-    the coordinated pin update. All business bodies use
+    the coordinated pin update. Revision 1.1.0-draft.1 adds candidate-dependent live updates and background
+    activity semantics; selected images do not provide these features. The separate auth-service extraction in
+    gateway#18 is owner work and is not claimed by this gateway contract. All business bodies use
     application/json. Unknown tagged results and invalid response bodies are protocol failures, never
     proof of a sale. API revision is separate from service releases and exact factory image SHA pins.
     Source rules: [gateway handoff](../gateway-frontend-handoff.md) and [business
@@ -40,6 +42,8 @@ tags:
     description: The single operator's sign-in, session, profile and password.
   - name: Feedback
     description: Public feedback form; the private umir-feedback service owns its content.
+  - name: Live updates
+    description: Candidate-only Server-Sent Events stream for session and business activity signals.
 x-wire-version: 1
 x-timezone: Europe/Moscow
 x-core-source-revisions:
@@ -80,7 +84,71 @@ x-adapter-rules:
     Its authoritative read errors use unavailable; no proposal is created. Transport failure remains
     unknown. Repeating a successful preparation creates a new proposal ID.
 paths:
+  /api/live:
+    get:
+      tags: [Live updates]
+      operationId: streamLiveUpdates
+      summary: Stream session and business activity signals
+      description: >-
+        Candidate dependency. The selected image pins do not serve this route. Authenticate with a live operator
+        session cookie; the anonymous first-step login cookie does not authenticate the stream. The successful
+        response is UTF-8 Server-Sent Events with `Cache-Control: no-store` and `X-Accel-Buffering: no`. The
+        server sends `retry: 3000` first, then initial events in this order: change, tick, session, upstream.
+        Heartbeats are `: ping` every 15 seconds. Each event has one `event` line and one-line JSON `data`.
+        The journal is a ring of JOURNAL_CAPACITY (default 1000) entries and starts a new epoch after process
+        restart. It observes modifying serving/warehouse requests, display-name PATCH and expiration runs by
+        method/path/status only. It excludes login, logout, password changes and feedback; it stores no request
+        bodies, session IDs, IP addresses or headers. 2xx except 202 is success/signal; 202 is pending/signal;
+        4xx is rejected/no signal; 5xx, transport failure or timeout is unknown/signal. Signals can coalesce and
+        require clients to re-read existing routes. This stream does not prove a command succeeded. Streams and
+        background refreshes do not extend sessions.
+      x-implementation-status: pending-candidate
+      security:
+        - operatorSession: []
+      responses:
+        "200":
+          description: >-
+            UTF-8 Server-Sent Events. Frames begin with `retry: 3000`; heartbeats are `: ping`.
+          headers:
+            Content-Type:
+              required: true
+              schema: {type: string, const: text/event-stream; charset=utf-8}
+            Cache-Control:
+              required: true
+              schema: {type: string, const: no-store}
+            X-Accel-Buffering:
+              required: true
+              schema: {type: string, const: "no"}
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Stream of change, tick, session, upstream and session-ended events.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: CsrfRejected when a present Sec-Fetch-Site value is not same-origin.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LiveStreamError"}
+              example: {code: CsrfRejected, message: same-origin request required, requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH}
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "429":
+          description: More than eight streams for one session or more than 64 streams for the gateway process.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/LiveStreamError"}
+              example: {code: TooManyStreams, message: too many live streams, requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH}
+      x-live-event-schemas:
+        change: {$ref: "#/components/schemas/LiveChangeEvent"}
+        tick: {$ref: "#/components/schemas/LiveTickEvent"}
+        session: {$ref: "#/components/schemas/LiveSessionEvent"}
+        session-ended: {$ref: "#/components/schemas/LiveSessionEndedEvent"}
+        upstream: {$ref: "#/components/schemas/LiveUpstreamEvent"}
   /api/serving/products:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Catalog
@@ -258,6 +326,8 @@ paths:
                 message: Upstream timeout; outcome unknown.
                 outcome: unknown
   /api/serving/dish-catalog:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Catalog
@@ -339,6 +409,8 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
   /api/serving/dish:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Catalog
@@ -440,6 +512,8 @@ paths:
             $ref: "#/components/schemas/ID"
           description: Percent-encoded opaque ID. Preserve Unicode and reserved characters.
   /api/serving/dishes:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     post:
       tags:
         - Catalog
@@ -556,6 +630,8 @@ paths:
                 message: Upstream timeout; outcome unknown.
                 outcome: unknown
   /api/serving/menu:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Availability
@@ -633,6 +709,8 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
   /api/serving/stop-list:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Availability
@@ -714,6 +792,8 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
   /api/serving/recommendations:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Availability
@@ -805,6 +885,8 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
   /api/serving/order-proposals:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     post:
       tags:
         - Orders
@@ -934,6 +1016,8 @@ paths:
       description: No sale is committed by preparation. Warehouse preparation may record due expiry
         facts. Gateway treats a failed POST as unknown; do not infer an empty proposal.
   /api/serving/order-confirmations:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     post:
       tags:
         - Orders
@@ -1109,6 +1193,8 @@ paths:
         ID replays the same refusal. A superseded proposal returns 200 ProposalSuperseded with its
         replacement ID.
   /api/serving/order-confirmations/resolve:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     post:
       tags:
         - Orders
@@ -1290,6 +1376,8 @@ paths:
         remain unknown; only a saved definite refusal can return not_committed. A process restart loses the
         serving proposal and attempt state, so a missing proposal returns outcome=unknown.
   /api/warehouse/inventory:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Warehouse
@@ -1381,6 +1469,8 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
   /api/warehouse/expiring-batches:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Warehouse
@@ -1473,6 +1563,8 @@ paths:
             $ref: "#/components/schemas/MoscowTimestamp"
           description: Must be >= evaluatedAt captured by warehouse. Percent-encode + as %2B. No hidden warning window.
   /api/warehouse/history:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     get:
       tags:
         - Warehouse
@@ -1649,6 +1741,8 @@ paths:
       description: No pagination in v1. Does not trigger due expiry preparation. Each event is a typed immutable
         recorded fact.
   /api/warehouse/deliveries:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     post:
       tags:
         - Warehouse
@@ -1965,6 +2059,8 @@ paths:
         "504":
           $ref: "#/components/responses/GatewayReadTimeout"
   /api/operator/me/display-name:
+    parameters:
+      - {$ref: "#/components/parameters/ActivityHeader"}
     patch:
       tags:
         - Operator
@@ -2411,6 +2507,18 @@ paths:
                 message: Request query is invalid.
                 outcome: unavailable
 components:
+  parameters:
+    ActivityHeader:
+      name: X-Umir-Activity
+      in: header
+      required: false
+      description: >-
+        Optional activity classification. Exact value `background` keeps normal session/admission checks but
+        suppresses idle-deadline extension and account-file writes; the gateway strips this header upstream.
+        Every other value is ignored. It does not change CSRF rules or command retry behavior.
+      schema:
+        type: string
+      example: background
   securitySchemes:
     operatorSession:
       type: apiKey
@@ -2594,6 +2702,55 @@ components:
             message: account storage failed; nothing was changed
             requestID: 7KB6W3EHBMZKTKVRO44KR6KSVH
   schemas:
+    LiveChangeEvent:
+      type: object
+      description: Initial snapshot and after success, pending or unknown journal entries; entries may coalesce.
+      additionalProperties: false
+      required: [epoch, seq]
+      properties:
+        epoch: {type: string, minLength: 1}
+        seq: {$ref: "#/components/schemas/NonNegativeInt64"}
+    LiveTickEvent:
+      type: object
+      description: Initial snapshot and once at each server minute boundary.
+      additionalProperties: false
+      required: [serverTime]
+      properties:
+        serverTime: {$ref: "#/components/schemas/MoscowTimestamp"}
+    LiveSessionEvent:
+      type: object
+      description: Initial session snapshot and after user activity changes the session deadline. For a remembered session, both deadlines equal the absolute deadline.
+      additionalProperties: false
+      required: [idleExpiresAt, absoluteExpiresAt]
+      properties:
+        idleExpiresAt: {$ref: "#/components/schemas/MoscowTimestamp"}
+        absoluteExpiresAt: {$ref: "#/components/schemas/MoscowTimestamp"}
+    LiveSessionEndedEvent:
+      type: object
+      description: Sent for logout, revocation or expiry; the server closes the stream immediately afterward.
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [signed_out, revoked, expired]
+    LiveUpstreamEvent:
+      type: object
+      description: Initial state and transitions; unavailable after three failed expiration runs, available after the first subsequent success.
+      additionalProperties: false
+      required: [available]
+      properties:
+        available: {type: boolean}
+    LiveStreamError:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestID]
+      properties:
+        code:
+          type: string
+          enum: [CsrfRejected, TooManyStreams]
+        message: {type: string}
+        requestID: {$ref: "#/components/schemas/ID"}
     ID:
       type: string
       minLength: 1

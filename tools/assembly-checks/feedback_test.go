@@ -62,14 +62,14 @@ func TestFeedbackMarkerMustBeExplicitOnceAtTopLevel(t *testing.T) {
 
 func TestFeedbackMatrixRequiresF01ThroughF05OnlyWhenEnabled(t *testing.T) {
 	outcomes := append(completeOutcomes(true), "F01:passed", "F02:passed", "F03:passed", "F04:passed", "F05:passed")
-	if err := validateHTTPOutcomes(outcomes, true, true); err != nil {
+	if err := validateHTTPOutcomes(outcomes, true, true, false); err != nil {
 		t.Fatalf("complete feedback matrix rejected: %v", err)
 	}
 	withoutF03 := slices.DeleteFunc(slices.Clone(outcomes), func(outcome string) bool { return outcome == "F03:passed" })
-	if err := validateHTTPOutcomes(withoutF03, true, true); err == nil {
+	if err := validateHTTPOutcomes(withoutF03, true, true, false); err == nil {
 		t.Fatal("feedback matrix accepted a missing F03")
 	}
-	if err := validateHTTPOutcomes(outcomes, true); err == nil {
+	if err := validateHTTPOutcomes(outcomes, true, false, false); err == nil {
 		t.Fatal("legacy auth matrix accepted feedback outcomes")
 	}
 }
