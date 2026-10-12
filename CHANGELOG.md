@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Обновлён статус документации: HTTP-адаптеры и Resolve в рамках работающих процессов реализованы; постоянное бизнес-состояние и восстановление после перезапуска остаются следующими задачами. Уточнены Figma/frontend, пять слоёв клиента и граница кабинета оператора. README содержит оставшиеся задачи с зависимостями и ссылки на выполненные gateway #8 и feedback #1.
+
 - Completed the six operator operations' OpenAPI 502/504 responses: read failures are unavailable, and lost modifying responses keep an unknown account or session outcome.
 
 - Added the private feedback/VPN candidate overlay and optional exact feedback source revision to authenticated HTTP acceptance. Synthetic F01–F05 cover the public form while SMTP/VPN are unavailable; selected pins remain unchanged.
