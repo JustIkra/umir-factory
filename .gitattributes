@@ -1,0 +1,2 @@
+# Plans embed unified diffs: their context lines start with a space, often followed by a tab.
+docs/superpowers/plans/*.md -whitespace
