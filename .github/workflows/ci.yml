@@ -28,6 +28,11 @@ on:
         description: Full frontend commit SHA
         type: string
         required: false
+      http_auth:
+        description: Run the candidate as the one-port operator auth assembly (compose.auth.yaml)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -179,6 +184,7 @@ jobs:
           --serving-ref "${{ inputs.serving_ref }}"
           --gateway-ref "${{ inputs.gateway_ref }}"
           --frontend-ref "${{ inputs.frontend_ref }}"
+          ${{ inputs.http_auth && '--auth' || '' }}
       - name: Print candidate HTTP evidence
         if: always()
         run: if [[ -d "$RUNNER_TEMP/umir-http-evidence" ]]; then find "$RUNNER_TEMP/umir-http-evidence" -maxdepth 1 -type f -name '*.json' -exec cat {} \;; fi
