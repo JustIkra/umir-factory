@@ -24,11 +24,13 @@ var httpRepositories = map[string]string{
 	"serving":   "https://github.com/JustIkra/umir-serving.git",
 	"gateway":   "https://github.com/JustIkra/umir-gateway.git",
 	"frontend":  "https://github.com/JustIkra/umir-frontend.git",
+	"feedback":  feedbackRepository + ".git",
 }
 
 type httpRunEvidence struct {
 	Mode                 string                         `json:"mode"`
 	Auth                 bool                           `json:"auth,omitempty"`
+	Feedback             bool                           `json:"feedback,omitempty"`
 	Project              string                         `json:"project"`
 	Projects             map[string]string              `json:"projects"`
 	Sources              map[string]string              `json:"sourceSHAs"`
@@ -133,6 +135,14 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 		evidence.Stage = "verify-auth-marker"
 		if err := verifyAuthMarker(factoryDir); err != nil {
 			writeFailure(stderr, "auth candidate marker: %v\n", err)
+			return 2
+		}
+	}
+	if options.feedbackRef != "" {
+		evidence.Feedback = true
+		evidence.Stage = "verify-feedback-marker"
+		if err := verifyFeedbackMarker(factoryDir); err != nil {
+			writeFailure(stderr, "feedback candidate marker: %v\n", err)
 			return 2
 		}
 	}
@@ -279,6 +289,20 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 			return processCode(err)
 		}
 	}
+	if options.feedbackRef != "" {
+		evidence.Stage = "prepare-feedback"
+		feedback, err := prepareFeedbackAssembly(ctx, executor, factoryDir, tempDir, options.feedbackRef, faultImage)
+		if err != nil {
+			writeFailure(stderr, "prepare the private feedback assembly: %v\n", err)
+			return processCode(err)
+		}
+		auth.feedback = feedback
+		evidence.Sources["feedback"] = options.feedbackRef
+		evidence.Sources["telegram-vpn"] = options.feedbackRef
+		for name, image := range feedback.images {
+			evidence.Images[name] = image
+		}
+	}
 	acceptanceBin := filepath.Join(tempDir, "http-acceptance")
 	evidence.Stage = "build-acceptance-harness"
 	if err := runCommand(ctx, executor, testModule, commandEnv("GOWORK=off"), "go", []string{"build", "-o", acceptanceBin, "./cmd/acceptance"}, stdout, stderr); err != nil {
@@ -329,7 +353,7 @@ func runHTTPAcceptanceWithCleanup(ctx context.Context, factoryDir string, option
 	}
 	evidence.Outcomes = append(evidence.Outcomes, "H25:passed")
 	evidence.Stage = "validate-matrix"
-	if err := validateHTTPOutcomes(evidence.Outcomes, options.auth); err != nil {
+	if err := validateHTTPOutcomes(evidence.Outcomes, options.auth, options.feedbackRef != ""); err != nil {
 		writeFailure(stderr, "HTTP acceptance matrix incomplete: %v\n", err)
 		return 1
 	}
@@ -377,6 +401,9 @@ func composeHTTPArgs(project, factoryDir string, auth *authAssembly, overridePat
 	args := []string{"compose", "--project-name", project, "--file", filepath.Join(factoryDir, "compose.yaml")}
 	if auth != nil {
 		args = append(args, "--file", filepath.Join(factoryDir, authOverrideFile))
+		if auth.feedback != nil {
+			args = append(args, "--file", filepath.Join(factoryDir, feedbackOverrideFile))
+		}
 	}
 	if overridePath != "" {
 		args = append(args, "--file", overridePath)
@@ -455,14 +482,29 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 		return result, fmt.Errorf("%s Compose config failed: %w", phase, err)
 	}
 	upAttempted = true
-	if err := runCommand(ctx, executor, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), "up", "--detach", "--wait", "--wait-timeout", "120"), stdout, stderr); err != nil {
+	upArgs := []string{"up", "--detach", "--wait", "--wait-timeout", "120"}
+	if auth != nil && auth.feedback != nil {
+		// The VPN may be unhealthy without a usable synthetic subscription; intake must still start.
+		upArgs = []string{"up", "--detach"}
+	}
+	if err := runCommand(ctx, executor, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), upArgs...), stdout, stderr); err != nil {
 		return result, fmt.Errorf("start %s assembly failed: %w", phase, err)
 	}
 	services := []string{"warehouse", "serving", "gateway", "frontend"}
+	if auth != nil && auth.feedback != nil {
+		services = append(services, "feedback", "telegram-vpn")
+	}
 	if phase == "faults" {
 		services = append(services, "http-fault-serving", "http-fault-warehouse")
 	}
-	if err := verifyRunningTopology(ctx, executor, factoryDir, env, composeArgs, services); err != nil {
+	if auth != nil && auth.feedback != nil {
+		waitCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+		err := waitFeedbackTopology(waitCtx, executor, factoryDir, env, composeArgs, services)
+		cancel()
+		if err != nil {
+			return result, fmt.Errorf("verify %s topology: %w", phase, err)
+		}
+	} else if err := verifyRunningTopology(ctx, executor, factoryDir, env, composeArgs, services); err != nil {
 		return result, fmt.Errorf("verify %s topology: %w", phase, err)
 	}
 	containerIDs, err := verifyContainerImageIdentities(ctx, executor, factoryDir, env, composeArgs, services, phase, evidence.Images)
@@ -517,6 +559,12 @@ func runHTTPPhase(ctx context.Context, factoryDir, project, overridePath, phase,
 	harnessEnv := commandEnv()
 	if auth != nil {
 		args = append(args, "--auth", "--operator-login", auth.login, "--operator-password-file", auth.passwordFile, "--compose-override", filepath.Join(factoryDir, authOverrideFile))
+		if auth.feedback != nil && phase == "normal" {
+			args = append(args, "--feedback")
+		}
+		if auth.feedback != nil {
+			args = append(args, "--compose-override", filepath.Join(factoryDir, feedbackOverrideFile))
+		}
 		// Restarts resolve compose.auth.yaml, which needs the same settings.
 		harnessEnv = env
 	}
@@ -673,7 +721,7 @@ func writeHTTPImageOverride(path string, options cliOptions, project string) err
 }
 
 // validateHTTPOutcomes requires H01–H25 except the service-only H16, and A01–A04 in auth acceptance.
-func validateHTTPOutcomes(outcomes []string, auth bool) error {
+func validateHTTPOutcomes(outcomes []string, auth bool, feedback ...bool) error {
 	want := make(map[string]bool, 28)
 	for number := 1; number <= 25; number++ {
 		if number == 16 {
@@ -684,6 +732,11 @@ func validateHTTPOutcomes(outcomes []string, auth bool) error {
 	if auth {
 		for number := 1; number <= 4; number++ {
 			want[fmt.Sprintf("A%02d", number)] = false
+		}
+	}
+	if len(feedback) > 0 && feedback[0] {
+		for number := 1; number <= 5; number++ {
+			want[fmt.Sprintf("F%02d", number)] = false
 		}
 	}
 	for _, outcome := range outcomes {
@@ -880,7 +933,7 @@ func candidateSource(ctx context.Context, factoryDir, service, ref, destination 
 	return destination, nil
 }
 
-func verifyRunningTopology(ctx context.Context, executor commandExecutor, factoryDir string, env, composeArgs, expectedServices []string) error {
+func verifyRunningTopology(ctx context.Context, executor commandExecutor, factoryDir string, env, composeArgs []string, expectedServices []string, unhealthyAllowed ...string) error {
 	out, errOut, err := executor.Run(ctx, factoryDir, env, "docker", append(append([]string(nil), composeArgs...), "ps", "--format", "json")...)
 	if err != nil {
 		return fmt.Errorf("docker compose ps: %s: %w", strings.TrimSpace(string(errOut)), err)
@@ -890,6 +943,10 @@ func verifyRunningTopology(ctx context.Context, executor commandExecutor, factor
 		return fmt.Errorf("decode Compose container report: %w", err)
 	}
 	want := make(map[string]bool, len(expectedServices))
+	allowed := make(map[string]bool, len(unhealthyAllowed))
+	for _, service := range unhealthyAllowed {
+		allowed[service] = true
+	}
 	for _, service := range expectedServices {
 		want[service] = false
 	}
@@ -901,7 +958,7 @@ func verifyRunningTopology(ctx context.Context, executor commandExecutor, factor
 			return fmt.Errorf("unexpected or duplicate Compose service %q", container.Service)
 		}
 		want[container.Service] = true
-		if container.State != "running" || container.Health != "healthy" {
+		if container.State != "running" || container.Health != "healthy" && !allowed[container.Service] {
 			return fmt.Errorf("service %s state=%q health=%q, want running/healthy", container.Service, container.State, container.Health)
 		}
 	}
@@ -911,6 +968,23 @@ func verifyRunningTopology(ctx context.Context, executor commandExecutor, factor
 		}
 	}
 	return nil
+}
+
+func waitFeedbackTopology(ctx context.Context, executor commandExecutor, factoryDir string, env, composeArgs, expectedServices []string) error {
+	var lastErr error
+	for {
+		lastErr = verifyRunningTopology(ctx, executor, factoryDir, env, composeArgs, expectedServices, "telegram-vpn")
+		if lastErr == nil {
+			return nil
+		}
+		timer := time.NewTimer(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("feedback application services did not become ready: %w (last check: %w)", ctx.Err(), lastErr)
+		case <-timer.C:
+		}
+	}
 }
 
 func decodeComposeContainers(data []byte) ([]composeContainerReport, error) {
@@ -992,8 +1066,14 @@ func verifyContainerImageIdentities(ctx context.Context, executor commandExecuto
 		}
 		ids[service] = container.ID
 	}
-	if phase == "normal" && len(ids) != 4 {
-		return nil, fmt.Errorf("normal phase has %d service containers, want four", len(ids))
+	if phase == "normal" {
+		want := 4
+		if images["feedback"].ID != "" || images["telegram-vpn"].ID != "" {
+			want = 6
+		}
+		if len(ids) != want {
+			return nil, fmt.Errorf("normal phase has %d service containers, want %d", len(ids), want)
+		}
 	}
 	return ids, nil
 }

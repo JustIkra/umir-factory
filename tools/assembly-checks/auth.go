@@ -35,6 +35,7 @@ type authAssembly struct {
 	displayName  string
 	passwordHash string
 	passwordFile string
+	feedback     *feedbackAssembly
 }
 
 // inputRunner runs a command with stdin; hash-password reads the password only from there.
@@ -126,7 +127,7 @@ func freeLoopbackPort() (int, error) {
 
 // composeEnv configures compose.auth.yaml for this run.
 func (a *authAssembly) composeEnv() []string {
-	return []string{
+	values := []string{
 		"UMIR_WEB_PORT=" + strconv.Itoa(a.port),
 		"OPERATOR_COOKIE_MODE=loopback-development",
 		"OPERATOR_PUBLIC_ORIGIN=" + a.origin,
@@ -134,6 +135,10 @@ func (a *authAssembly) composeEnv() []string {
 		"OPERATOR_BOOTSTRAP_DISPLAY_NAME=" + a.displayName,
 		"OPERATOR_BOOTSTRAP_PASSWORD_HASH=" + a.passwordHash,
 	}
+	if a.feedback != nil {
+		values = append(values, a.feedback.composeEnv()...)
+	}
+	return values
 }
 
 type composePublisher struct {
@@ -168,7 +173,7 @@ func checkPublishedPorts(report []byte, port int) error {
 	frontend := 0
 	for _, c := range containers {
 		switch c.Service {
-		case "warehouse", "serving", "gateway", "frontend":
+		case "warehouse", "serving", "gateway", "frontend", "feedback", "telegram-vpn":
 		default:
 			continue
 		}

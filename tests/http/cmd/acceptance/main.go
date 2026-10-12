@@ -30,6 +30,7 @@ type config struct {
 	composeOverrides []string
 	// auth signs in through gatewayURL, the public frontend URL, before any business request.
 	auth                 bool
+	feedback             bool
 	operatorLogin        string
 	operatorPasswordFile string
 }
@@ -84,6 +85,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return nil
 	})
 	flags.BoolVar(&cfg.auth, "auth", false, "sign in as the operator through the public frontend URL")
+	flags.BoolVar(&cfg.feedback, "feedback", false, "run public feedback acceptance scenarios (requires --auth)")
 	flags.StringVar(&cfg.operatorLogin, "operator-login", "", "disposable operator login for auth acceptance")
 	flags.StringVar(&cfg.operatorPasswordFile, "operator-password-file", "", "absolute file with the disposable operator password")
 	if err := flags.Parse(args); err != nil {
@@ -100,6 +102,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if cfg.auth != (cfg.operatorLogin != "") || cfg.auth != (cfg.operatorPasswordFile != "") {
 		diagnostic(stderr, "--auth requires --operator-login and --operator-password-file, and they require --auth\n")
+		return 2
+	}
+	if cfg.feedback && (!cfg.auth || cfg.phase != "normal") {
+		diagnostic(stderr, "--feedback requires --auth and --phase normal\n")
 		return 2
 	}
 	if cfg.auth {
@@ -150,6 +156,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if err == nil && cfg.phase == "normal" {
 		err = s.runNormal()
+		if err == nil && cfg.feedback {
+			err = s.runFeedback()
+		}
 	} else if err == nil {
 		err = s.runFaults()
 	}

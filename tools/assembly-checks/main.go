@@ -121,6 +121,7 @@ type cliOptions struct {
 	selected   bool
 	// auth runs the candidate as the one-port operator auth assembly of compose.auth.yaml.
 	auth         bool
+	feedbackRef  string
 	githubOutput string
 }
 
@@ -141,6 +142,7 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		flags.BoolVar(&options.candidate, "candidate", false, "build exact supplied commits as local test images")
 		flags.BoolVar(&options.selected, "selected", false, "pull and verify the selected published images")
 		flags.BoolVar(&options.auth, "auth", false, "run the candidate as the one-port operator auth assembly")
+		flags.StringVar(&options.feedbackRef, "feedback-ref", "", "full feedback service commit SHA for private feedback acceptance")
 		flags.StringVar(&options.warehouse, "warehouse-ref", "", "full warehouse commit SHA")
 		flags.StringVar(&options.serving, "serving-ref", "", "full serving commit SHA")
 		flags.StringVar(&options.gateway, "gateway-ref", "", "full gateway commit SHA")
@@ -184,6 +186,14 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		if options.auth && !options.candidate {
 			return options, errors.New("--auth requires --candidate: the selected assembly keeps its published contract")
 		}
+		if options.feedbackRef != "" {
+			if !options.candidate || !options.auth {
+				return options, errors.New("--feedback-ref requires --candidate and --auth")
+			}
+			if !isSHA(options.feedbackRef) {
+				return options, errors.New("feedback ref must be exactly 40 lowercase hexadecimal characters")
+			}
+		}
 		refs := []string{options.warehouse, options.serving, options.gateway, options.frontend}
 		if options.candidate {
 			for _, ref := range refs {
@@ -196,6 +206,9 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 				if ref != "" {
 					return options, errors.New("--selected does not accept candidate refs")
 				}
+			}
+			if options.feedbackRef != "" {
+				return options, errors.New("--selected does not accept --feedback-ref")
 			}
 		}
 	}

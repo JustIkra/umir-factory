@@ -11,6 +11,7 @@
 | [umir-serving](https://github.com/JustIkra/umir-serving) | OrdersService, MenuService (включая стоп-лист) и RecommendationsService. |
 | [umir-warehouse](https://github.com/JustIkra/umir-warehouse) | Единый владелец склада: каталог, поставки, оценки, оформление, просрочка и запросы. |
 | [umir-frontend](https://github.com/JustIkra/umir-frontend) | React и раздача интерфейса; запросы API через gateway. |
+| [umir-feedback](https://github.com/JustIkra/umir-feedback) | Durable intake, SMTP notifications, and Telegram through a private VPN proxy. |
 
 Бизнес-ядро в памяти реализует поставки и партии, приготовление по FEFO, подтверждение сокращённого состава заказа, списание просрочки, стоп-лист и рекомендации по продаже. Warehouse владеет остатками и атомарно фиксирует окончательную продажу вместе с расходом ингредиентов. Serving хранит предложения заказа и координирует подтверждение через склад.
 
@@ -110,6 +111,29 @@ The manual CI candidate gate accepts four complete commit SHA inputs. Selected H
 - **Result.** The matrix requires A01–A04 in addition to H01–H25. Evidence records `"auth": true`, and cleanup also removes the disposable account volume.
 
 The manual CI candidate gate runs this mode with the `http_auth` input. Selected acceptance keeps its published draft.2 contract until the coordinated image publication and pin update.
+
+### Feedback candidate
+
+`compose.feedback.yaml` adds private feedback and `telegram-vpn` to the one-port auth candidate. It declares `x-umir-feedback-acceptance: candidate`. Gateway uses `FEEDBACK_URL=http://feedback:8084`; feedback listens on 8084, while the proxy listens on 8080. The feedback service has no host port. SMTP uses the application network; Telegram uses the internal `telegram-link` and VPN-only uplink.
+
+The verified service source is [feedback 3bea71b](https://github.com/JustIkra/umir-feedback/commit/3bea71b09b56f9fb17d39170688bf8d64b014225). Gateway [PR #16](https://github.com/JustIkra/umir-gateway/pull/16) and frontend [PR #3](https://github.com/JustIkra/umir-frontend/pull/3) supply its public boundary. This candidate extends [factory PR #5](https://github.com/JustIkra/umir-factory/pull/5); selected image pins are unchanged.
+
+```sh
+/tmp/umir-checks http-acceptance --factory-dir "$PWD" --candidate --auth \
+  --warehouse-ref 3e37af2f74a498c425c2dcb561be1bd3c9c01160 \
+  --serving-ref 0fb867e7ff58e3106fa819355fc1ee298da58074 \
+  --gateway-ref 910d4d666400be03976a5ea354d5d15da5efc7fe \
+  --frontend-ref 429ff994abf726d45926fcaf06d8bd3f33d61e50 \
+  --feedback-ref 3bea71b09b56f9fb17d39170688bf8d64b014225
+```
+
+Feedback acceptance builds the server and VPN images from the same exact service commit and records their source/revision labels and image identities. It creates private synthetic mail/bot configuration and proxy files for the owned Compose project; no user credentials are used. F01–F05 cover anonymous and session-bound submission, exact replay, identity conflict, validation/consent errors, honeypot acknowledgement, Origin/Fetch Metadata/CSRF, the 16 KiB boundary, and per-context limits with required `Retry-After`. Service-level tests cover journal atomicity, recovery, retention, and provider protocols; public acceptance does not inspect honeypot storage or claim live provider delivery.
+
+VPN health can be unavailable in the synthetic run. The runner waits for application services and feedback, while requiring the VPN supervisor to run; intake never depends on VPN health. Only frontend publishes an application port. Cleanup removes only disposable data in this acceptance project. The manual CI candidate gate accepts optional `feedback_ref` together with `http_auth`.
+
+For runtime composition, apply `compose.yaml`, `compose.auth.yaml`, then `compose.feedback.yaml`. Set `FEEDBACK_IMAGE` and `TELEGRAM_VPN_IMAGE` to tested full-SHA images. Set `FEEDBACK_ENV_FILE` to closed mail/bot and public configuration. Set `TELEGRAM_VPN_SUBSCRIPTION_URL_FILE` to a closed raw URL file and `TELEGRAM_PROXY_USERNAME_FILE`/`TELEGRAM_PROXY_PASSWORD_FILE` to separate random credentials. Set `TELEGRAM_VPN_DNS` to the controlled bootstrap resolver. The dotenv file from a secret form is not a raw URL file. Compose file-backed secrets do not reliably apply UID/mode; provision source files for UID/GID 65532 with mode 0400 or 0600. Existing state directories require owner 65532 and mode 0700.
+
+Feedback stores requests in its volume and physically removes them after required `FEEDBACK_RETENTION_DAYS`; acceptance uses 30 days and consent version v1. Deployed retention and placement must be configured before selection. Operator email copies are outside this retention. Telegram receives only the ID and Moscow time. See the [service README](https://github.com/JustIkra/umir-feedback#readme) for queue, retry, export/delete, capacity, and configuration details. Registration codes and their Figma email remain [feedback #2](https://github.com/JustIkra/umir-feedback/issues/2) and [gateway #13](https://github.com/JustIkra/umir-gateway/issues/13).
 
 Before either phase starts, the runner executes the three warehouse owner, recheck, and HTTP pending tests against the exact selected warehouse source with `go test -race -count=1 -json`. Evidence records the source SHA and test names and preserves raw JSON and stderr files. The runner writes its evidence record before source resolution, image build, or pull can fail, so early failures retain the facts already known.
 The current selected image pins remain unchanged until tested HTTP service commits are published and selected.
