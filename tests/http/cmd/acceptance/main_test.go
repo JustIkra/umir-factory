@@ -292,11 +292,11 @@ func TestRestartRejectsNonOwnedContextsBeforeDocker(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, cfg := range map[string]restartConfig{
-		"empty project":       {factoryDir: factory, project: "", override: validOverride},
-		"default project":     {factoryDir: factory, project: "umir", override: validOverride},
+		"empty project":       {factoryDir: factory, project: "", overrides: []string{validOverride}},
+		"default project":     {factoryDir: factory, project: "umir", overrides: []string{validOverride}},
 		"relative factory":    {factoryDir: "factory", project: validProject},
-		"relative override":   {factoryDir: factory, project: validProject, override: "compose.override.json"},
-		"missing override":    {factoryDir: factory, project: validProject + "-fault", override: filepath.Join(root, "missing.json")},
+		"relative override":   {factoryDir: factory, project: validProject, overrides: []string{"compose.override.json"}},
+		"missing override":    {factoryDir: factory, project: validProject + "-fault", overrides: []string{filepath.Join(root, "missing.json")}},
 		"missing base config": {factoryDir: root, project: validProject},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -310,7 +310,7 @@ func TestRestartRejectsNonOwnedContextsBeforeDocker(t *testing.T) {
 	}
 }
 
-func TestRestartUsesExactOwnedFaultProjectAndOverride(t *testing.T) {
+func TestRestartUsesExactOwnedFaultProjectAndOverridesInOrder(t *testing.T) {
 	root := t.TempDir()
 	factory := filepath.Join(root, "factory")
 	if err := os.MkdirAll(factory, 0o700); err != nil {
@@ -337,14 +337,18 @@ func TestRestartUsesExactOwnedFaultProjectAndOverride(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	project := "umir-http-0123456789abcdef01234567-fault"
-	if err := restart(t.Context(), restartConfig{factoryDir: factory, project: project, override: override}, "warehouse"); err != nil {
+	auth := filepath.Join(root, "compose.auth.yaml")
+	if err := os.WriteFile(auth, []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := restart(t.Context(), restartConfig{factoryDir: factory, project: project, overrides: []string{auth, override}}, "warehouse"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(argsFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := strings.Join([]string{"compose", "--project-name", project, "--file", filepath.Join(factory, "compose.yaml"), "--file", override, "--env-file", filepath.Join(factory, ".env.example"), "restart", "--timeout", "10", "warehouse", ""}, "\n")
+	want := strings.Join([]string{"compose", "--project-name", project, "--file", filepath.Join(factory, "compose.yaml"), "--file", auth, "--file", override, "--env-file", filepath.Join(factory, ".env.example"), "restart", "--timeout", "10", "warehouse", ""}, "\n")
 	if string(data) != want {
 		t.Fatalf("restart docker args = %q, want %q", string(data), want)
 	}

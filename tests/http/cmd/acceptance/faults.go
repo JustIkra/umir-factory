@@ -217,7 +217,7 @@ func seedOrderScenario(s *suite, label, productID, dishID, stock string) error {
 
 func (s *suite) h20() error {
 	started := time.Now()
-	status, body, requestErr := rawGatewayRequest(s.cfg.gatewayURL, "POST", "/api/serving/products", "Content-Type: application/json\r\nContent-Length: 96\r\n", `{"commandID":"upload-H20","productID":"partial-H20"`, 3*time.Second)
+	status, body, requestErr := rawGatewayRequest(s.cfg.gatewayURL, "POST", "/api/serving/products", s.session.rawHeaders(http.MethodPost)+"Content-Type: application/json\r\nContent-Length: 96\r\n", `{"commandID":"upload-H20","productID":"partial-H20"`, 3*time.Second)
 	if time.Since(started) > 4*time.Second {
 		return errors.New("stalled upload did not reach a finite connection outcome")
 	}

@@ -524,7 +524,7 @@ func (s *suite) h22() error {
 		"/api/serving/dish?dishID=one;extra=value",
 		"/api/serving/dish?dishID=%ZZ",
 	} {
-		status, _, err := rawGatewayRequest(s.cfg.gatewayURL, http.MethodGet, path, "", "", 3*time.Second)
+		status, _, err := rawGatewayRequest(s.cfg.gatewayURL, http.MethodGet, path, s.session.rawHeaders(http.MethodGet), "", 3*time.Second)
 		if err != nil || status != http.StatusBadRequest {
 			return errorWithCause(fmt.Sprintf("raw strict query %q returned %d", path, status), err)
 		}
@@ -606,7 +606,7 @@ func (s *suite) h24() error {
 	if err != nil || eventCountForCommand(beforeHistory, "OrderPlaced", "empty-H24") != 0 {
 		return errorWithCause("EmptyOrder created a warehouse sale", err)
 	}
-	restartCfg := restartConfig{s.cfg.factoryDir, s.cfg.composeProject, s.cfg.composeOverride}
+	restartCfg := restartConfig{factoryDir: s.cfg.factoryDir, project: s.cfg.composeProject, overrides: s.cfg.composeOverrides}
 	if err := restart(context.Background(), restartCfg, "serving"); err != nil {
 		return err
 	}
