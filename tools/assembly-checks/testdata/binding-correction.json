@@ -1,0 +1,106 @@
+{
+  "protocol": "umir-operational-fixtures/1.1.0",
+  "bindingsSHA256": "af215b378140b8e690523fc537007679b8c2599ed3039f7f2a0c651a64c59410",
+  "credentialTargets": {
+    "gateway-auth": [
+      "gateway",
+      "auth"
+    ],
+    "auth-warehouse": [
+      "auth",
+      "warehouse"
+    ],
+    "auth-serving": [
+      "auth",
+      "serving"
+    ],
+    "auth-gateway": [
+      "auth",
+      "gateway"
+    ],
+    "gateway-warehouse": [
+      "gateway",
+      "warehouse"
+    ],
+    "gateway-serving": [
+      "gateway",
+      "serving"
+    ],
+    "gateway-feedback": [
+      "gateway",
+      "feedback"
+    ],
+    "serving-warehouse": [
+      "serving",
+      "warehouse"
+    ],
+    "bootstrap-password": [
+      "auth"
+    ],
+    "smtp-username": [
+      "auth",
+      "feedback",
+      "smtp"
+    ],
+    "smtp-password": [
+      "auth",
+      "feedback",
+      "smtp"
+    ],
+    "proxy-username": [
+      "feedback",
+      "notification"
+    ],
+    "proxy-password": [
+      "feedback",
+      "notification"
+    ],
+    "telegram-bot": [
+      "feedback",
+      "notification"
+    ],
+    "synthetic-ca.pem": [
+      "auth",
+      "feedback",
+      "smtp",
+      "notification"
+    ],
+    "smtp-tls-cert": [
+      "smtp"
+    ],
+    "smtp-tls-key": [
+      "smtp"
+    ],
+    "notification-tls-cert": [
+      "notification"
+    ],
+    "notification-tls-key": [
+      "notification"
+    ],
+    "fixture-auth": [
+      "auth"
+    ],
+    "fixture-feedback": [
+      "feedback"
+    ],
+    "fixture-warehouse": [
+      "warehouse"
+    ],
+    "fixture-serving": [
+      "serving"
+    ],
+    "fixture-gateway": [
+      "gateway"
+    ],
+    "fixture-smtp": [
+      "smtp"
+    ],
+    "fixture-notification": [
+      "notification"
+    ],
+    "serving-auth": [
+      "serving",
+      "auth"
+    ]
+  }
+}

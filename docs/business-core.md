@@ -1,5 +1,13 @@
 # Спецификация бизнес-логики ресторана
 
+## Backend v2 candidate contract
+
+The selected single-restaurant implementation described below remains a separate legacy assembly. The authorized backend successor is [contract 2.0.0-draft.2](api/backend-v2.md), with public/private OpenAPI and conformance examples beside it. C1 authored this candidate; C2 approval is required before implementation. It supersedes fixed Moscow calendar rules and automatic final expiry for the future backend candidate only.
+
+Restaurant is the business tenant. Organization IANA settings are authoritative. Day shelf life is 24 physical hours; month expiry clamps the day and resolves a fold to its earlier instant and a gap to the first valid instant. Store applied settings and resolved expiry; never recalculate recorded instants after a settings change. Gateway is the sole scheduler; Warehouse owns the atomic due-expiry transition to unusable pending stock without removing physical quantity. Warehouse-role humans (including combined-role users and own-org Admin) confirm final writeoff exactly once. Historical BatchExpired remains final writeoff evidence.
+
+Auth alone persists identity/session/invitation/outbox/lifecycle state and signs internal JWTs. Warehouse/Serving remain in-memory and restaurant-scoped. Business reset loses state and unresolved attempts; old outcomes are indeterminate. Scoped revoke/cascade preserves global Users, sessions and neighboring scopes while denying deleted access and closing scoped SSE. Analytics preserves exact units, event prefixes, runtime coverage and separate authorized restaurant results. The v2 draft requires saved-epoch passive final-writeoff resolution, an immutable lifecycle operationID with restaurant-associated peer status, complete per-restaurant summary arrays without page-size truncation, and the smallest free positive canonical decimal catalog ID without reservation or opaque-ID normalization. Binding detail and all exact wire signatures are in the candidate contract; this section makes no implementation or E2E acceptance claim.
+
 Создано: 2026-10-09. Обновлено: 2026-10-12. Часовой пояс: Europe/Moscow.
 
 Это основной документ бизнес-контрактов проекта. При расхождении описаний контрактов в README и docs приоритет имеет docs. README описывают запуск и дают ссылки на этот документ. Решения пользователя определяют согласованный объём; отдельно обозначенные предложения остаются на рассмотрении.

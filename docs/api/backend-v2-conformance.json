@@ -1,0 +1,1880 @@
+{
+  "formatVersion": 1,
+  "contract": {
+    "version": "2.0.0-draft.2",
+    "identity": "sha256:733e102ff0b4f52bb49d435716f9f1720642c8fad3a8a5d0685847071950e9e6",
+    "manifestSHA256": "4b3536206cc94c411f04c737b961348e6284b2444ce142daae0745c5eae36e1d",
+    "decisionsSHA256": "623805c4bda3ea18be2720270430bdea8677ede26bcc4fae4ec1aa8c3f1cb29c",
+    "files": [
+      {
+        "path": "docs/api/backend-v2-public.json",
+        "sha256": "e710150288d650965cfee80b7cb623f5466583c03da9edf5561f94d127970897"
+      },
+      {
+        "path": "docs/api/backend-v2-private.json",
+        "sha256": "f1a46a199c5c616523ff24ed0c43a0ae92b43edd93e1264a854fd766030aa1c1"
+      },
+      {
+        "path": "docs/api/backend-v2-examples.json",
+        "sha256": "ac2f52f5d8667e54f1000eda0fbbd03356d990e9756a5a1982b3308ff206c6ed"
+      },
+      {
+        "path": "docs/api/backend-v2.md",
+        "sha256": "08a606696c1091096241df7a18120473f2e22bb6c60d04483732327d231b616f"
+      },
+      {
+        "path": "docs/business-core.md",
+        "sha256": "8e64f2ed3200cbdcf666f762107bf65c62e94273694fc857dc2428037051e011"
+      }
+    ]
+  },
+  "runtimeAcceptance": false,
+  "scope": "Supplementary schema and wire examples only. Relational rules remain in frozen backend-v2.md. JSON Schema does not prove authorization, signatures, persistence or business behavior.",
+  "schemaCases": [
+    {
+      "id": "F1-SC-001",
+      "name": "exact quantity above JavaScript safe integer",
+      "schema": "Quantity",
+      "value": "9007199254740993",
+      "valid": true
+    },
+    {
+      "id": "F1-SC-002",
+      "name": "quantity must not be a JSON number",
+      "schema": "Quantity",
+      "value": 9007199254740992,
+      "valid": false
+    },
+    {
+      "id": "F1-SC-003",
+      "name": "int64 maximum remains exact",
+      "schema": "Quantity",
+      "value": "9223372036854775807",
+      "valid": true
+    },
+    {
+      "id": "F1-SC-004",
+      "name": "quantity int64 overflow refused",
+      "schema": "Quantity",
+      "value": "9223372036854775808",
+      "valid": false
+    },
+    {
+      "id": "F1-SC-005",
+      "name": "UTC represents the same immutable instant",
+      "schema": "Instant",
+      "value": "2026-10-12T22:00:00Z",
+      "valid": true
+    },
+    {
+      "id": "F1-SC-006",
+      "name": "instant requires an explicit offset",
+      "schema": "Instant",
+      "value": "2026-10-13T01:00:00",
+      "valid": false
+    },
+    {
+      "id": "F1-SC-007",
+      "name": "restaurant IDs cannot be a wildcard",
+      "schema": "EntityID",
+      "value": "*",
+      "valid": false
+    },
+    {
+      "id": "F1-SC-008",
+      "name": "restaurant ID is not the opaque catalog ID",
+      "schema": "EntityID",
+      "value": "manual/01",
+      "valid": false
+    },
+    {
+      "id": "F1-SC-009",
+      "name": "opaque catalog ID remains editable",
+      "schema": "ID",
+      "value": "ручной/01",
+      "valid": true
+    },
+    {
+      "id": "F1-SC-010",
+      "name": "create restaurant",
+      "schema": "CreateRestaurant",
+      "value": {
+        "commandID": "restaurant-once",
+        "name": "Synthetic restaurant"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-011",
+      "name": "create restaurant rejects supplied owner",
+      "schema": "CreateRestaurant",
+      "value": {
+        "commandID": "restaurant-once",
+        "name": "Synthetic restaurant",
+        "orgID": "22222222-2222-4222-8222-222222222222"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-012",
+      "name": "create org with first restaurant",
+      "schema": "CreateOrganization",
+      "value": {
+        "commandID": "create-once",
+        "name": "Synthetic organization",
+        "timeZone": "Europe/Moscow",
+        "firstRestaurantName": "Synthetic restaurant"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-013",
+      "name": "create org cannot grant a client supplied Admin",
+      "schema": "CreateOrganization",
+      "value": {
+        "commandID": "org-create-1",
+        "name": "Test org",
+        "timeZone": "Europe/Moscow",
+        "firstRestaurantName": "Test restaurant",
+        "roles": [
+          "Admin"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-014",
+      "name": "timezone settings expected version",
+      "schema": "UpdateSettings",
+      "value": {
+        "commandID": "zone-once",
+        "expectedSettingsVersion": "1",
+        "timeZone": "Europe/Berlin"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-015",
+      "name": "timezone settings version is required",
+      "schema": "UpdateSettings",
+      "value": {
+        "commandID": "zone-once",
+        "timeZone": "Europe/Berlin"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-016",
+      "name": "invitation grants explicit same restaurant role union",
+      "schema": "CreateInvitation",
+      "value": {
+        "commandID": "invite-once",
+        "email": "worker@example.invalid",
+        "assignments": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "roles": [
+              "Warehouse",
+              "Waiter"
+            ]
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-017",
+      "name": "invitation does not grant org Admin",
+      "schema": "CreateInvitation",
+      "value": {
+        "commandID": "invite-once",
+        "email": "worker@example.invalid",
+        "assignments": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "roles": [
+              "Admin"
+            ]
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-018",
+      "name": "OTP six digits preserve leading zero",
+      "schema": "ChallengeVerify",
+      "value": {
+        "commandID": "verify-once",
+        "challengeID": "77777777-7777-4777-8777-777777777777",
+        "code": "012345"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-019",
+      "name": "OTP number is not the six digit string",
+      "schema": "ChallengeVerify",
+      "value": {
+        "commandID": "verify-once",
+        "challengeID": "77777777-7777-4777-8777-777777777777",
+        "code": 12345
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-020",
+      "name": "Auth computes permissions from session",
+      "schema": "AuthorizationRequest",
+      "value": {
+        "sessionToken": "synthetic-session-placeholder",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "menu",
+        "audiences": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "activity": "background"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-021",
+      "name": "caller cannot inject permissions into Auth decision",
+      "schema": "AuthorizationRequest",
+      "value": {
+        "sessionToken": "synthetic-session-placeholder",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "menu",
+        "audiences": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "activity": "background",
+        "permissions": [
+          "writeoff.confirm"
+        ]
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-022",
+      "name": "caller cannot inject organization into Auth decision",
+      "schema": "AuthorizationRequest",
+      "value": {
+        "sessionToken": "synthetic-session-placeholder",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "menu",
+        "audiences": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "activity": "background",
+        "orgID": "22222222-2222-4222-8222-222222222222"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-023",
+      "name": "background access check never specifies activity",
+      "schema": "AccessCheckRequest",
+      "value": {
+        "sessionToken": "synthetic-session-placeholder",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "live"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-024",
+      "name": "access check rejects idle extension flag",
+      "schema": "AccessCheckRequest",
+      "value": {
+        "sessionToken": "synthetic-session-placeholder",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "live",
+        "activity": "foreground"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-025",
+      "name": "scheduler only requests epoch bound due expiry",
+      "schema": "ServiceAuthorizationRequest",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "expiry.due",
+        "epoch": "44444444-4444-4444-8444-444444444444"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-026",
+      "name": "scheduler token port cannot request final writeoff",
+      "schema": "ServiceAuthorizationRequest",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "writeoff.confirm",
+        "epoch": "44444444-4444-4444-8444-444444444444"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-027",
+      "name": "anonymous token has no business scope",
+      "schema": "AnonymousAuthorizationRequest",
+      "value": {
+        "operation": "feedback.anonymous.submit"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-028",
+      "name": "anonymous token rejects supplied restaurant",
+      "schema": "AnonymousAuthorizationRequest",
+      "value": {
+        "operation": "feedback.anonymous.submit",
+        "restaurantID": "33333333-3333-4333-8333-333333333333"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-029",
+      "name": "register targets a specific current epoch",
+      "schema": "RegisterRuntime",
+      "value": {
+        "operationID": "77777777-7777-4777-8777-777777777777",
+        "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycleVersion": "1",
+        "settings": {
+          "timeZone": "Europe/Moscow",
+          "settingsVersion": "1"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-030",
+      "name": "registration epoch is mandatory",
+      "schema": "RegisterRuntime",
+      "value": {
+        "operationID": "77777777-7777-4777-8777-777777777777",
+        "lifecycleVersion": "1",
+        "settings": {
+          "timeZone": "Europe/Moscow",
+          "settingsVersion": "1"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-031",
+      "name": "close preserves saved operation identity",
+      "schema": "CloseRuntime",
+      "value": {
+        "operationID": "77777777-7777-4777-8777-777777777777",
+        "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycleVersion": "2"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-032",
+      "name": "readiness ack binds restaurant and epoch",
+      "schema": "ReadinessAck",
+      "value": {
+        "service": "warehouse",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "lifecycleVersion": "1",
+        "state": "ready"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-033",
+      "name": "readiness cannot omit restaurant",
+      "schema": "ReadinessAck",
+      "value": {
+        "service": "warehouse",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycleVersion": "1",
+        "state": "ready"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-034",
+      "name": "human writeoff body cannot choose actor",
+      "schema": "WriteoffRequest",
+      "value": {
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "actorUserID": "11111111-1111-4111-8111-111111111111"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-035",
+      "name": "human writeoff body",
+      "schema": "WriteoffRequest",
+      "value": {
+        "commandID": "writeoff-once",
+        "batchID": "B1"
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-036",
+      "name": "unseen passive writeoff retains unknown",
+      "schema": "WriteoffCommandLookup",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "unseen",
+          "outcome": "unknown"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-037",
+      "name": "absence is not owner refusal",
+      "schema": "WriteoffCommandLookup",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "unseen",
+          "outcome": "not_committed"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-038",
+      "name": "scoped feedback context supplied privately",
+      "schema": "ScopedFeedback",
+      "value": {
+        "submission": {
+          "submissionID": "11111111-1111-4111-8111-111111111111",
+          "name": "Synthetic user",
+          "email": "test@example.invalid",
+          "message": "Contract fixture only",
+          "consent": {
+            "accepted": true,
+            "documentVersion": "privacy-test-1"
+          }
+        },
+        "context": {
+          "kind": "app",
+          "userID": "11111111-1111-4111-8111-111111111111",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-039",
+      "name": "anonymous intake uses same submission shape",
+      "schema": "FeedbackSubmission",
+      "value": {
+        "submissionID": "11111111-1111-4111-8111-111111111111",
+        "name": "Synthetic user",
+        "email": "test@example.invalid",
+        "message": "Contract fixture only",
+        "consent": {
+          "accepted": true,
+          "documentVersion": "privacy-test-1"
+        }
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-040",
+      "name": "browser cannot choose tenant for feedback",
+      "schema": "FeedbackSubmission",
+      "value": {
+        "submissionID": "11111111-1111-4111-8111-111111111111",
+        "name": "Synthetic user",
+        "email": "test@example.invalid",
+        "message": "Contract fixture only",
+        "consent": {
+          "accepted": true,
+          "documentVersion": "privacy-test-1"
+        },
+        "tenantID": "33333333-3333-4333-8333-333333333333"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-041",
+      "name": "browser cannot choose actor for feedback",
+      "schema": "FeedbackSubmission",
+      "value": {
+        "submissionID": "11111111-1111-4111-8111-111111111111",
+        "name": "Synthetic user",
+        "email": "test@example.invalid",
+        "message": "Contract fixture only",
+        "consent": {
+          "accepted": true,
+          "documentVersion": "privacy-test-1"
+        },
+        "userID": "11111111-1111-4111-8111-111111111111"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-042",
+      "name": "feedback requires accepted consent",
+      "schema": "FeedbackSubmission",
+      "value": {
+        "submissionID": "11111111-1111-4111-8111-111111111111",
+        "name": "Synthetic user",
+        "email": "test@example.invalid",
+        "message": "Contract fixture only",
+        "consent": {
+          "accepted": false,
+          "documentVersion": "synthetic-1"
+        }
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-043",
+      "name": "stock retains exact unit quantities",
+      "schema": "StockReport",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "riskHours": 48,
+        "riskCutoff": "2026-10-15T01:00:00+03:00",
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "availableQuantity": "10000",
+            "pendingWriteoffQuantity": "5000",
+            "onHandQuantity": "15000",
+            "expiringQuantity": "3000"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-044",
+      "name": "movement coverage is explicit",
+      "schema": "MovementReport",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "from": "2026-10-07T00:00:00+03:00",
+        "to": "2026-10-14T00:00:00+03:00",
+        "coverage": {
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "coverageFrom": "2026-10-13T00:00:00+03:00",
+          "complete": false,
+          "requestedFrom": "2026-10-07T00:00:00+03:00",
+          "availableFrom": "2026-10-13T00:00:00+03:00"
+        },
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "receivedQuantity": "15000",
+            "orderedQuantity": "0",
+            "writtenOffQuantity": "0"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-045",
+      "name": "complete movements have no cursor",
+      "schema": "CompleteMovementReport",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "from": "2026-10-07T00:00:00+03:00",
+        "to": "2026-10-14T00:00:00+03:00",
+        "coverage": {
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "coverageFrom": "2026-10-13T00:00:00+03:00",
+          "complete": false,
+          "requestedFrom": "2026-10-07T00:00:00+03:00",
+          "availableFrom": "2026-10-13T00:00:00+03:00"
+        },
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "receivedQuantity": "15000",
+            "orderedQuantity": "0",
+            "writtenOffQuantity": "0"
+          }
+        ]
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-046",
+      "name": "summary cannot disguise incomplete pagination",
+      "schema": "CompleteMovementReport",
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "from": "2026-10-07T00:00:00+03:00",
+        "to": "2026-10-14T00:00:00+03:00",
+        "coverage": {
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "coverageFrom": "2026-10-13T00:00:00+03:00",
+          "complete": false,
+          "requestedFrom": "2026-10-07T00:00:00+03:00",
+          "availableFrom": "2026-10-13T00:00:00+03:00"
+        },
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "receivedQuantity": "15000",
+            "orderedQuantity": "0",
+            "writtenOffQuantity": "0"
+          }
+        ],
+        "nextCursor": "synthetic-more"
+      },
+      "valid": false
+    },
+    {
+      "id": "F1-SC-047",
+      "name": "runtime reset does not invent refusal",
+      "schema": "Error",
+      "value": {
+        "code": "RuntimeReset",
+        "outcome": "indeterminate",
+        "message": "Synthetic epoch changed",
+        "retryable": false
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-048",
+      "name": "read failure preserves unknown original command",
+      "schema": "Error",
+      "value": {
+        "code": "UpstreamUnavailable",
+        "outcome": "unavailable",
+        "message": "Synthetic passive lookup failure",
+        "retryable": true
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-049",
+      "name": "modifying timeout outcome stays unknown",
+      "schema": "Error",
+      "value": {
+        "code": "UpstreamUnavailable",
+        "outcome": "unknown",
+        "message": "Synthetic lost modifying reply",
+        "retryable": true
+      },
+      "valid": true
+    },
+    {
+      "id": "F1-SC-050",
+      "name": "terminal SSE is typed",
+      "schema": "LiveEvent",
+      "value": {
+        "type": "access-ended",
+        "tenantID": "33333333-3333-4333-8333-333333333333",
+        "reason": "revoked"
+      },
+      "valid": true
+    }
+  ],
+  "wireExamples": [
+    {
+      "id": "F1-WIRE-001",
+      "surface": "public",
+      "operationID": "createOrganization",
+      "method": "POST",
+      "route": "/api/v2/orgs",
+      "request": {
+        "path": {},
+        "query": {},
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder",
+          "Origin": "https://synthetic.example.invalid",
+          "X-CSRF-Token": "synthetic-csrf-placeholder"
+        },
+        "body": {
+          "commandID": "create-once",
+          "name": "Synthetic organization",
+          "timeZone": "Europe/Moscow",
+          "firstRestaurantName": "Synthetic restaurant"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "commandID": "create-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "registering",
+          "lifecycleVersion": "1",
+          "cleanup": "not_required",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1"
+            }
+          ],
+          "operationID": "77777777-7777-4777-8777-777777777777"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-002",
+      "surface": "public",
+      "operationID": "deleteOrganization",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder",
+          "Origin": "https://synthetic.example.invalid",
+          "X-CSRF-Token": "synthetic-csrf-placeholder"
+        },
+        "body": {
+          "commandID": "delete-1"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-003",
+      "surface": "public",
+      "operationID": "createRestaurant",
+      "method": "POST",
+      "route": "/api/v2/orgs/{orgID}/restaurants",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder",
+          "Origin": "https://synthetic.example.invalid",
+          "X-CSRF-Token": "synthetic-csrf-placeholder"
+        },
+        "body": {
+          "commandID": "create-once",
+          "name": "Synthetic restaurant"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "commandID": "create-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "registering",
+          "lifecycleVersion": "1",
+          "cleanup": "not_required",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1"
+            }
+          ],
+          "operationID": "77777777-7777-4777-8777-777777777777"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-004",
+      "surface": "public",
+      "operationID": "deleteRestaurant",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}/restaurants/{restaurantID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {},
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder",
+          "Origin": "https://synthetic.example.invalid",
+          "X-CSRF-Token": "synthetic-csrf-placeholder"
+        },
+        "body": {
+          "commandID": "delete-1"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-005",
+      "surface": "private",
+      "operationID": "authFacadecreateOrganization",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs",
+      "request": {
+        "path": {},
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "X-Umir-Session": "synthetic-session-placeholder",
+          "X-Umir-CSRF-Token": "synthetic-csrf-placeholder",
+          "X-Umir-Activity": "foreground"
+        },
+        "body": {
+          "commandID": "create-once",
+          "name": "Synthetic organization",
+          "timeZone": "Europe/Moscow",
+          "firstRestaurantName": "Synthetic restaurant"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "commandID": "create-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "registering",
+          "lifecycleVersion": "1",
+          "cleanup": "not_required",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1"
+            }
+          ],
+          "operationID": "77777777-7777-4777-8777-777777777777"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-006",
+      "surface": "private",
+      "operationID": "authFacadedeleteOrganization",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "X-Umir-Session": "synthetic-session-placeholder",
+          "X-Umir-CSRF-Token": "synthetic-csrf-placeholder",
+          "X-Umir-Activity": "foreground"
+        },
+        "body": {
+          "commandID": "delete-1"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-007",
+      "surface": "private",
+      "operationID": "authFacadecreateRestaurant",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/restaurants",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "X-Umir-Session": "synthetic-session-placeholder",
+          "X-Umir-CSRF-Token": "synthetic-csrf-placeholder",
+          "X-Umir-Activity": "foreground"
+        },
+        "body": {
+          "commandID": "create-once",
+          "name": "Synthetic restaurant"
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "commandID": "create-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "registering",
+          "lifecycleVersion": "1",
+          "cleanup": "not_required",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "1"
+            }
+          ],
+          "operationID": "77777777-7777-4777-8777-777777777777"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-008",
+      "surface": "private",
+      "operationID": "authFacadedeleteRestaurant",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/restaurants/{restaurantID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "X-Umir-Session": "synthetic-session-placeholder",
+          "X-Umir-CSRF-Token": "synthetic-csrf-placeholder",
+          "X-Umir-Activity": "foreground"
+        },
+        "body": {
+          "commandID": "delete-1"
+        }
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-009",
+      "surface": "public",
+      "operationID": "resolveWriteoffCommand",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/writeoffs/commands",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once",
+          "batchID": "B1"
+        },
+        "header": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444",
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "commandID": "writeoff-once",
+          "batchID": "B1",
+          "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+          "observation": {
+            "state": "committed",
+            "outcome": "committed",
+            "result": {
+              "context": {
+                "orgID": "22222222-2222-4222-8222-222222222222",
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                },
+                "evaluatedAt": "2026-10-13T01:00:00+03:00",
+                "stateVersion": "4"
+              },
+              "result": {
+                "batchID": "B1",
+                "productID": "P1",
+                "writtenOffQuantity": "5000",
+                "baseUnit": "g",
+                "actorUserID": "11111111-1111-4111-8111-111111111111",
+                "confirmedAt": "2026-10-13T01:00:00+03:00",
+                "eventID": "writeoff-fact-1"
+              }
+            }
+          }
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-010",
+      "surface": "private",
+      "operationID": "privateresolveWriteoffCommand",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/writeoffs/commands",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once",
+          "batchID": "B1"
+        },
+        "header": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444",
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "Authorization": "Bearer synthetic-auth-issued-token-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "commandID": "writeoff-once",
+          "batchID": "B1",
+          "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+          "observation": {
+            "state": "committed",
+            "outcome": "committed",
+            "result": {
+              "context": {
+                "orgID": "22222222-2222-4222-8222-222222222222",
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                },
+                "evaluatedAt": "2026-10-13T01:00:00+03:00",
+                "stateVersion": "4"
+              },
+              "result": {
+                "batchID": "B1",
+                "productID": "P1",
+                "writtenOffQuantity": "5000",
+                "baseUnit": "g",
+                "actorUserID": "11111111-1111-4111-8111-111111111111",
+                "confirmedAt": "2026-10-13T01:00:00+03:00",
+                "eventID": "writeoff-fact-1"
+              }
+            }
+          }
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-011",
+      "surface": "public",
+      "operationID": "lifecycle",
+      "method": "GET",
+      "route": "/api/v2/orgs/{orgID}/lifecycle/{operationID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        },
+        "query": {},
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-012",
+      "surface": "private",
+      "operationID": "authFacadelifecycle",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/lifecycle/{operationID}",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        },
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "X-Umir-Session": "synthetic-session-placeholder",
+          "X-Umir-CSRF-Token": "synthetic-csrf-placeholder",
+          "X-Umir-Activity": "foreground"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "commandID": "delete-1",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-013",
+      "surface": "public",
+      "operationID": "analyticsstock",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/analytics/stock",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "expectedSettingsVersion": "1"
+        },
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "page": {
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "stateVersion": "4",
+            "prefixSequence": "4",
+            "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            }
+          },
+          "riskHours": 48,
+          "riskCutoff": "2026-10-15T01:00:00+03:00",
+          "items": [
+            {
+              "productID": "P1",
+              "name": "Test product",
+              "baseUnit": "g",
+              "availableQuantity": "10000",
+              "pendingWriteoffQuantity": "5000",
+              "onHandQuantity": "15000",
+              "expiringQuantity": "3000"
+            }
+          ]
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-014",
+      "surface": "private",
+      "operationID": "privateAnalyticsstock",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/analytics/stock",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "expectedSettingsVersion": "1"
+        },
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "Authorization": "Bearer synthetic-auth-issued-token-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "page": {
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "stateVersion": "4",
+            "prefixSequence": "4",
+            "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            }
+          },
+          "riskHours": 48,
+          "riskCutoff": "2026-10-15T01:00:00+03:00",
+          "items": [
+            {
+              "productID": "P1",
+              "name": "Test product",
+              "baseUnit": "g",
+              "availableQuantity": "10000",
+              "pendingWriteoffQuantity": "5000",
+              "onHandQuantity": "15000",
+              "expiringQuantity": "3000"
+            }
+          ]
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-015",
+      "surface": "public",
+      "operationID": "analyticsmovements",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/analytics/movements",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "expectedSettingsVersion": "1"
+        },
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "page": {
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "stateVersion": "4",
+            "prefixSequence": "4",
+            "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            }
+          },
+          "from": "2026-10-07T00:00:00+03:00",
+          "to": "2026-10-14T00:00:00+03:00",
+          "coverage": {
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "coverageFrom": "2026-10-13T00:00:00+03:00",
+            "complete": false,
+            "requestedFrom": "2026-10-07T00:00:00+03:00",
+            "availableFrom": "2026-10-13T00:00:00+03:00"
+          },
+          "items": [
+            {
+              "productID": "P1",
+              "name": "Test product",
+              "baseUnit": "g",
+              "receivedQuantity": "15000",
+              "orderedQuantity": "0",
+              "writtenOffQuantity": "0"
+            }
+          ]
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-016",
+      "surface": "private",
+      "operationID": "privateAnalyticsmovements",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/analytics/movements",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "expectedSettingsVersion": "1"
+        },
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "Authorization": "Bearer synthetic-auth-issued-token-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "page": {
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "stateVersion": "4",
+            "prefixSequence": "4",
+            "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            }
+          },
+          "from": "2026-10-07T00:00:00+03:00",
+          "to": "2026-10-14T00:00:00+03:00",
+          "coverage": {
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "coverageFrom": "2026-10-13T00:00:00+03:00",
+            "complete": false,
+            "requestedFrom": "2026-10-07T00:00:00+03:00",
+            "availableFrom": "2026-10-13T00:00:00+03:00"
+          },
+          "items": [
+            {
+              "productID": "P1",
+              "name": "Test product",
+              "baseUnit": "g",
+              "receivedQuantity": "15000",
+              "orderedQuantity": "0",
+              "writtenOffQuantity": "0"
+            }
+          ]
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-017",
+      "surface": "public",
+      "operationID": "orgSummary",
+      "method": "GET",
+      "route": "/api/v2/orgs/{orgID}/analytics/summary",
+      "request": {
+        "path": {
+          "orgID": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {
+          "restaurantID": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "expectedSettingsVersion": "1"
+        },
+        "header": {
+          "Cookie": "__Host-umir_operator_session=synthetic-session-placeholder"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "status": "unavailable",
+          "restaurants": [
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "status": "unavailable",
+              "error": {
+                "code": "UpstreamUnavailable",
+                "outcome": "unavailable",
+                "message": "Synthetic peer unavailable",
+                "retryable": true
+              }
+            }
+          ]
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    },
+    {
+      "id": "F1-WIRE-018",
+      "surface": "private",
+      "operationID": "privateAppFeedback",
+      "method": "POST",
+      "route": "/internal/feedback/v2/submissions/app",
+      "request": {
+        "path": {},
+        "query": {},
+        "header": {
+          "X-Umir-Service-Key": "synthetic-transport-placeholder",
+          "Authorization": "Bearer synthetic-auth-issued-token-placeholder"
+        },
+        "body": {
+          "submission": {
+            "submissionID": "11111111-1111-4111-8111-111111111111",
+            "name": "Synthetic user",
+            "email": "test@example.invalid",
+            "message": "Contract fixture only",
+            "consent": {
+              "accepted": true,
+              "documentVersion": "privacy-test-1"
+            }
+          },
+          "context": {
+            "kind": "app",
+            "userID": "11111111-1111-4111-8111-111111111111",
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333"
+          }
+        }
+      },
+      "response": {
+        "status": 201,
+        "body": {
+          "receipt": {
+            "submissionID": "11111111-1111-4111-8111-111111111111",
+            "receivedAt": "2026-10-13T01:00:00+03:00"
+          },
+          "scope": {
+            "kind": "app",
+            "userID": "11111111-1111-4111-8111-111111111111",
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333"
+          },
+          "state": "accepted"
+        }
+      },
+      "note": "Synthetic documentation example. Replace placeholders through real test bootstrap; this is not a signed credential or a runtime observation."
+    }
+  ]
+}

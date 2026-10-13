@@ -15,7 +15,19 @@ import (
 	"github.com/JustIkra/umir-factory/tests/http/internal/faultproxy"
 )
 
+var sinkRole string
+
 func main() {
+	if sinkRole != "" {
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		if err := faultproxy.RunFixtureSink(ctx, sinkRole, os.Args[1:]); err != nil {
+			writeDiagnostic(errors.New("synthetic sink unavailable"))
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		if len(os.Args) != 3 || healthcheck(os.Args[2]) != nil {
 			os.Exit(1)
