@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Document current backend checkpoint work, local Gateway/Serving runtime fixes, live readiness and HTTP limits, remaining Auth façade and UI contract amendment tasks, and separate frontend/Figma ownership.
+
 - Corrected unpublished backend fixture provisioning: Serving receives four distinct service credentials and a separate control reference. Auth and Serving share the independent `serving-auth` discovery credential; owner/sink service maps exclude controls. Version 2 requires bindings digest `de9c7bfc573ad0887be0f00b1ddc2495939469f58f3524c6dbb66a521fed385e` and refuses its predecessor. Protocol 1.1.0, selected pins and business contracts remain unchanged. Real providers and runtime acceptance remain pending.
 
 - Согласованы OpenAPI, README и состояния клиента с проверкой длины `currentPassword` до credential verification: без активной паузы и при допустимом новом пароле значение длиннее 32 Unicode code points получает `422 PasswordRejected` и `fieldErrors.currentPassword: TooLong`, не увеличивает счётчик неверных проверок и не отзывает сессию. Уточнены точные JSON-ключи, запрет дублей и `null` в запросах кабинета. При интеграции сохранены актуальные статусы HTTP/Resolve, frontend и будущего auth из main.
