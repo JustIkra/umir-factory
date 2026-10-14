@@ -27,3 +27,45 @@ restart preserves the saved owner clock and mounted-volume proof. recreate also 
 Every public request crosses the shared `backendPublicClient.Do` boundary, including raw rejection requests. It qualifies current ownership before connecting, preserves session-local cookies, and applies the same endpoint, deadline, redirect and response-size limits. Qualification and state updates are synchronized. Qualified public response leases permit overlapping HTTP calls. Private calls and restart remain exclusive and wait for open responses within the caller budget; EOF, read failure, Close and cancellation release a lease once. Controls and evidence collection remain serial integrator operations.
 
 Final restart discovery must match the exact container that supplied the new-instance, saved-clock and mount proof. A later replacement rejects restart/recreation, leaves the owner unqualified and writes no new metadata or successful restart receipt. Gate records use an explicit nonsecret environment allowlist.
+
+## UA1 mail receiver library
+
+The opt-in `faultproxy.NewUA1MailReceiver` and `ServeUA1SMTP` add invitation-link
+SMTP reception under `umir-ua1-mail-fixtures/0.1.0-unpublished`. Auth and receiver
+embed the same schema and exact binding digest
+`c468cb825a3b9bfe01577485f47267f4765c95286ac08de367002e3e25f3df45`.
+Ordinary sinks, operational RPC 1.1.0 and its shared callable signatures remain
+unchanged. Runner/descriptor/CLI integration is still pending; these library
+entry points do not add a supported assembly invocation.
+
+`BindDiscovery` accepts strict redacted Auth response bytes plus an independently
+qualified expected owner identity. It checks project, fixture, binary/config,
+instance/generation, selector kind, invitation/org/job edges and Message-ID.
+The caller must first obtain that expected identity from the real provider
+qualification. Schema validity or a caller-created object cannot qualify Auth.
+
+The receiver requires exactly one job, invitation and Message-ID header,
+synthetic addresses and a bounded parsed text/MIME payload for that invitation.
+It supports actual Auth multipart alternative/related mail and its PNG logo.
+Empty/mixed/duplicate headers and mismatched MIME/Message-ID fail. OTP and
+Feedback delivery delegate to the existing sink. A present empty invitation
+header never downgrades to a legacy correlation.
+
+Captures expose redacted IDs, sequence, accepted/reply facts and content hashes.
+They retain their first valid discovery provenance. Raw MIME is not stored by
+this receiver. Unbound captures are unavailable as qualified evidence. Limits
+are 65536 bytes per message, 256 captures, 16 MiB total, and 64 selected rows;
+overflow fails without truncation. Empty complete selection is not zero-mutation
+or zero-delivery proof. Changing owner instance or generation closes the old
+observation window and clears armed faults. Retired instances are refused.
+
+Only `permanent-reject` and `accept-drop-reply` are available for link faults,
+one actual matching DATA acceptance each, with a physical lifetime of 100 ms
+through 30 seconds. Reads report actual hit/state facts. Acceptance rechecks
+cancellation under its lock before recording a capture or consuming a fault.
+These SMTP mechanisms do not fabricate Auth mail-job outcomes.
+
+The generated synthetic MIME fixture comes from the real Auth renderer and
+mailobserver at the recorded source checkpoint. TLS transport/race tests verify
+the receiver mechanism only. Owner storage/claim/send/result barriers, complete
+runtime qualification and all 34 UA1 rows remain required before Q1/J1 handoff.

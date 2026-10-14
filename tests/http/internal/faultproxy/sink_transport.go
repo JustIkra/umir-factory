@@ -118,6 +118,10 @@ func smtpAddressArg(arg string) (string, error) {
 	return a, nil
 }
 func ServeFixtureSMTP(ctx context.Context, l net.Listener, s *FixtureSink, cert tls.Certificate, user, password string) error {
+	return serveFixtureSMTP(ctx, l, ordinarySMTPReceiver{FixtureSink: s}, cert, user, password)
+}
+
+func serveFixtureSMTP(ctx context.Context, l net.Listener, s fixtureSMTPReceiver, cert tls.Certificate, user, password string) error {
 	return serveFixtureConnections(ctx, l, func(conn net.Conn) {
 		r := bufio.NewReaderSize(conn, 65538)
 		w := bufio.NewWriter(conn)
@@ -283,7 +287,7 @@ func ServeFixtureSMTP(ctx context.Context, l net.Listener, s *FixtureSink, cert 
 						return
 					}
 				}
-				c, synthetic, e := smtpCorrelation(raw.Bytes())
+				c, synthetic, e := s.smtpCorrelation(raw.Bytes())
 				if e != nil {
 					if smtpReply(w, "550 invalid synthetic message") != nil {
 						return
