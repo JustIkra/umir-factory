@@ -608,6 +608,30 @@ func (e *backendExecutor) Run(ctx context.Context, dir string, env []string, nam
 }
 func (e *backendExecutor) mappings(service string) []backendPublisher {
 	names := append(slices.Clone(backendServices), "smtp", "notification")
+	base := 49200
+	services := backendValue[map[string]any](e.t, e.topology["services"])
+	for {
+		conflict := false
+		for _, value := range services {
+			other := backendValue[map[string]any](e.t, value)
+			if raw, exists := other["ports"]; exists {
+				for _, port := range backendValue[[]any](e.t, raw) {
+					mapping := backendValue[map[string]any](e.t, port)
+					published, err := strconv.Atoi(backendValue[string](e.t, mapping["published"]))
+					if err != nil {
+						e.t.Fatal(err)
+					}
+					if published >= base && published < base+len(names)*10 {
+						conflict = true
+					}
+				}
+			}
+		}
+		if !conflict {
+			break
+		}
+		base += 100
+	}
 	s := backendValue[map[string]any](e.t, backendValue[map[string]any](e.t, e.topology["services"])[service])
 	rawPorts, present := s["ports"]
 	if !present {
@@ -622,7 +646,7 @@ func (e *backendExecutor) mappings(service string) []backendPublisher {
 			e.t.Fatal(err)
 		}
 		if published == 0 {
-			published = 49200 + slices.Index(names, service)*10 + i
+			published = base + slices.Index(names, service)*10 + i
 		}
 		result = append(result, backendPublisher{URL: backendValue[string](e.t, p["host_ip"]), TargetPort: int(backendValue[float64](e.t, p["target"])), PublishedPort: published, Protocol: backendValue[string](e.t, p["protocol"])})
 	}
@@ -650,6 +674,20 @@ func TestBackendRejectsUnknownOriginAndRecordsPartialStartIdentity(t *testing.T)
 			t.Fatal("partial-start container identities were omitted")
 		}
 	})
+}
+
+func TestBackendMockPortsAvoidExplicitPublication(t *testing.T) {
+	port := func(target int, published string) map[string]any {
+		return map[string]any{"host_ip": "127.0.0.1", "target": float64(target), "published": published, "protocol": "tcp"}
+	}
+	e := backendExecutor{t: t, topology: map[string]any{"services": map[string]any{
+		"auth":    map[string]any{"ports": []any{port(8080, "0")}},
+		"gateway": map[string]any{"ports": []any{port(8080, "49200")}},
+	}}}
+	auth, gateway := e.mappings("auth"), e.mappings("gateway")
+	if len(auth) != 1 || len(gateway) != 1 || gateway[0].PublishedPort != 49200 || auth[0].PublishedPort == gateway[0].PublishedPort {
+		t.Fatal("synthetic publication collides with real reserved public port")
+	}
 }
 func TestBackendRejectsRunningImageDrift(t *testing.T) {
 	f := newBackendFixture(t)

@@ -1,0 +1,3249 @@
+{
+  "profile": "UA1",
+  "status": "approved_transition_map",
+  "original": {
+    "path": "backend-v2-acceptance.json",
+    "sha256": "d0d4d15bc28a163063f4971c086e982389a1e098b2af9a432d5575129aedf0be",
+    "caseCount": 67,
+    "assertionCount": 307
+  },
+  "replacementAssertionCount": 0,
+  "reason": "The original corpus has no successful create-zero-mail assertion. RefusedJobCount=0 remains required on denied writes. All exact values/operators are retained; affected observation populations and fixture mail budgets are explicitly extended in UA1.",
+  "affectedCases": [
+    {
+      "caseID": "BE-E1-01",
+      "ua1Rows": [
+        "UA1-P04",
+        "UA1-C01"
+      ]
+    },
+    {
+      "caseID": "BE-E1-07",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M08"
+      ]
+    },
+    {
+      "caseID": "BE-E5-01",
+      "ua1Rows": [
+        "UA1-M02",
+        "UA1-M03"
+      ]
+    },
+    {
+      "caseID": "BE-E5-02",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ]
+    },
+    {
+      "caseID": "BE-E5-03",
+      "ua1Rows": [
+        "UA1-M09",
+        "UA1-M10"
+      ]
+    },
+    {
+      "caseID": "BE-E5-07",
+      "ua1Rows": [
+        "UA1-M05",
+        "UA1-M06"
+      ]
+    },
+    {
+      "caseID": "BE-E5-12",
+      "ua1Rows": [
+        "UA1-M11"
+      ]
+    },
+    {
+      "caseID": "BE-E5-15",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ]
+    }
+  ],
+  "assertions": [
+    {
+      "caseID": "BE-E1-01",
+      "index": 0,
+      "pointer": "/conformance/requestValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-P04",
+        "UA1-C01"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-01",
+      "index": 1,
+      "pointer": "/conformance/responseValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-P04",
+        "UA1-C01"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-01",
+      "index": 2,
+      "pointer": "/conformance/secretLeak",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-P04",
+        "UA1-C01"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-02",
+      "index": 0,
+      "pointer": "/scope/eachResponseMatchesRoute",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-02",
+      "index": 1,
+      "pointer": "/session/sameCookieAcrossScopes",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-03",
+      "index": 0,
+      "pointer": "/scope/unauthorizedDataBytes",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-03",
+      "index": 1,
+      "pointer": "/owner/unauthorizedMutationCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-03",
+      "index": 2,
+      "pointer": "/dispatch/unauthorizedBusinessCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-04",
+      "index": 0,
+      "pointer": "/roles/unionPermitsT1",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-04",
+      "index": 1,
+      "pointer": "/roles/orderConfirmT2Denied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-04",
+      "index": 2,
+      "pointer": "/roles/writeoffT3Denied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-04",
+      "index": 3,
+      "pointer": "/owner/deniedMutationCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-05",
+      "index": 0,
+      "pointer": "/scope/crossOrgManagementDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-05",
+      "index": 1,
+      "pointer": "/membership/creatorIsNewOrgAdmin",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-05",
+      "index": 2,
+      "pointer": "/scope/adminWorkingRightsAreScoped",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-06",
+      "index": 0,
+      "pointer": "/membership/remainingAdminCount",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-06",
+      "index": 1,
+      "pointer": "/membership/concurrentSuccessfulRemovals",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-06",
+      "index": 2,
+      "pointer": "/owner/refusedAggregateUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-06",
+      "index": 3,
+      "pointer": "/mail/refusedJobCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-07",
+      "index": 0,
+      "pointer": "/membership/savedRolesExactlyGranted",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M08"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-07",
+      "index": 1,
+      "pointer": "/membership/unrequestedAdminGrant",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M08"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-07",
+      "index": 2,
+      "pointer": "/proof/crossBrowserAcceptanceDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M08"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E1-08",
+      "index": 0,
+      "pointer": "/dispatch/badBrowserBoundaryCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-08",
+      "index": 1,
+      "pointer": "/cookie/secureProductionAttributesValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-08",
+      "index": 2,
+      "pointer": "/response/noStoreProtected",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-09",
+      "index": 0,
+      "pointer": "/response/status",
+      "operator": "equals",
+      "expected": 503,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-09",
+      "index": 1,
+      "pointer": "/dispatch/businessCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-09",
+      "index": 2,
+      "pointer": "/owner/stateUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-10",
+      "index": 0,
+      "pointer": "/session/foregroundPersistedBeforeDispatch",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-10",
+      "index": 1,
+      "pointer": "/session/backgroundDeadlineUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-10",
+      "index": 2,
+      "pointer": "/dispatch/definiteStorageFailureCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-10",
+      "index": 3,
+      "pointer": "/session/ambiguousUpdateGranted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-11",
+      "index": 0,
+      "pointer": "/scope/T1Denied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-11",
+      "index": 1,
+      "pointer": "/scope/T2Allowed",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-11",
+      "index": 2,
+      "pointer": "/session/globalStillValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-11",
+      "index": 3,
+      "pointer": "/live/closedAfterDeniedCheck",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-12",
+      "index": 0,
+      "pointer": "/feedback/namespacesIndependent",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-12",
+      "index": 1,
+      "pointer": "/feedback/anonymousScope",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-12",
+      "index": 2,
+      "pointer": "/feedback/spoofScopeAccepted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-13",
+      "index": 0,
+      "pointer": "/feedback/exportOnlyVerifiedT1",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-13",
+      "index": 1,
+      "pointer": "/feedback/employeeReadDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-13",
+      "index": 2,
+      "pointer": "/feedback/unscopedExportDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-13",
+      "index": 3,
+      "pointer": "/feedback/legacyRowsInScopedExport",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-14",
+      "index": 0,
+      "pointer": "/dispatch/invalidInputCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-14",
+      "index": 1,
+      "pointer": "/dispatch/unscopedBusinessCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-14",
+      "index": 2,
+      "pointer": "/compat/operatorAndSessionKeysPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E1-14",
+      "index": 3,
+      "pointer": "/compat/hiddenDefaultRestaurant",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-01",
+      "index": 0,
+      "pointer": "/jwt/invalidTokensAccepted",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-01",
+      "index": 1,
+      "pointer": "/jwt/expirationBoundaryRejected",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-01",
+      "index": 2,
+      "pointer": "/dispatch/forbiddenBusinessCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-01",
+      "index": 3,
+      "pointer": "/jwt/privateKeyOutsideAuth",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-02",
+      "index": 0,
+      "pointer": "/consumer/authorizedMenuAndOrderWorks",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-02",
+      "index": 1,
+      "pointer": "/consumer/escalatedPublicWarehouseCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-02",
+      "index": 2,
+      "pointer": "/jwt/forwardedSubjectAndTenantUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-03",
+      "index": 0,
+      "pointer": "/transport/invalidKeyAccepted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-03",
+      "index": 1,
+      "pointer": "/jwt/rotationOverlapValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-03",
+      "index": 2,
+      "pointer": "/jwt/unknownKeyFailsClosed",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-03",
+      "index": 3,
+      "pointer": "/jwt/refreshBoundRespected",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-04",
+      "index": 0,
+      "pointer": "/lifecycle/acceptanceStatus",
+      "operator": "equals",
+      "expected": 201,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-04",
+      "index": 1,
+      "pointer": "/lifecycle/initialState",
+      "operator": "equals",
+      "expected": "registering",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-04",
+      "index": 2,
+      "pointer": "/dispatch/beforeReadyCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-04",
+      "index": 3,
+      "pointer": "/lifecycle/readyOnlyWhenAllCurrentPeers",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-05",
+      "index": 0,
+      "pointer": "/runtime/sameEpochReplayStateUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-05",
+      "index": 1,
+      "pointer": "/runtime/newRestaurantInitiallyEmpty",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-05",
+      "index": 2,
+      "pointer": "/registry/newRestaurantReady",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-06",
+      "index": 0,
+      "pointer": "/readiness/staleEpochAccepted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-06",
+      "index": 1,
+      "pointer": "/registry/partialTreatedAsEmpty",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-06",
+      "index": 2,
+      "pointer": "/runtime/unrelatedDeletionCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-06",
+      "index": 3,
+      "pointer": "/retry/boundedAndCancelable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-07",
+      "index": 0,
+      "pointer": "/lifecycle/exactRestaurantServicePairs",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-07",
+      "index": 1,
+      "pointer": "/lifecycle/pendingUnavailableEpoch",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-07",
+      "index": 2,
+      "pointer": "/lifecycle/falseCompletion",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-08",
+      "index": 0,
+      "pointer": "/live/foreignCursorDataBytes",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-08",
+      "index": 1,
+      "pointer": "/live/noDataAfterDeniedCheck",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-08",
+      "index": 2,
+      "pointer": "/live/oneTerminalEventThenClose",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-08",
+      "index": 3,
+      "pointer": "/live/maxIdleCheckWithinFiveSeconds",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E2-08",
+      "index": 4,
+      "pointer": "/session/sseDeadlineUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-01",
+      "index": 0,
+      "pointer": "/catalog/suggestions",
+      "operator": "equals",
+      "expected": [
+        "3",
+        "2",
+        "1"
+      ],
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-01",
+      "index": 1,
+      "pointer": "/catalog/suggestionVersionUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-01",
+      "index": 2,
+      "pointer": "/catalog/competingDefinitionFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-01",
+      "index": 3,
+      "pointer": "/catalog/loserConflictWithoutRename",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-02",
+      "index": 0,
+      "pointer": "/catalog/tenantIndependent",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-02",
+      "index": 1,
+      "pointer": "/quantity/largeExactString",
+      "operator": "equals",
+      "expected": "9007199254740993",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-02",
+      "index": 2,
+      "pointer": "/quantity/crossUnitTotalsAbsent",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-02",
+      "index": 3,
+      "pointer": "/owner/otherTenantUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 0,
+      "pointer": "/fefo/rankingMatchesActualAllocations",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 1,
+      "pointer": "/fefo/allTiedReasonsPresent",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 2,
+      "pointer": "/fefo/pendingOrExpiredUsed",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 3,
+      "pointer": "/quantity/recommendationReserved",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-04",
+      "index": 0,
+      "pointer": "/order/recheckMatchesActualState",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-04",
+      "index": 1,
+      "pointer": "/order/confirmedAllocationFactsOnce",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-04",
+      "index": 2,
+      "pointer": "/order/unknownDoesNotStartNewCommand",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-04",
+      "index": 3,
+      "pointer": "/order/originalProposalImmutable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-05",
+      "index": 0,
+      "pointer": "/quantity/available",
+      "operator": "equals",
+      "expected": "0",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-05",
+      "index": 1,
+      "pointer": "/quantity/pending",
+      "operator": "equals",
+      "expected": "5000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-05",
+      "index": 2,
+      "pointer": "/quantity/onHand",
+      "operator": "equals",
+      "expected": "5000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-05",
+      "index": 3,
+      "pointer": "/journal/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-05",
+      "index": 4,
+      "pointer": "/journal/finalWriteoffFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-06",
+      "index": 0,
+      "pointer": "/journal/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-06",
+      "index": 1,
+      "pointer": "/quantity/physicalUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-06",
+      "index": 2,
+      "pointer": "/live/invalidatedOnlyAffectedRestaurant",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-06",
+      "index": 3,
+      "pointer": "/journal/finalWriteoffFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-07",
+      "index": 0,
+      "pointer": "/scheduler/activeOwners",
+      "operator": "equals",
+      "expected": [
+        "gateway"
+      ],
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-07",
+      "index": 1,
+      "pointer": "/journal/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-07",
+      "index": 2,
+      "pointer": "/journal/finalWriteoffFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-07",
+      "index": 3,
+      "pointer": "/dispatch/schedulerOrWaiterWriteoffAccepted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-08",
+      "index": 0,
+      "pointer": "/journal/finalWriteoffFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-08",
+      "index": 1,
+      "pointer": "/quantity/writtenOff",
+      "operator": "equals",
+      "expected": "5000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-08",
+      "index": 2,
+      "pointer": "/writeoff/originalActorUnchangedOnReplay",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-08",
+      "index": 3,
+      "pointer": "/writeoff/competingError",
+      "operator": "equals",
+      "expected": "AlreadyWrittenOff",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-08",
+      "index": 4,
+      "pointer": "/writeoff/availableBatchError",
+      "operator": "equals",
+      "expected": "NotPendingWriteoff",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-09",
+      "index": 0,
+      "pointer": "/writeoff/statesAndOutcomes",
+      "operator": "equals",
+      "expected": [
+        "committed/committed",
+        "pending/unknown",
+        "unseen/unknown",
+        "rejected/not_committed"
+      ],
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-09",
+      "index": 1,
+      "pointer": "/journal/lookupAppendCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-09",
+      "index": 2,
+      "pointer": "/writeoff/changedBatchError",
+      "operator": "equals",
+      "expected": "CommandConflict",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-09",
+      "index": 3,
+      "pointer": "/writeoff/changedBatchResult",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-10",
+      "index": 0,
+      "pointer": "/reset/errorCode",
+      "operator": "equals",
+      "expected": "RuntimeReset",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-10",
+      "index": 1,
+      "pointer": "/reset/outcome",
+      "operator": "equals",
+      "expected": "indeterminate",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-10",
+      "index": 2,
+      "pointer": "/dispatch/oldCommandExecuted",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-10",
+      "index": 3,
+      "pointer": "/transport/lookupOutcome",
+      "operator": "equals",
+      "expected": "unavailable",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-10",
+      "index": 4,
+      "pointer": "/order/oldOutcomeProvedByAbsence",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-11",
+      "index": 0,
+      "pointer": "/journal/legacyFinalWriteoffPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-11",
+      "index": 1,
+      "pointer": "/movement/pendingCountedAsWriteoff",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 0,
+      "pointer": "/intake/availableQuantity",
+      "operator": "equals",
+      "expected": "0",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 1,
+      "pointer": "/intake/pendingQuantity",
+      "operator": "equals",
+      "expected": "5000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 2,
+      "pointer": "/intake/onHandQuantity",
+      "operator": "equals",
+      "expected": "5000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 3,
+      "pointer": "/intake/baseUnit",
+      "operator": "equals",
+      "expected": "g",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 4,
+      "pointer": "/intake/deliveryFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 5,
+      "pointer": "/intake/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 6,
+      "pointer": "/intake/deliverySchemaVersion",
+      "operator": "equals",
+      "expected": 2,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 7,
+      "pointer": "/intake/pendingSchemaVersion",
+      "operator": "equals",
+      "expected": 2,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 8,
+      "pointer": "/intake/jointAdmissionObserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 9,
+      "pointer": "/intake/noPartialPublishedState",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 10,
+      "pointer": "/intake/tenantAndEpochBound",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 11,
+      "pointer": "/intake/capturedSettingsMatch",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 12,
+      "pointer": "/intake/capturedTzdataMatch",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 13,
+      "pointer": "/intake/expiresAt",
+      "operator": "equals",
+      "expected": "2026-10-13T00:59:00+03:00",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 14,
+      "pointer": "/intake/finalWriteoffFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 15,
+      "pointer": "/retry/originalReceiptAndBatchesUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 16,
+      "pointer": "/retry/originalFactsAndInstantsUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 17,
+      "pointer": "/retry/deliveryFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 18,
+      "pointer": "/retry/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 19,
+      "pointer": "/failure/outcome",
+      "operator": "equals",
+      "expected": "not_committed",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 20,
+      "pointer": "/failure/deliveryFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 21,
+      "pointer": "/failure/pendingFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 22,
+      "pointer": "/failure/batches",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 23,
+      "pointer": "/failure/stateVersionAndIndexesUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 24,
+      "pointer": "/failure/noCommittedInvalidation",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E3-12",
+      "index": 25,
+      "pointer": "/owner/otherTenantUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 0,
+      "pointer": "/quantity/onHand",
+      "operator": "equals",
+      "expected": "10000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 1,
+      "pointer": "/quantity/available",
+      "operator": "equals",
+      "expected": "7000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 2,
+      "pointer": "/quantity/pending",
+      "operator": "equals",
+      "expected": "3000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 3,
+      "pointer": "/quantity/expiring",
+      "operator": "equals",
+      "expected": "2000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 4,
+      "pointer": "/risk/physicalHours",
+      "operator": "equals",
+      "expected": 48,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-01",
+      "index": 5,
+      "pointer": "/stock/independentOfMovementPeriod",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 0,
+      "pointer": "/movement/received",
+      "operator": "equals",
+      "expected": "10000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 1,
+      "pointer": "/movement/served",
+      "operator": "equals",
+      "expected": "2000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 2,
+      "pointer": "/movement/writtenOff",
+      "operator": "equals",
+      "expected": "4000",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 3,
+      "pointer": "/movement/fromIncludedToExcluded",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 4,
+      "pointer": "/movement/excludedFactsContribute",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-02",
+      "index": 5,
+      "pointer": "/movement/zeroStockRowsIncluded",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-03",
+      "index": 0,
+      "pointer": "/page/noDuplicateOrMissingRows",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-03",
+      "index": 1,
+      "pointer": "/page/utf8IDAndUnitOrder",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-03",
+      "index": 2,
+      "pointer": "/page/identityStable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-03",
+      "index": 3,
+      "pointer": "/page/changedBindingError",
+      "operator": "equals",
+      "expected": "RefreshRequired",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-03",
+      "index": 4,
+      "pointer": "/page/lastCursor",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-04",
+      "index": 0,
+      "pointer": "/coverage/complete",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-04",
+      "index": 1,
+      "pointer": "/coverage/availableFromMatchesMax",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-04",
+      "index": 2,
+      "pointer": "/coverage/newEpochVisible",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-04",
+      "index": 3,
+      "pointer": "/coverage/claimedFullHistory",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-05",
+      "index": 0,
+      "pointer": "/analytics/unknownSchemaError",
+      "operator": "equals",
+      "expected": "UnknownEventSchema",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-05",
+      "index": 1,
+      "pointer": "/analytics/invalidArithmeticSuccess",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-05",
+      "index": 2,
+      "pointer": "/analytics/silentlyDroppedFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-06",
+      "index": 0,
+      "pointer": "/journal/pendingFacts",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-06",
+      "index": 1,
+      "pointer": "/metadata/committedVersionPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-06",
+      "index": 2,
+      "pointer": "/live/correctTenantInvalidatedDespiteFailure",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-06",
+      "index": 3,
+      "pointer": "/response/privateMetadataLeaked",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-06",
+      "index": 4,
+      "pointer": "/movement/separateReadAvailable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-07",
+      "index": 0,
+      "pointer": "/summary/partialKeepsPerRestaurantIdentity",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-07",
+      "index": 1,
+      "pointer": "/summary/failedRestaurantFakeZero",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-07",
+      "index": 2,
+      "pointer": "/summary/crossOrgDispatchCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-07",
+      "index": 3,
+      "pointer": "/summary/unitsMerged",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-08",
+      "index": 0,
+      "pointer": "/summary/stockRows",
+      "operator": "equals",
+      "expected": 501,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-08",
+      "index": 1,
+      "pointer": "/summary/movementRows",
+      "operator": "equals",
+      "expected": 501,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-08",
+      "index": 2,
+      "pointer": "/summary/successCursor",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-08",
+      "index": 3,
+      "pointer": "/summary/pageTwoFailureHasReports",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-09",
+      "index": 0,
+      "pointer": "/settings/otherOrgUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-09",
+      "index": 1,
+      "pointer": "/settings/restartPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-09",
+      "index": 2,
+      "pointer": "/settings/unknownZoneRejectedWithoutMutation",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-09",
+      "index": 3,
+      "pointer": "/settings/staleFreshError",
+      "operator": "equals",
+      "expected": "SettingsChanged",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-10",
+      "index": 0,
+      "pointer": "/calendar/shortDayHours",
+      "operator": "equals",
+      "expected": 23,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-10",
+      "index": 1,
+      "pointer": "/calendar/longDayHours",
+      "operator": "equals",
+      "expected": 25,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-10",
+      "index": 2,
+      "pointer": "/calendar/skippedDateError",
+      "operator": "equals",
+      "expected": "SkippedDate",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-10",
+      "index": 3,
+      "pointer": "/calendar/rareMidnightPolicyValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-11",
+      "index": 0,
+      "pointer": "/time/ambiguousError",
+      "operator": "equals",
+      "expected": "AmbiguousLocalTime",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-11",
+      "index": 1,
+      "pointer": "/time/gapError",
+      "operator": "equals",
+      "expected": "NonexistentLocalTime",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-11",
+      "index": 2,
+      "pointer": "/time/conflictingChoiceRejected",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-11",
+      "index": 3,
+      "pointer": "/time/explicitInstantOffsetAccepted",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-11",
+      "index": 4,
+      "pointer": "/journal/invalidInputFacts",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-12",
+      "index": 0,
+      "pointer": "/expiry/clamp",
+      "operator": "equals",
+      "expected": "2026-02-28T12:00:00+03:00",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-12",
+      "index": 1,
+      "pointer": "/expiry/fold",
+      "operator": "equals",
+      "expected": "2026-10-25T02:30:00+02:00",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-12",
+      "index": 2,
+      "pointer": "/expiry/gap",
+      "operator": "equals",
+      "expected": "2026-03-29T03:00:00+02:00",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-12",
+      "index": 3,
+      "pointer": "/expiry/dayDurationHours",
+      "operator": "equals",
+      "expected": 24,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-13",
+      "index": 0,
+      "pointer": "/time/oldInstantsUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-13",
+      "index": 1,
+      "pointer": "/time/authTTLInstantsUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-13",
+      "index": 2,
+      "pointer": "/fefo/savedExpiryOrderUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-13",
+      "index": 3,
+      "pointer": "/settings/newReportsUseCurrentZone",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-14",
+      "index": 0,
+      "pointer": "/retry/originalCapturedSettingsPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-14",
+      "index": 1,
+      "pointer": "/retry/originalEventIDsUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-14",
+      "index": 2,
+      "pointer": "/retry/unknownNotReplacedByStaleRefusal",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-14",
+      "index": 3,
+      "pointer": "/retry/changedPayloadConflicts",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-14",
+      "index": 4,
+      "pointer": "/fresh/staleError",
+      "operator": "equals",
+      "expected": "SettingsChanged",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-15",
+      "index": 0,
+      "pointer": "/settings/inFlightCapturedVersion",
+      "operator": "equals",
+      "expected": "1",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-15",
+      "index": 1,
+      "pointer": "/settings/nextRequestVersion",
+      "operator": "equals",
+      "expected": "2",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-15",
+      "index": 2,
+      "pointer": "/reset/errorCode",
+      "operator": "equals",
+      "expected": "RuntimeReset",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-15",
+      "index": 3,
+      "pointer": "/reset/outcome",
+      "operator": "equals",
+      "expected": "indeterminate",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-15",
+      "index": 4,
+      "pointer": "/page/zoneChangeError",
+      "operator": "equals",
+      "expected": "RefreshRequired",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-16",
+      "index": 0,
+      "pointer": "/readiness/missingTzdata",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-16",
+      "index": 1,
+      "pointer": "/time/missingDataError",
+      "operator": "equals",
+      "expected": "TimeZoneDataUnavailable",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-16",
+      "index": 2,
+      "pointer": "/time/fallbackUsed",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-16",
+      "index": 3,
+      "pointer": "/time/healthyPackagedVersionsMatch",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-17",
+      "index": 0,
+      "pointer": "/analytics/defaultRiskHours",
+      "operator": "equals",
+      "expected": 48,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-17",
+      "index": 1,
+      "pointer": "/analytics/defaultLocalDates",
+      "operator": "equals",
+      "expected": 7,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-17",
+      "index": 2,
+      "pointer": "/analytics/boundsEnforced",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-17",
+      "index": 3,
+      "pointer": "/analytics/invalidRangeDispatchCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 0,
+      "pointer": "/capacity/acceptedReports",
+      "operator": "equals",
+      "expected": 128,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 1,
+      "pointer": "/capacity/stockReports",
+      "operator": "equals",
+      "expected": 64,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 2,
+      "pointer": "/capacity/movementReports",
+      "operator": "equals",
+      "expected": 64,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 3,
+      "pointer": "/capacity/exhaustedStatuses",
+      "operator": "equals",
+      "expected": [
+        503,
+        503
+      ],
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 4,
+      "pointer": "/capacity/typedErrorsValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 5,
+      "pointer": "/capacity/activeReportsAfterRefusal",
+      "operator": "equals",
+      "expected": 128,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 6,
+      "pointer": "/capacity/existingReportsUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 7,
+      "pointer": "/capacity/existingCursorsUsable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 8,
+      "pointer": "/capacity/otherTenantAccepted",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 9,
+      "pointer": "/capacity/otherTenantUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 10,
+      "pointer": "/capacity/stillFullBeforeExpiry",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 11,
+      "pointer": "/capacity/oldCursorStatusAfterExpiry",
+      "operator": "equals",
+      "expected": 409,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 12,
+      "pointer": "/capacity/oldCursorCodeAfterExpiry",
+      "operator": "equals",
+      "expected": "RefreshRequired",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 13,
+      "pointer": "/capacity/oldCursorRefreshRequired",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E4-18",
+      "index": 14,
+      "pointer": "/capacity/readmissionAfterExpiry",
+      "operator": "equals",
+      "expected": 128,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-01",
+      "index": 0,
+      "pointer": "/auth/originalResultRecovered",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M02",
+        "UA1-M03"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-01",
+      "index": 1,
+      "pointer": "/auth/duplicateEntities",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M02",
+        "UA1-M03"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-01",
+      "index": 2,
+      "pointer": "/mail/duplicateJobIDs",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M02",
+        "UA1-M03"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-01",
+      "index": 3,
+      "pointer": "/auth/restartAccessPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M02",
+        "UA1-M03"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-02",
+      "index": 0,
+      "pointer": "/proof/restartStatePreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-02",
+      "index": 1,
+      "pointer": "/auth/invitedUserAndMembershipCreatedOnce",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-02",
+      "index": 2,
+      "pointer": "/mail/enqueuedOnceWithTransition",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-02",
+      "index": 3,
+      "pointer": "/proof/freshExpiredCompletionDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-02",
+      "index": 4,
+      "pointer": "/session/resetRevokesOldAndIssuesOne",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M01",
+        "UA1-M02",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-03",
+      "index": 0,
+      "pointer": "/mail/originalJobIDStable",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M09",
+        "UA1-M10"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-03",
+      "index": 1,
+      "pointer": "/mail/unknownDeliveryNotReportedAsDefiniteFailure",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M09",
+        "UA1-M10"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-03",
+      "index": 2,
+      "pointer": "/mail/retryPolicyRespected",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M09",
+        "UA1-M10"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-03",
+      "index": 3,
+      "pointer": "/mail/realRecipientMessages",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M09",
+        "UA1-M10"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-04",
+      "index": 0,
+      "pointer": "/storage/definiteFailurePreviousRevisionPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-04",
+      "index": 1,
+      "pointer": "/storage/ambiguousOutcome",
+      "operator": "equals",
+      "expected": "unknown",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-04",
+      "index": 2,
+      "pointer": "/storage/invalidAggregateGrantsAccess",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-04",
+      "index": 3,
+      "pointer": "/migration/identityAndDeadlinesPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-04",
+      "index": 4,
+      "pointer": "/storage/concurrentWriters",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-05",
+      "index": 0,
+      "pointer": "/session/deadlinePolicyPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-05",
+      "index": 1,
+      "pointer": "/session/maximumLiveDevices",
+      "operator": "equals",
+      "expected": 32,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-05",
+      "index": 2,
+      "pointer": "/session/oldestEvicted",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-05",
+      "index": 3,
+      "pointer": "/session/globalRevocationApplies",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-06",
+      "index": 0,
+      "pointer": "/password/oversizedVerifierCalls",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-06",
+      "index": 1,
+      "pointer": "/password/fifthCallingSessionOnlyRevoked",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-06",
+      "index": 2,
+      "pointer": "/password/cooldownSessionRevoked",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-06",
+      "index": 3,
+      "pointer": "/password/newLoginDoesNotResetCooldown",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-06",
+      "index": 4,
+      "pointer": "/login/capacityAndRatePolicyValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-07",
+      "index": 0,
+      "pointer": "/invitation/comparisonAndDisplayValid",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M05",
+        "UA1-M06"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-07",
+      "index": 1,
+      "pointer": "/invitation/resendExpiryUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M05",
+        "UA1-M06"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-07",
+      "index": 2,
+      "pointer": "/proof/oneUseAndBrowserBinding",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M05",
+        "UA1-M06"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-07",
+      "index": 3,
+      "pointer": "/rate/allFrozenLimitsEnforced",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M05",
+        "UA1-M06"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-08",
+      "index": 0,
+      "pointer": "/runtime/businessStateEmpty",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-08",
+      "index": 1,
+      "pointer": "/auth/entitiesAndSessionsPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-08",
+      "index": 2,
+      "pointer": "/reset/oldAttemptOutcome",
+      "operator": "equals",
+      "expected": "indeterminate",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-08",
+      "index": 3,
+      "pointer": "/runtime/oldBusinessReconstructed",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-08",
+      "index": 4,
+      "pointer": "/runtime/newEpochReadyAfterReconciliation",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-09",
+      "index": 0,
+      "pointer": "/lifecycle/acceptanceStatus",
+      "operator": "equals",
+      "expected": 202,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-09",
+      "index": 1,
+      "pointer": "/lifecycle/initialCleanup",
+      "operator": "equals",
+      "expected": "pending",
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-09",
+      "index": 2,
+      "pointer": "/scope/afterCommitDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-09",
+      "index": 3,
+      "pointer": "/scope/unrelatedScopesPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-09",
+      "index": 4,
+      "pointer": "/session/globalUserAndSessionPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-10",
+      "index": 0,
+      "pointer": "/lifecycle/originalOperationIDRecovered",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-10",
+      "index": 1,
+      "pointer": "/lifecycle/opaqueCommandNotUsedAsPollingUUID",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-10",
+      "index": 2,
+      "pointer": "/lifecycle/replayAcceptedResultUnchanged",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-10",
+      "index": 3,
+      "pointer": "/lifecycle/unauthorizedPollingDenied",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-11",
+      "index": 0,
+      "pointer": "/runtime/deletedIDRecreated",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-11",
+      "index": 1,
+      "pointer": "/lifecycle/oldClosedEpochCompletes",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-11",
+      "index": 2,
+      "pointer": "/lifecycle/completeOnlyCurrentPeersClosed",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-11",
+      "index": 3,
+      "pointer": "/retry/intentSurvivesRestart",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-12",
+      "index": 0,
+      "pointer": "/membership/deletedInvitationGrantsAccess",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M11"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-12",
+      "index": 1,
+      "pointer": "/mail/undeliveredScopedJobSuppressed",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M11"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-12",
+      "index": 2,
+      "pointer": "/order/unknownReclassifiedAsRefused",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M11"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-12",
+      "index": 3,
+      "pointer": "/order/automaticNewAttemptCount",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M11"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-12",
+      "index": 4,
+      "pointer": "/scope/cleanupFailureRestoresAccess",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M11"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-13",
+      "index": 0,
+      "pointer": "/feedback/intakeRecordsPerNamespace",
+      "operator": "equals",
+      "expected": 1,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-13",
+      "index": 1,
+      "pointer": "/feedback/originalScopeAndFingerprintPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-13",
+      "index": 2,
+      "pointer": "/feedback/originalJobIDsReused",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-13",
+      "index": 3,
+      "pointer": "/feedback/sameNamespacePayloadConflict",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-14",
+      "index": 0,
+      "pointer": "/feedback/legacyMigratedUnscoped",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-14",
+      "index": 1,
+      "pointer": "/feedback/originalFingerprintAndJobsPreserved",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-14",
+      "index": 2,
+      "pointer": "/delivery/telegramPrivateFieldsAbsent",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-14",
+      "index": 3,
+      "pointer": "/retention/noAutomaticPurge",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-14",
+      "index": 4,
+      "pointer": "/delivery/realRecipients",
+      "operator": "equals",
+      "expected": 0,
+      "disposition": "retain",
+      "ua1Rows": [],
+      "observationRule": "Keep original evidence extraction and predicate."
+    },
+    {
+      "caseID": "BE-E5-15",
+      "index": 0,
+      "pointer": "/auth/lookupRawToken",
+      "operator": "absent",
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-15",
+      "index": 1,
+      "pointer": "/auth/crossActorResultExposed",
+      "operator": "equals",
+      "expected": false,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-15",
+      "index": 2,
+      "pointer": "/cookie/exactCompletionRestored",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-15",
+      "index": 3,
+      "pointer": "/auth/changedPayloadError",
+      "operator": "equals",
+      "expected": "CommandConflict",
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    },
+    {
+      "caseID": "BE-E5-15",
+      "index": 4,
+      "pointer": "/auth/originalOutcomeUnchangedOnDeniedReplay",
+      "operator": "equals",
+      "expected": true,
+      "disposition": "retain",
+      "ua1Rows": [
+        "UA1-M03",
+        "UA1-M12"
+      ],
+      "observationRule": "Keep the exact predicate. Observe invitation_link jobs separately from OTP jobs; include fresh create-linked job and combined accepted-issue counter in UA1. No total-job or first-job shortcut."
+    }
+  ]
+}

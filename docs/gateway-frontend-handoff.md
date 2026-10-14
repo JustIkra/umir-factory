@@ -1,6 +1,8 @@
 # Спецификация передачи gateway и frontend
 
-Дата: 2026-10-12. Часовой пояс: Europe/Moscow.
+Дата исходного v1 handoff: 2026-10-12. Часовой пояс: Europe/Moscow.
+
+Актуальный v2 статус, private Auth ownership, реализованные UA1 batches/members/invitations/link APIs и оставшаяся приёмка находятся в [backend-next-steps](backend-next-steps.md). Разделы ниже сохраняют исторический v1 handoff; заявления о будущем Auth и прежнем frontend состоянии относятся к 12.10.2026, а не к текущей v2 реализации.
 
 Статус на 2026-10-12: публичные gateway → serving → warehouse API работают по HTTP с процессной памятью. Resolve может продолжить попытку в рамках работающих процессов. Постоянное бизнес-состояние и восстановление незавершённого оформления после потери процессов ещё не реализованы. [README фабрики](../README.md#gateway-openapi) и [internal warehouse contract](api/warehouse-internal.yml) описывают транспорт и ограничения перезапуска.
 
