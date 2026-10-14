@@ -2,7 +2,7 @@
 
 ## Не выпущено
 
-- Add proposed UA1 contract documents for batch reads, organization contacts and invitation lists, and durable invitation-link delivery. Include separate public/private schema overlays and 34 unrun acceptance rows. Approval and implementation remain pending; preserve frozen schemas, historical C2/all67 evidence and selected assembly identities.
+- Add the approved UA1 contract profile for batch reads, organization contacts and invitation lists, and durable invitation-link delivery. Include separate public/private overlays, composed profiles and 34 mandatory acceptance rows. Owner source implementation passes gates; complete runtime qualification remains pending. Preserve frozen C2 schemas, historical all67 evidence and selected assembly identities.
 
 - Record completion of the 29-operation Auth facade HTTP matrix, real password
   cooldown checks, Serving settings refresh and the Warehouse private-listener
@@ -69,6 +69,5 @@
 
 - Добавлены сборка четырёх сервисов по SHA образов и локальная сборка.
 - CI проверяет обе конфигурации Compose и формат SHA-тегов, скачивает закреплённые образы, запускает четыре контейнера через `up --wait` и проверяет frontend и оба маршрута gateway smoke-тестом.
-
 
 UA1 implementation checkpoint, 2026-10-14: owner candidates pass full source gates. The generated composed profiles and assertion transition map retain the original C2 inputs. Initial Nginx/real-owner/synthetic SMTP observations are partial; mandatory UA1 qualification and original F3/F4/J1/E/J2 remain open. The test executor avoids collisions between dynamic public ports and synthetic private port mappings.
