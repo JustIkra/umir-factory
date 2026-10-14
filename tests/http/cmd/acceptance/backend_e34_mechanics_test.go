@@ -175,7 +175,11 @@ func TestE34MechanicsPrivateFactsRejectSecretsAndRetainExactBytes(t *testing.T) 
 	raw := []byte(`{"quantity":"9007199254740993"}`)
 	e34Retain(ctx, "inventory", nil, raw, 200)
 	raw[2] = 'X'
-	client := &backendClient{run: backendRunDescriptor{Fixtures: fixtureDescriptor{HarnessPrivateRoot: t.TempDir()}}}
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &backendClient{run: backendRunDescriptor{Fixtures: fixtureDescriptor{HarnessPrivateRoot: root}}}
 	if err := facts.save(client, "BE-E3-02", false); err != nil {
 		t.Fatal(err)
 	}
