@@ -1,0 +1,483 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Umir UA1 private amendment",
+    "version": "1.0.0-draft.1",
+    "description": "Proposed overlay on deddf0a. Unlisted operations remain in the predecessor; no runtime implementation claimed."
+  },
+  "x-predecessor-commit": "deddf0a789ebf5ed801cb7ec0e92cbac82c3297a",
+  "x-normative-semantics": "../ui-api-amendment.md",
+  "paths": {
+    "/internal/warehouse/v2/r/{restaurantID}/products/{productID}/batches": {
+      "get": {
+        "operationId": "privateProductBatches",
+        "x-owner": "warehouse",
+        "x-required-capability": "stock.read",
+        "description": "UA1 draft; semantics and cross-field bindings are in ../ui-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "restaurantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "productID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/ID"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Typed result. Capture time and identity apply to all rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "ui-amendment-v1-public.json#/components/schemas/ScopedProductBatches"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed failure rules apply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": [],
+            "serviceJWT": []
+          }
+        ]
+      }
+    },
+    "/internal/auth/v1/public/orgs/{orgID}/members": {
+      "get": {
+        "operationId": "privateOrganizationMembers",
+        "x-owner": "Auth",
+        "x-required-capability": "membership.manage",
+        "description": "UA1 draft; semantics and cross-field bindings are in ../ui-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "revoked",
+                "all"
+              ],
+              "default": "active"
+            }
+          },
+          {
+            "name": "X-Umir-Session",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Umir-Activity",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "foreground",
+                "background"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Typed result. Capture time and identity apply to all rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "ui-amendment-v1-public.json#/components/schemas/MembersPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed failure rules apply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": []
+          }
+        ]
+      }
+    },
+    "/internal/auth/v1/public/orgs/{orgID}/invitations": {
+      "get": {
+        "operationId": "privateOrganizationInvitations",
+        "x-owner": "Auth",
+        "x-required-capability": "invitation.manage",
+        "description": "UA1 draft; semantics and cross-field bindings are in ../ui-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "accepted",
+                "expired",
+                "revoked",
+                "suppressed",
+                "all"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "X-Umir-Session",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Umir-Activity",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "foreground",
+                "background"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Typed result. Capture time and identity apply to all rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "ui-amendment-v1-public.json#/components/schemas/InvitationsPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed failure rules apply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "privateCreateInvitation",
+        "x-owner": "Auth",
+        "x-required-capability": "invitation.manage",
+        "description": "UA1 create-mail atomicity is defined in ../ui-api-amendment.md. Predecessor outcome rules remain in backend-v2.md.",
+        "responses": {
+          "201": {
+            "description": "Typed successful result. Acceptance is not delivery or cleanup completion.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Invitation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed failure; a transport failure never proves not_committed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "X-Umir-Session",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Umir-Activity",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "foreground",
+                "background"
+              ]
+            }
+          },
+          {
+            "name": "X-Umir-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "backend-v2-public.json#/components/schemas/CreateInvitation"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": []
+          }
+        ],
+        "x-ua1-semantic-change": "Fresh create atomically saves one invitation_link job; legacy exact replay keeps its zero-job result."
+      }
+    },
+    "/internal/auth/v1/public/orgs/{orgID}/invitations/{invitationID}/resend-link": {
+      "post": {
+        "operationId": "privateResendInvitationLink",
+        "x-owner": "Auth",
+        "x-required-capability": "invitation.manage",
+        "description": "UA1 draft; semantics and cross-field bindings are in ../ui-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "invitationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "backend-v2-public.json#/components/schemas/EntityID"
+            }
+          },
+          {
+            "name": "X-Umir-Session",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "X-Umir-Activity",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "foreground",
+                "background"
+              ]
+            }
+          },
+          {
+            "name": "X-Umir-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exactly one link job was durably accepted; not proof of SMTP delivery.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/DurableResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed failure rules apply.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "backend-v2-public.json#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "backend-v2-public.json#/components/schemas/Command"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Umir-Service-Key"
+      },
+      "serviceJWT": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

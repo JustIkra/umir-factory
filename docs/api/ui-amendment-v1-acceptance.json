@@ -1,0 +1,245 @@
+{
+  "profile": "UA1",
+  "status": "proposed_not_implemented",
+  "predecessorCommit": "deddf0a789ebf5ed801cb7ec0e92cbac82c3297a",
+  "rows": [
+    {
+      "id": "UA1-B01",
+      "title": "Positive available and pending batches",
+      "expected": "Return only the selected product, complete positive quantities and units; omit zero balances.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B02",
+      "title": "FEFO ties across pages",
+      "expected": "Sort expiresAt, receivedAt then UTF-8 batchID before paging; no duplicate or missing rows.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B03",
+      "title": "Product existence",
+      "expected": "Existing product without batches is 200 empty; unknown product is authorized 404.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B04",
+      "title": "Expiry and writeoff",
+      "expected": "Due expiry uses real owner transition/invalidation; listing never confirms writeoff; post-confirm zero batch disappears on refresh.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B05",
+      "title": "Settings and DST",
+      "expected": "Current capture settings and recorded per-batch settings/expiry stay distinct after timezone change; changed settings invalidate old cursor.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B06",
+      "title": "Concurrent mutation",
+      "expected": "Capture stays immutable after consumption, delivery or expiry; writes recheck fresh state.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B07",
+      "title": "Epoch reset",
+      "expected": "Restart makes cursor unavailable, never combines old and new runtime rows.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-B08",
+      "title": "Business authorization",
+      "expected": "Waiter cannot stock.read; Warehouse and Admin succeed only for granted restaurant; cross-org identity denied before dispatch.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R01",
+      "title": "Member contacts",
+      "expected": "Real joined identity includes nullable legacy email and exact name; no credentials, other-org assignments or invented contact.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R02",
+      "title": "Member states and roles",
+      "expected": "Active default, revoked/all filters, exact membership and assignment versions; combined Warehouse/Waiter roles preserved.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R03",
+      "title": "Invitation list",
+      "expected": "All existing states/default and state filter; legacy null delivery; latest link job excludes OTP jobs.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R04",
+      "title": "Read expiry projection",
+      "expected": "Expired pending invitation projects expired with unchanged persisted version; resendAllowed obeys captured expiry/cooldown.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R05",
+      "title": "Admin isolation",
+      "expected": "Employee and other-org Admin denied; deleted org, revoked Admin/session deny cached pages with no leaked rows.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-R06",
+      "title": "Auth capture stability",
+      "expected": "Profile/session activity and concurrent edits do not change captured names, versions, order or page identity.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-P01",
+      "title": "Cursor bindings",
+      "expected": "Wrong actor, scope, product, filters or limit cannot use handle; bounded RefreshRequired, no implicit refresh.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-P02",
+      "title": "Cursor expiry and capacity",
+      "expected": "Five-minute expiry, 128 active snapshot ceiling plus bounded bytes/rows; explicit error, no truncation; end omits cursor.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-P03",
+      "title": "Strict input",
+      "expected": "Unknown/duplicate query, empty/oversize cursor, limits 0/501, GET body and malformed IDs rejected by both boundaries.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-P04",
+      "title": "Response identity validation",
+      "expected": "Mismatched org/product/tenant/epoch/state/settings, unexpected fields, negative/numeric quantities and malformed dates fail closed.",
+      "evidence": "source+integration",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M01",
+      "title": "Create transaction",
+      "expected": "Confirmed create has one invitation, one link job and one linked command result; 201 remains Invitation; no challenge allocated.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M02",
+      "title": "Storage failure and unknown",
+      "expected": "Definite failed commit has no partial acceptance; ambiguous outcome retains original command and recovers exactly one job.",
+      "evidence": "source+live+fault",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M03",
+      "title": "Create replay and conflict",
+      "expected": "Same actor/scope/command/payload returns original invitation/job; changed payload conflicts; restart or changed configured origin does not duplicate.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M04",
+      "title": "Link resend without OTP",
+      "expected": "Pending unexpired resend-link needs no challenge; returns one stable job and increments version/cooldown without extending deadline; expired/accepted/revoked/suppressed resends reject before any mutation.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M05",
+      "title": "Shared cooldown and rate bounds",
+      "expected": "OTP and link resend enforce shared 60-second deadline; five link resends per invitation per rolling hour; preserve three creates per org/email per rolling ten minutes; combined OTP/link issue limit is 3 per comparison-email target and 60 globally per rolling ten minutes; replay and transport retries not counted; 429 Retry-After preserved.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M06",
+      "title": "Existing OTP resend",
+      "expected": "Existing resend still requires live challenge and sends the original OTP kind/deadline; link resend does not mutate challenge.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M07",
+      "title": "Trusted URL and configuration",
+      "expected": "Only configured trusted origin; reject hostile Host/redirect, credentials/path/query/fragment; missing config fails before mutation.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M08",
+      "title": "Link confers no authority",
+      "expected": "Real link cannot accept membership without existing email-bound OTP/proof; wrong email, expired/revoked scope denied.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M09",
+      "title": "Delivery result classes",
+      "expected": "Synthetic SMTP confirmed success, permanent failure and lost reply yield sent/failed/unknown observations respectively.",
+      "evidence": "source+live+fault",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M10",
+      "title": "Transport retry and restart",
+      "expected": "Link jobs have three attempts maximum, retry delays 1/5 minutes and stable jobID/Message-ID; crashed sending becomes unknown; exhausted link unknown stays unknown, no new job; preserve existing OTP retry timing/terminal policy.",
+      "evidence": "source+live+fault",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M11",
+      "title": "Cancel/accept/expiry/delete race",
+      "expected": "Unclaimed jobs suppressed; already claimed IO bounded, result cannot restore access; global User and other org scopes survive.",
+      "evidence": "source+live+fault",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M12",
+      "title": "Storage upgrade and legacy replay",
+      "expected": "Valid v1 upgrades preserve challenge edges/jobs/IDs/deadlines/results; legacy zero-job create replay stays zero; unknown formats and malformed UA1 linkage rejected.",
+      "evidence": "source+integration",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M13",
+      "title": "Origin and CSRF",
+      "expected": "Link mutation rejects invalid Origin/CSRF, wrong actor and deleted scope before mutation; no cookies or service material leaked.",
+      "evidence": "source+live",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-M14",
+      "title": "Privacy and MIME",
+      "expected": "Escaped text/HTML link, synthetic recipient, expiry, stable Message-ID; no OTP/credential/URL in logs or unrelated third-party channels.",
+      "evidence": "source+integration",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-C01",
+      "title": "Original assertion transition map",
+      "expected": "Freeze affected all67 assertion IDs and UA1 replacements before runner edits; unchanged assertions remain required; original evidence never overwritten.",
+      "evidence": "document+integration",
+      "status": "not_run"
+    },
+    {
+      "id": "UA1-C02",
+      "title": "Source and runtime identities",
+      "expected": "Full declared owner/Factory gates and live results bind exact source/image/config heads; UA1 is separate from J1/E/J2 and browser acceptance.",
+      "evidence": "gates+live",
+      "status": "not_run"
+    }
+  ]
+}
