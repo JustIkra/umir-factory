@@ -2,6 +2,11 @@
 
 ## Не выпущено
 
+- Record completion of the 29-operation Auth facade HTTP matrix, real password
+  cooldown checks, Serving settings refresh and the Warehouse private-listener
+  correction. Preserve API amendments, browser acceptance and full J1/E/J2 as
+  remaining work. No selected assembly or release changes.
+
 - Document current backend checkpoint work, local Gateway/Serving runtime fixes, live readiness and HTTP limits, remaining Auth façade and UI contract amendment tasks, and separate frontend/Figma ownership.
 
 - Corrected unpublished backend fixture provisioning: Serving receives four distinct service credentials and a separate control reference. Auth and Serving share the independent `serving-auth` discovery credential; owner/sink service maps exclude controls. Version 2 requires bindings digest `de9c7bfc573ad0887be0f00b1ddc2495939469f58f3524c6dbb66a521fed385e` and refuses its predecessor. Protocol 1.1.0, selected pins and business contracts remain unchanged. Real providers and runtime acceptance remain pending.

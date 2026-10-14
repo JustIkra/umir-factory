@@ -1,6 +1,6 @@
 # UMIR Factory
 
-Актуальная [задача backend после checkpoint](docs/backend-next-steps.md) фиксирует результаты живого стенда, локальные runtime-исправления, оставшиеся Auth façade/API/E2E задачи и границу работы frontend-разработчика. Она не меняет frozen API или selected assembly.
+Актуальная [задача backend после checkpoint](docs/backend-next-steps.md) фиксирует завершённый Auth façade, исправления runtime/cooldown, живую HTTP матрицу и оставшиеся API/E2E задачи. Фронтенд и Figma ведёт другой разработчик. Задача не меняет frozen API или selected assembly.
 
 Сборка системы учёта продуктов для одного ресторана. Фабрика закрепляет версии четырёх сервисных образов и запускает их через Docker Compose.
 
