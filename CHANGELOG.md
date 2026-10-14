@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Update the current backend plan after UA1 implementation and main integration. Distinguish source checks, partial real-service observations, mandatory qualification, original F3/F4/J1/E/J2 and the next v4 phase. Mark the historical v1 handoff explicitly.
+
 - Add the approved UA1 contract profile for batch reads, organization contacts and invitation lists, and durable invitation-link delivery. Include separate public/private overlays, composed profiles and 34 mandatory acceptance rows. Owner source implementation passes gates; complete runtime qualification remains pending. Preserve frozen C2 schemas, historical all67 evidence and selected assembly identities.
 
 - Record completion of the 29-operation Auth facade HTTP matrix, real password

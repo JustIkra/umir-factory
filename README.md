@@ -1,6 +1,6 @@
 # UMIR Factory
 
-Актуальная [задача backend после checkpoint](docs/backend-next-steps.md) фиксирует завершённый Auth façade, исправления runtime/cooldown, живую HTTP матрицу и оставшиеся API/E2E задачи. Фронтенд и Figma ведёт другой разработчик. Задача не меняет frozen API или selected assembly.
+Актуальная [задача backend после checkpoint](docs/backend-next-steps.md) фиксирует завершённые Auth façade/UA1 source-изменения, текущую main-интеграцию, частичные живые проверки и оставшиеся UA1/E2E задачи. Фронтенд и Figma ведёт другой разработчик. Задача не меняет frozen API или selected assembly.
 
 [UI API amendment UA1](docs/ui-api-amendment.md) was approved for implementation on 2026-10-14. Its approved normative artifacts remain frozen separately from C2. Auth, Warehouse and Gateway now have local implementation candidates for product batches, Admin member/invitation snapshots and durable invitation-link mail. Full source gates pass. Real-service observations cover selected checks; all 34 acceptance rows are not yet qualified. The existing frozen API and selected assembly remain the predecessor.
 

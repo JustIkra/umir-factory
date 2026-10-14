@@ -1,6 +1,6 @@
 # UI API amendment UA1
 
-Status: proposed for approval. No implementation or runtime acceptance is claimed.
+Status: approved on 2026-10-14. Owner source implementation and partial real-service observations are complete. Full runtime qualification remains pending.
 Date: 2026-10-14. Time zone: Europe/Moscow.
 
 UA1 supplies product batches, organization contacts, invitation lists and invitation
@@ -13,19 +13,20 @@ The binding predecessor is Factory commit
 `deddf0a789ebf5ed801cb7ec0e92cbac82c3297a`, including
 [backend-next-steps](backend-next-steps.md), [public API](api/backend-v2-public.json),
 [private API](api/backend-v2-private.json) and [business rules](business-core.md).
-UA1 is a separately named contract profile. Its proposed wire additions are in
+UA1 is a separately named approved contract profile. Its wire additions are in
 [public UA1](api/ui-amendment-v1-public.json) and
 [private UA1](api/ui-amendment-v1-private.json).
 Unlisted operations keep their predecessor contract. Approval of this document
 does not select production SHAs, merge a branch, publish a release or deploy.
 
-## Proposed decisions
+## Approved decisions
 
-These choices are proposed by the implementer and require approval with UA1.
-Approval covers every normative value and rule in this document and its linked
-wire/acceptance artifacts. It does not claim that those rules already run.
+The user approved these choices with UA1 on 2026-10-14. The approval covers every
+normative value and rule in this document and its linked wire/acceptance artifacts.
+Current implementation and remaining qualification are recorded in
+[backend-next-steps](backend-next-steps.md). Approval alone is not runtime evidence.
 
-| Choice | Proposed behavior |
+| Choice | Approved behavior |
 | --- | --- |
 | Batch scope | All positive remaining batches for one product, including pending writeoff. Consumed and written-off zero balances are omitted. |
 | Pagination | Limit 100 by default, maximum 500. Opaque cursors retain one immutable snapshot for five physical minutes. |
@@ -223,7 +224,7 @@ Add a typed mail purpose `invitation_link`; legacy missing purpose migrates only
 the existing OTP purpose when its challenge edge is valid. Link jobs bind directly
 to invitation/org and have no fabricated challengeID. Update validation, monotonic
 replacement rules, payload encryption, command linkage, fixture discovery and mail
-dispatch together. A proposed Auth storage format v2 has an explicit v1→v2
+dispatch together. Auth storage format v2 has an explicit v1→v2
 migration. Reject unknown formats. Do not use a new field to weaken old guards.
 Use new discriminated application types rather than turning CodeMail into optional
 unrelated fields. Keep templates and fixtures outside production state.
@@ -273,7 +274,7 @@ Gateway session operations; these additions issue no new cookies.
 
 ## Acceptance and migration
 
-[UA1 acceptance rows](api/ui-amendment-v1-acceptance.json) are proposed mandatory
+[UA1 acceptance rows](api/ui-amendment-v1-acceptance.json) are approved mandatory
 rows. A schema example is not runtime evidence. Each row needs source regression
 evidence and executable Nginx→Gateway→real owner evidence where specified.
 Synthetic SMTP sinks are mandatory for local acceptance.
@@ -296,4 +297,4 @@ real validated migration with retained encryption keys. No second identity write
 New runtime/source identities must be qualified after restart. Old binaries must
 reject v2 data. Rollback keeps admission closed until a compatible writer can read
 every acknowledged command/job; restoring an old backup must not discard them.
-No deployment or migration of the user's live authority is part of this draft.
+No deployment or migration of the user's live authority is part of this source update.
