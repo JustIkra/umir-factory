@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Published the sole user-selected completion plan, revision 2, and its HTML view. Marked the previous backend execution backlog as superseded. This documentation change does not qualify services, select images or deploy the assembly.
+
 - Add a separate typed UA1 invitation-link SMTP receiver library with exact
   reviewed Auth discovery/MIME/Message-ID joins, frozen capture provenance,
   owner-window cutoff and real one-shot permanent/lost-reply effects. Preserve
