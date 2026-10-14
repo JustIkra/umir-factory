@@ -63,6 +63,9 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 		writeFailure(stderr, "%v\n", err)
 		return 2
 	}
+	if command == "http-acceptance" && options.backendOnly {
+		return runBackendAcceptance(ctx, options.factoryDir, options, executor, stdout, stderr)
+	}
 	factoryDir, err := absoluteFactoryDir(options.factoryDir)
 	if err != nil {
 		writeFailure(stderr, "%v\n", err)
@@ -121,9 +124,17 @@ type cliOptions struct {
 	selected   bool
 	realtime   bool
 	// auth runs the candidate as the one-port operator auth assembly of compose.auth.yaml.
-	auth         bool
-	feedbackRef  string
-	githubOutput string
+	auth               bool
+	feedbackRef        string
+	githubOutput       string
+	backendOnly        bool
+	reviewedDirty      bool
+	authRef            string
+	backendInputs      string
+	backendInputsSHA   string
+	backendHarness     string
+	backendHarnessSHA  string
+	backendEvidenceDir string
 }
 
 func parseOptions(command string, args []string) (cliOptions, error) {
@@ -140,6 +151,14 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		flags.StringVar(&options.githubOutput, "github-output", "", "append selected service refs to a GitHub Actions output file")
 	}
 	if command == "http-acceptance" {
+		flags.BoolVar(&options.backendOnly, "backend-only", false, "run the isolated five-service backend candidate")
+		flags.BoolVar(&options.reviewedDirty, "reviewed-dirty", false, "accept explicitly reviewed dirty content manifests")
+		flags.StringVar(&options.authRef, "auth-ref", "", "full Auth source commit SHA")
+		flags.StringVar(&options.backendInputs, "backend-inputs", "", "absolute reviewed backend operational descriptor")
+		flags.StringVar(&options.backendInputsSHA, "backend-inputs-sha256", "", "reviewed descriptor SHA-256")
+		flags.StringVar(&options.backendHarness, "backend-harness", "", "absolute compiled F3 harness")
+		flags.StringVar(&options.backendHarnessSHA, "backend-harness-sha256", "", "compiled harness SHA-256")
+		flags.StringVar(&options.backendEvidenceDir, "backend-evidence-dir", "", "absolute parent for unique retained run evidence")
 		flags.BoolVar(&options.candidate, "candidate", false, "build exact supplied commits as local test images")
 		flags.BoolVar(&options.selected, "selected", false, "pull and verify the selected published images")
 		flags.BoolVar(&options.auth, "auth", false, "run the candidate as the one-port operator auth assembly")
@@ -182,6 +201,12 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		}
 	}
 	if command == "http-acceptance" {
+		if options.backendOnly {
+			return options, validateBackendOptions(options)
+		}
+		if options.reviewedDirty || options.authRef != "" || options.backendInputs != "" || options.backendInputsSHA != "" || options.backendHarness != "" || options.backendHarnessSHA != "" || options.backendEvidenceDir != "" {
+			return options, errors.New("backend inputs require --backend-only")
+		}
 		if options.candidate == options.selected {
 			return options, errors.New("choose exactly one of --candidate or --selected")
 		}

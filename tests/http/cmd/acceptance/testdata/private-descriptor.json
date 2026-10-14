@@ -1,0 +1,242 @@
+{
+  "version": 2,
+  "contractIdentity": "sha256:733e102ff0b4f52bb49d435716f9f1720642c8fad3a8a5d0685847071950e9e6",
+  "project": "umir-backend-0123456789abcdef01234567",
+  "composeFile": "/private/tmp/example-private-probe/compose.json",
+  "gatewayURL": "http://127.0.0.1:49152",
+  "origin": "http://127.0.0.1:49152",
+  "sinkURLs": {
+    "smtp": "http://127.0.0.1:49250",
+    "notification": "http://127.0.0.1:49260"
+  },
+  "privateServiceURLs": {
+    "auth": "http://127.0.0.1:49200",
+    "gateway": "http://127.0.0.1:49211",
+    "warehouse": "http://127.0.0.1:49220",
+    "serving": "http://127.0.0.1:49230",
+    "feedback": "http://127.0.0.1:49240"
+  },
+  "credentialFiles": {
+    "gateway-auth": {
+      "target": "harness",
+      "path": "/run/umir-fixtures/secrets/gateway-auth"
+    }
+  },
+  "fixtures": {
+    "protocol": "umir-operational-fixtures/1.1.0",
+    "bindingsSHA256": "af215b378140b8e690523fc537007679b8c2599ed3039f7f2a0c651a64c59410",
+    "fixtureID": "22222222-2222-4222-8222-222222222222",
+    "initialInstant": "2026-10-13T09:00:00+03:00",
+    "initialGeneration": "1",
+    "harnessPrivateRoot": "/private/tmp/example-private-fixture",
+    "owners": {
+      "auth": {
+        "profile": "auth-real-v2",
+        "configSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "serverBinarySHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controlBinarySHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configPath": "/run/umir-fixtures/config/config.json",
+        "controlSocket": "/run/umir-fixtures/control.sock",
+        "controlCredentialFile": {
+          "target": "auth",
+          "path": "/run/umir-fixtures/secrets/fixture-auth"
+        },
+        "capabilities": [
+          "clock.read",
+          "fixture.ready"
+        ]
+      },
+      "feedback": {
+        "profile": "feedback-real-v2",
+        "configSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "serverBinarySHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controlBinarySHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configPath": "/run/umir-fixtures/config/config.json",
+        "controlSocket": "/run/umir-fixtures/control.sock",
+        "controlCredentialFile": {
+          "target": "feedback",
+          "path": "/run/umir-fixtures/secrets/fixture-feedback"
+        },
+        "capabilities": [
+          "clock.read",
+          "fixture.ready"
+        ]
+      },
+      "warehouse": {
+        "profile": "warehouse-real-v2",
+        "configSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "serverBinarySHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controlBinarySHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configPath": "/run/umir-fixtures/config/config.json",
+        "controlSocket": "/run/umir-fixtures/control.sock",
+        "controlCredentialFile": {
+          "target": "warehouse",
+          "path": "/run/umir-fixtures/secrets/fixture-warehouse"
+        },
+        "capabilities": [
+          "clock.read",
+          "fixture.ready"
+        ]
+      },
+      "serving": {
+        "profile": "serving-real-v2",
+        "configSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "serverBinarySHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controlBinarySHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configPath": "/run/umir-fixtures/config/config.json",
+        "controlSocket": "/run/umir-fixtures/control.sock",
+        "controlCredentialFile": {
+          "target": "serving",
+          "path": "/run/umir-fixtures/secrets/fixture-serving"
+        },
+        "capabilities": [
+          "clock.read",
+          "fixture.ready"
+        ]
+      },
+      "gateway": {
+        "profile": "gateway-real-v2",
+        "configSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "serverBinarySHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "controlBinarySHA256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "configPath": "/run/umir-fixtures/config/config.json",
+        "controlSocket": "/run/umir-fixtures/control.sock",
+        "controlCredentialFile": {
+          "target": "gateway",
+          "path": "/run/umir-fixtures/secrets/fixture-gateway"
+        },
+        "capabilities": [
+          "clock.read",
+          "fixture.ready"
+        ]
+      }
+    },
+    "bootstrapBindingSHA256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "requirements": [
+    "E1.private-business-probe.example"
+  ],
+  "evidenceDirectory": "/private/tmp/example-private-probe/evidence",
+  "sources": {
+    "auth": {
+      "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceMode": "reviewed-dirty",
+      "contextSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "files": [
+        {
+          "path": "go.mod",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": 420
+        },
+        {
+          "path": "tests/fixtures/Dockerfile",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mode": 420
+        }
+      ],
+      "excludedIgnored": []
+    },
+    "gateway": {
+      "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceMode": "reviewed-dirty",
+      "contextSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "files": [
+        {
+          "path": "go.mod",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": 420
+        },
+        {
+          "path": "tests/fixtures/Dockerfile",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mode": 420
+        }
+      ],
+      "excludedIgnored": []
+    },
+    "warehouse": {
+      "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceMode": "reviewed-dirty",
+      "contextSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "files": [
+        {
+          "path": "go.mod",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": 420
+        },
+        {
+          "path": "tests/fixtures/Dockerfile",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mode": 420
+        }
+      ],
+      "excludedIgnored": []
+    },
+    "serving": {
+      "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceMode": "reviewed-dirty",
+      "contextSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "files": [
+        {
+          "path": "go.mod",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": 420
+        },
+        {
+          "path": "tests/fixtures/Dockerfile",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mode": 420
+        }
+      ],
+      "excludedIgnored": []
+    },
+    "feedback": {
+      "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceMode": "reviewed-dirty",
+      "contextSHA256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "files": [
+        {
+          "path": "go.mod",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": 420
+        },
+        {
+          "path": "tests/fixtures/Dockerfile",
+          "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "mode": 420
+        }
+      ],
+      "excludedIgnored": []
+    }
+  },
+  "images": {
+    "auth": {
+      "ref": "umir-backend/example-auth:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "gateway": {
+      "ref": "umir-backend/example-gateway:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "warehouse": {
+      "ref": "umir-backend/example-warehouse:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "serving": {
+      "ref": "umir-backend/example-serving:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "feedback": {
+      "ref": "umir-backend/example-feedback:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "smtp": {
+      "ref": "umir-backend/example-smtp:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "notification": {
+      "ref": "umir-backend/example-notification:candidate",
+      "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  }
+}

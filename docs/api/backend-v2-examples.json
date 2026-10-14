@@ -1,0 +1,2284 @@
+{
+  "contractVersion": "2.0.0-draft.2",
+  "schemaCases": [
+    {
+      "name": "exact quantity 0",
+      "schema": "Quantity",
+      "valid": true,
+      "value": "0"
+    },
+    {
+      "name": "exact quantity 9007199254740993",
+      "schema": "Quantity",
+      "valid": true,
+      "value": "9007199254740993"
+    },
+    {
+      "name": "exact quantity 9223372036854775807",
+      "schema": "Quantity",
+      "valid": true,
+      "value": "9223372036854775807"
+    },
+    {
+      "name": "reject quantity 9007199254740992",
+      "schema": "Quantity",
+      "valid": false,
+      "value": 9007199254740992
+    },
+    {
+      "name": "reject quantity 9223372036854775808",
+      "schema": "Quantity",
+      "valid": false,
+      "value": "9223372036854775808"
+    },
+    {
+      "name": "reject quantity 01",
+      "schema": "Quantity",
+      "valid": false,
+      "value": "01"
+    },
+    {
+      "name": "reject quantity -1",
+      "schema": "Quantity",
+      "valid": false,
+      "value": "-1"
+    },
+    {
+      "name": "reject quantity 1.0",
+      "schema": "Quantity",
+      "valid": false,
+      "value": "1.0"
+    },
+    {
+      "name": "reject quantity 1e3",
+      "schema": "Quantity",
+      "valid": false,
+      "value": "1e3"
+    },
+    {
+      "name": "instant 2026-10-13T01:00:00+03:00",
+      "schema": "Instant",
+      "valid": true,
+      "value": "2026-10-13T01:00:00+03:00"
+    },
+    {
+      "name": "instant 2026-10-12T22:00:00Z",
+      "schema": "Instant",
+      "valid": true,
+      "value": "2026-10-12T22:00:00Z"
+    },
+    {
+      "name": "instant 2026-10-13T03:30:00+05:30",
+      "schema": "Instant",
+      "valid": true,
+      "value": "2026-10-13T03:30:00+05:30"
+    },
+    {
+      "name": "invalid instant 2026-02-30T01:00:00+03:00",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-02-30T01:00:00+03:00"
+    },
+    {
+      "name": "invalid instant 2026-10-13",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-10-13"
+    },
+    {
+      "name": "invalid instant 2026-10-13T01:00:00",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-10-13T01:00:00"
+    },
+    {
+      "name": "invalid instant 2026-10-13T01:00:60Z",
+      "schema": "Instant",
+      "valid": false,
+      "value": "2026-10-13T01:00:60Z"
+    },
+    {
+      "name": "combined roles",
+      "schema": "Roles",
+      "valid": true,
+      "value": [
+        "Warehouse",
+        "Waiter"
+      ]
+    },
+    {
+      "name": "duplicate roles",
+      "schema": "Roles",
+      "valid": false,
+      "value": [
+        "Waiter",
+        "Waiter"
+      ]
+    },
+    {
+      "name": "Admin is org role",
+      "schema": "Roles",
+      "valid": false,
+      "value": [
+        "Admin"
+      ]
+    },
+    {
+      "name": "membership across two restaurants",
+      "schema": "Membership",
+      "valid": true,
+      "value": {
+        "membershipID": "11111111-1111-4111-8111-111111111111",
+        "membershipVersion": "1",
+        "userID": "11111111-1111-4111-8111-111111111111",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "orgRoles": [],
+        "assignments": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "assignmentID": "11111111-1111-4111-8111-111111111111",
+            "assignmentVersion": "1",
+            "roles": [
+              "Warehouse",
+              "Waiter"
+            ]
+          },
+          {
+            "restaurantID": "55555555-5555-4555-8555-555555555555",
+            "assignmentID": "44444444-4444-4444-8444-444444444444",
+            "assignmentVersion": "1",
+            "roles": [
+              "Waiter"
+            ]
+          }
+        ],
+        "state": "active"
+      }
+    },
+    {
+      "name": "new org",
+      "schema": "CreateOrganization",
+      "valid": true,
+      "value": {
+        "commandID": "org-create-1",
+        "name": "Test org",
+        "timeZone": "Europe/Moscow",
+        "firstRestaurantName": "Test restaurant"
+      }
+    },
+    {
+      "name": "stale version request structurally valid",
+      "schema": "UpdateSettings",
+      "valid": true,
+      "value": {
+        "commandID": "settings-1",
+        "expectedSettingsVersion": "1",
+        "timeZone": "Europe/Berlin"
+      }
+    },
+    {
+      "name": "user claims",
+      "schema": "UserClaims",
+      "valid": true,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "confirmOrder",
+        "permissions": [
+          "order.confirm",
+          "consumer.order.commit"
+        ],
+        "kind": "user",
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "sid": "11111111-1111-4111-8111-111111111111",
+        "session_version": "1",
+        "credential_version": "1",
+        "access_version": "1",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "time_zone": "Europe/Moscow",
+        "settings_version": "1",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "wrong kind",
+      "schema": "UserClaims",
+      "valid": false,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "confirmOrder",
+        "permissions": [
+          "order.confirm",
+          "consumer.order.commit"
+        ],
+        "kind": "service",
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "sid": "11111111-1111-4111-8111-111111111111",
+        "session_version": "1",
+        "credential_version": "1",
+        "access_version": "1",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "time_zone": "Europe/Moscow",
+        "settings_version": "1",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "missing tenant",
+      "schema": "UserClaims",
+      "valid": false,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "confirmOrder",
+        "permissions": [
+          "order.confirm",
+          "consumer.order.commit"
+        ],
+        "kind": "user",
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "sid": "11111111-1111-4111-8111-111111111111",
+        "session_version": "1",
+        "credential_version": "1",
+        "access_version": "1",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "time_zone": "Europe/Moscow",
+        "settings_version": "1",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "wildcard tenant",
+      "schema": "UserClaims",
+      "valid": false,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "confirmOrder",
+        "permissions": [
+          "order.confirm",
+          "consumer.order.commit"
+        ],
+        "kind": "user",
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "sid": "11111111-1111-4111-8111-111111111111",
+        "session_version": "1",
+        "credential_version": "1",
+        "access_version": "1",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "*",
+        "time_zone": "Europe/Moscow",
+        "settings_version": "1",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "missing sid",
+      "schema": "UserClaims",
+      "valid": false,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-serving",
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "confirmOrder",
+        "permissions": [
+          "order.confirm",
+          "consumer.order.commit"
+        ],
+        "kind": "user",
+        "sub": "11111111-1111-4111-8111-111111111111",
+        "session_version": "1",
+        "credential_version": "1",
+        "access_version": "1",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "time_zone": "Europe/Moscow",
+        "settings_version": "1",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "EdDSA header",
+      "schema": "JWTHeader",
+      "valid": true,
+      "value": {
+        "alg": "EdDSA",
+        "typ": "JWT",
+        "kid": "auth-20261013"
+      }
+    },
+    {
+      "name": "wrong JWT algorithm",
+      "schema": "JWTHeader",
+      "valid": false,
+      "value": {
+        "alg": "HS256",
+        "typ": "JWT",
+        "kid": "auth-20261013"
+      }
+    },
+    {
+      "name": "remote JWT key source",
+      "schema": "JWTHeader",
+      "valid": false,
+      "value": {
+        "alg": "EdDSA",
+        "typ": "JWT",
+        "kid": "key",
+        "jku": "https://invalid.test"
+      }
+    },
+    {
+      "name": "scheduler claims",
+      "schema": "ServiceClaims",
+      "valid": true,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-warehouse"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "expiry.due",
+        "permissions": [
+          "expiry.due"
+        ],
+        "kind": "service",
+        "sub": "service:gateway",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "runtime_epoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycle_version": "1",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "anonymous claims",
+      "schema": "AnonymousClaims",
+      "valid": true,
+      "value": {
+        "iss": "urn:umir:auth",
+        "aud": [
+          "umir-feedback"
+        ],
+        "iat": 1791842400,
+        "nbf": 1791842400,
+        "exp": 1791842460,
+        "jti": "11111111-1111-4111-8111-111111111111",
+        "operation": "feedback.anonymous.submit",
+        "permissions": [
+          "feedback.anonymous.submit"
+        ],
+        "kind": "anonymous",
+        "sub": "service:gateway",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "manual offset fold",
+      "schema": "TimeInput",
+      "valid": true,
+      "value": {
+        "civil": {
+          "localDateTime": "2026-10-25T02:30:00",
+          "offset": "+02:00",
+          "occurrence": "earlier"
+        }
+      }
+    },
+    {
+      "name": "manual instant",
+      "schema": "TimeInput",
+      "valid": true,
+      "value": {
+        "instant": "2026-10-25T00:30:00Z"
+      }
+    },
+    {
+      "name": "mixed time input",
+      "schema": "TimeInput",
+      "valid": false,
+      "value": {
+        "instant": "2026-10-13T01:00:00+03:00",
+        "civil": {
+          "localDateTime": "2026-10-13T01:00:00"
+        }
+      }
+    },
+    {
+      "name": "supply civil and instant",
+      "schema": "ReceiveDeliveryV2",
+      "valid": true,
+      "value": {
+        "commandID": "delivery-1",
+        "deliveryID": "D1",
+        "createdAt": {
+          "instant": "2026-10-13T01:00:00+03:00"
+        },
+        "expectedSettingsVersion": "1",
+        "lines": [
+          {
+            "productID": "P1",
+            "manufacturedAt": {
+              "civil": {
+                "localDateTime": "2026-10-12T12:00:00"
+              }
+            },
+            "receivedAt": {
+              "instant": "2026-10-13T01:00:00+03:00"
+            },
+            "shelfLife": {
+              "value": "1",
+              "unit": "month"
+            },
+            "quantity": "9007199254740993"
+          }
+        ],
+        "number": "Synthetic delivery 1"
+      }
+    },
+    {
+      "name": "nonreserved suggestion",
+      "schema": "Suggestion",
+      "valid": true,
+      "value": {
+        "kind": "product",
+        "suggestedID": "1",
+        "reserved": false
+      }
+    },
+    {
+      "name": "reserved suggestion forbidden",
+      "schema": "Suggestion",
+      "valid": false,
+      "value": {
+        "kind": "product",
+        "suggestedID": "1",
+        "reserved": true
+      }
+    },
+    {
+      "name": "fresh stock",
+      "schema": "StockReport",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "riskHours": 48,
+        "riskCutoff": "2026-10-15T01:00:00+03:00",
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "availableQuantity": "10000",
+            "pendingWriteoffQuantity": "5000",
+            "onHandQuantity": "15000",
+            "expiringQuantity": "3000"
+          }
+        ]
+      }
+    },
+    {
+      "name": "incomplete movement coverage",
+      "schema": "MovementReport",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "from": "2026-10-07T00:00:00+03:00",
+        "to": "2026-10-14T00:00:00+03:00",
+        "coverage": {
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "coverageFrom": "2026-10-13T00:00:00+03:00",
+          "complete": false,
+          "requestedFrom": "2026-10-07T00:00:00+03:00",
+          "availableFrom": "2026-10-13T00:00:00+03:00"
+        },
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "receivedQuantity": "15000",
+            "orderedQuantity": "0",
+            "writtenOffQuantity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "name": "expiry never final writeoff",
+      "schema": "DueExpiryResult",
+      "valid": true,
+      "value": {
+        "transitionedBatchIDs": [
+          "B1"
+        ],
+        "finalWriteoffs": 0,
+        "committedVersion": "4",
+        "invalidationRequired": true
+      }
+    },
+    {
+      "name": "scheduler final writeoff forbidden",
+      "schema": "DueExpiryResult",
+      "valid": false,
+      "value": {
+        "transitionedBatchIDs": [
+          "B1"
+        ],
+        "finalWriteoffs": 1,
+        "committedVersion": "4",
+        "invalidationRequired": true
+      }
+    },
+    {
+      "name": "final writeoff fact",
+      "schema": "WriteoffResult",
+      "valid": true,
+      "value": {
+        "batchID": "B1",
+        "productID": "P1",
+        "writtenOffQuantity": "5000",
+        "baseUnit": "g",
+        "actorUserID": "11111111-1111-4111-8111-111111111111",
+        "confirmedAt": "2026-10-13T01:00:00+03:00",
+        "eventID": "event-4"
+      }
+    },
+    {
+      "name": "runtime reset indeterminate",
+      "schema": "Error",
+      "valid": true,
+      "value": {
+        "code": "RuntimeReset",
+        "outcome": "indeterminate",
+        "message": "Runtime was reset",
+        "retryable": false,
+        "details": {
+          "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+          "currentEpoch": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "name": "delete accepted cleanup pending",
+      "schema": "LifecycleResult",
+      "valid": true,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "service": "warehouse",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "closed",
+            "lifecycleVersion": "2",
+            "restaurantID": "33333333-3333-4333-8333-333333333333"
+          },
+          {
+            "service": "serving",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "pending",
+            "lifecycleVersion": "2",
+            "restaurantID": "33333333-3333-4333-8333-333333333333"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "pending",
+            "lifecycleVersion": "2"
+          }
+        ],
+        "operationID": "66666666-6666-4666-8666-666666666666"
+      }
+    },
+    {
+      "name": "scope terminal SSE",
+      "schema": "LiveEvent",
+      "valid": true,
+      "value": {
+        "type": "access-ended",
+        "tenantID": "33333333-3333-4333-8333-333333333333",
+        "reason": "revoked"
+      }
+    },
+    {
+      "name": "SSE spoof tenant",
+      "schema": "LiveEvent",
+      "valid": false,
+      "value": {
+        "type": "change",
+        "tenantID": "*",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "sequence": "1",
+        "topics": [
+          "stock"
+        ]
+      }
+    },
+    {
+      "name": "app feedback trusted context",
+      "schema": "ScopedFeedback",
+      "valid": true,
+      "value": {
+        "submission": {
+          "submissionID": "11111111-1111-4111-8111-111111111111",
+          "name": "Synthetic user",
+          "email": "test@example.invalid",
+          "message": "Contract fixture only",
+          "consent": {
+            "accepted": true,
+            "documentVersion": "privacy-test-1"
+          }
+        },
+        "context": {
+          "kind": "app",
+          "userID": "11111111-1111-4111-8111-111111111111",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333"
+        }
+      }
+    },
+    {
+      "name": "browser feedback scope spoof",
+      "schema": "FeedbackSubmission",
+      "valid": false,
+      "value": {
+        "submissionID": "11111111-1111-4111-8111-111111111111",
+        "name": "Synthetic user",
+        "email": "test@example.invalid",
+        "message": "Contract fixture only",
+        "consent": {
+          "accepted": true,
+          "documentVersion": "privacy-test-1"
+        },
+        "tenantID": "33333333-3333-4333-8333-333333333333"
+      }
+    },
+    {
+      "name": "anonymous stored receipt",
+      "schema": "FeedbackSaved",
+      "valid": true,
+      "value": {
+        "receipt": {
+          "submissionID": "11111111-1111-4111-8111-111111111111",
+          "receivedAt": "2026-10-13T01:00:00+03:00"
+        },
+        "scope": {
+          "kind": "anonymous"
+        },
+        "state": "accepted"
+      }
+    },
+    {
+      "name": "org partial summary",
+      "schema": "OrgSummary",
+      "valid": true,
+      "value": {
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "evaluatedAt": "2026-10-13T01:00:00+03:00",
+        "status": "unavailable",
+        "restaurants": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "status": "unavailable",
+            "error": {
+              "code": "UpstreamUnavailable",
+              "outcome": "unavailable",
+              "message": "Synthetic peer unavailable",
+              "retryable": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "lifecycle missing polling identity",
+      "schema": "LifecycleResult",
+      "valid": false,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "service": "warehouse",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "closed",
+            "lifecycleVersion": "2",
+            "restaurantID": "33333333-3333-4333-8333-333333333333"
+          },
+          {
+            "service": "serving",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "pending",
+            "lifecycleVersion": "2",
+            "restaurantID": "33333333-3333-4333-8333-333333333333"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "pending",
+            "lifecycleVersion": "2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "two restaurant partial lifecycle cleanup",
+      "schema": "LifecycleResult",
+      "valid": true,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333",
+          "00000000-0000-4000-8000-000000000099"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          }
+        ],
+        "operationID": "66666666-6666-4666-8666-666666666666"
+      }
+    },
+    {
+      "name": "readiness missing restaurant",
+      "schema": "LifecycleResult",
+      "valid": false,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333",
+          "00000000-0000-4000-8000-000000000099"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          }
+        ],
+        "operationID": "66666666-6666-4666-8666-666666666666"
+      }
+    },
+    {
+      "name": "complete summary report",
+      "schema": "OrgSummary",
+      "valid": true,
+      "value": {
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "evaluatedAt": "2026-10-13T01:00:00+03:00",
+        "status": "complete",
+        "restaurants": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "status": "ok",
+            "stock": {
+              "context": {
+                "orgID": "22222222-2222-4222-8222-222222222222",
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                },
+                "evaluatedAt": "2026-10-13T01:00:00+03:00",
+                "stateVersion": "4"
+              },
+              "page": {
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "epoch": "44444444-4444-4444-8444-444444444444",
+                "stateVersion": "4",
+                "prefixSequence": "4",
+                "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                }
+              },
+              "riskHours": 48,
+              "riskCutoff": "2026-10-15T01:00:00+03:00",
+              "items": [
+                {
+                  "productID": "P1",
+                  "name": "Test product",
+                  "baseUnit": "g",
+                  "availableQuantity": "10000",
+                  "pendingWriteoffQuantity": "5000",
+                  "onHandQuantity": "15000",
+                  "expiringQuantity": "3000"
+                }
+              ]
+            },
+            "movements": {
+              "context": {
+                "orgID": "22222222-2222-4222-8222-222222222222",
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                },
+                "evaluatedAt": "2026-10-13T01:00:00+03:00",
+                "stateVersion": "4"
+              },
+              "page": {
+                "tenantID": "33333333-3333-4333-8333-333333333333",
+                "epoch": "44444444-4444-4444-8444-444444444444",
+                "stateVersion": "4",
+                "prefixSequence": "4",
+                "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "settings": {
+                  "timeZone": "Europe/Moscow",
+                  "settingsVersion": "1"
+                }
+              },
+              "from": "2026-10-07T00:00:00+03:00",
+              "to": "2026-10-14T00:00:00+03:00",
+              "coverage": {
+                "epoch": "44444444-4444-4444-8444-444444444444",
+                "coverageFrom": "2026-10-13T00:00:00+03:00",
+                "complete": false,
+                "requestedFrom": "2026-10-07T00:00:00+03:00",
+                "availableFrom": "2026-10-13T00:00:00+03:00"
+              },
+              "items": [
+                {
+                  "productID": "P1",
+                  "name": "Test product",
+                  "baseUnit": "g",
+                  "receivedQuantity": "15000",
+                  "orderedQuantity": "0",
+                  "writtenOffQuantity": "0"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "complete summary forbids remaining cursor",
+      "schema": "CompleteStockReport",
+      "valid": false,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "page": {
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "epoch": "44444444-4444-4444-8444-444444444444",
+          "stateVersion": "4",
+          "prefixSequence": "4",
+          "filterFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          }
+        },
+        "riskHours": 48,
+        "riskCutoff": "2026-10-15T01:00:00+03:00",
+        "items": [
+          {
+            "productID": "P1",
+            "name": "Test product",
+            "baseUnit": "g",
+            "availableQuantity": "10000",
+            "pendingWriteoffQuantity": "5000",
+            "onHandQuantity": "15000",
+            "expiringQuantity": "3000"
+          }
+        ],
+        "nextCursor": "remaining-uncollected-page"
+      }
+    },
+    {
+      "name": "writeoff lost reply committed lookup",
+      "schema": "WriteoffCommandLookup",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "committed",
+          "outcome": "committed",
+          "result": {
+            "context": {
+              "orgID": "22222222-2222-4222-8222-222222222222",
+              "tenantID": "33333333-3333-4333-8333-333333333333",
+              "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+              "settings": {
+                "timeZone": "Europe/Moscow",
+                "settingsVersion": "1"
+              },
+              "evaluatedAt": "2026-10-13T01:00:00+03:00",
+              "stateVersion": "4"
+            },
+            "result": {
+              "batchID": "B1",
+              "productID": "P1",
+              "writtenOffQuantity": "5000",
+              "baseUnit": "g",
+              "actorUserID": "11111111-1111-4111-8111-111111111111",
+              "confirmedAt": "2026-10-13T01:00:00+03:00",
+              "eventID": "writeoff-fact-1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "writeoff pending remains unknown",
+      "schema": "WriteoffCommandLookup",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "pending",
+          "outcome": "unknown"
+        }
+      }
+    },
+    {
+      "name": "writeoff unseen remains unknown",
+      "schema": "WriteoffCommandLookup",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "unseen",
+          "outcome": "unknown"
+        }
+      }
+    },
+    {
+      "name": "writeoff recorded refusal",
+      "schema": "WriteoffCommandLookup",
+      "valid": true,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "rejected",
+          "outcome": "not_committed",
+          "error": {
+            "code": "NotPendingWriteoff",
+            "outcome": "not_committed",
+            "message": "Owner recorded refusal before admission",
+            "retryable": false
+          }
+        }
+      }
+    },
+    {
+      "name": "unseen writeoff cannot prove not committed",
+      "schema": "WriteoffCommandLookup",
+      "valid": false,
+      "value": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "unseen",
+          "outcome": "not_committed"
+        }
+      }
+    },
+    {
+      "name": "lifecycle unavailable peer status remains pending without invented epoch",
+      "schema": "LifecycleResult",
+      "valid": true,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333",
+          "00000000-0000-4000-8000-000000000099"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "serving",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          }
+        ],
+        "operationID": "66666666-6666-4666-8666-666666666666"
+      }
+    },
+    {
+      "name": "lifecycle closed peer requires acknowledged epoch",
+      "schema": "LifecycleResult",
+      "valid": false,
+      "value": {
+        "commandID": "delete-1",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "restaurantIDs": [
+          "33333333-3333-4333-8333-333333333333",
+          "00000000-0000-4000-8000-000000000099"
+        ],
+        "lifecycle": "deleting",
+        "lifecycleVersion": "2",
+        "cleanup": "pending",
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "serving",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          }
+        ],
+        "operationID": "66666666-6666-4666-8666-666666666666"
+      }
+    },
+    {
+      "name": "noncanonical generated suggestion rejected",
+      "schema": "Suggestion",
+      "valid": false,
+      "value": {
+        "kind": "product",
+        "suggestedID": "01",
+        "reserved": false
+      }
+    },
+    {
+      "name": "manual leading zero ID remains opaque",
+      "schema": "ID",
+      "valid": true,
+      "value": "01"
+    }
+  ],
+  "calendar": [
+    {
+      "name": "Berlin short calendar day",
+      "zone": "Europe/Berlin",
+      "from": "2026-03-29T00:00:00+01:00",
+      "to": "2026-03-30T00:00:00+02:00",
+      "hours": 23
+    },
+    {
+      "name": "Berlin long calendar day",
+      "zone": "Europe/Berlin",
+      "from": "2026-10-25T00:00:00+02:00",
+      "to": "2026-10-26T00:00:00+01:00",
+      "hours": 25
+    },
+    {
+      "name": "day shelf life always 24h",
+      "zone": "Europe/Berlin",
+      "from": "2026-03-28T12:00:00+01:00",
+      "to": "2026-03-29T13:00:00+02:00",
+      "hours": 24
+    }
+  ],
+  "policyVectors": [
+    {
+      "case": "month clamp",
+      "input": {
+        "manufacturedAt": "2026-01-31T12:00:00+03:00",
+        "months": 1,
+        "zone": "Europe/Moscow"
+      },
+      "expected": "2026-02-28T12:00:00+03:00"
+    },
+    {
+      "case": "month fold earlier",
+      "input": {
+        "manufacturedAt": "2026-09-25T02:30:00+02:00",
+        "months": 1,
+        "zone": "Europe/Berlin"
+      },
+      "expected": "2026-10-25T02:30:00+02:00"
+    },
+    {
+      "case": "month ordinary target",
+      "input": {
+        "manufacturedAt": "2026-02-28T02:30:00+01:00",
+        "months": 1,
+        "zone": "Europe/Berlin"
+      },
+      "expected": "2026-03-28T02:30:00+01:00"
+    },
+    {
+      "case": "month gap first valid real gap",
+      "input": {
+        "manufacturedAt": "2026-01-29T02:30:00+01:00",
+        "months": 2,
+        "zone": "Europe/Berlin"
+      },
+      "expected": "2026-03-29T03:00:00+02:00"
+    },
+    {
+      "case": "manual ambiguous without choice",
+      "input": {
+        "localDateTime": "2026-10-25T02:30:00",
+        "zone": "Europe/Berlin"
+      },
+      "error": "AmbiguousLocalTime"
+    },
+    {
+      "case": "manual nonexistent",
+      "input": {
+        "localDateTime": "2026-03-29T02:30:00",
+        "zone": "Europe/Berlin"
+      },
+      "error": "NonexistentLocalTime"
+    },
+    {
+      "case": "skipped date boundary",
+      "input": {
+        "date": "2011-12-30",
+        "zone": "Pacific/Apia"
+      },
+      "error": "SkippedDate"
+    },
+    {
+      "case": "stale fresh settings",
+      "input": {
+        "fresh": true,
+        "expectedSettingsVersion": "1",
+        "currentSettingsVersion": "2"
+      },
+      "error": "SettingsChanged"
+    },
+    {
+      "case": "retained exact retry before settings comparison",
+      "input": {
+        "retained": true,
+        "exact": true,
+        "authorized": true,
+        "expectedSettingsVersion": "1",
+        "currentSettingsVersion": "2"
+      },
+      "expected": "original_result"
+    },
+    {
+      "case": "lost business epoch before stale settings refusal",
+      "input": {
+        "epochLost": true,
+        "expectedSettingsVersion": "1",
+        "currentSettingsVersion": "2"
+      },
+      "error": "RuntimeReset",
+      "outcome": "indeterminate"
+    },
+    {
+      "case": "Warehouse in A + Waiter in B",
+      "input": {
+        "A": [
+          "Warehouse"
+        ],
+        "B": [
+          "Waiter"
+        ]
+      },
+      "expected": {
+        "orderConfirmA": false,
+        "writeoffConfirmB": false
+      }
+    },
+    {
+      "case": "scoped delete preserves global session",
+      "input": {
+        "deletedRestaurant": "T1",
+        "otherRestaurant": "T2"
+      },
+      "expected": {
+        "T1": false,
+        "T2": true,
+        "globalSession": true
+      }
+    },
+    {
+      "case": "consumer resolution consumerCommand reset reused IDs",
+      "input": {
+        "operation": "consumerCommand",
+        "savedEpoch": "44444444-4444-4444-8444-444444444444",
+        "currentEpoch": "00000000-0000-4000-8000-000000000010",
+        "reusedID": "same-id"
+      },
+      "error": "RuntimeReset",
+      "outcome": "indeterminate",
+      "dispatch": false
+    },
+    {
+      "case": "consumer resolution consumerOrder reset reused IDs",
+      "input": {
+        "operation": "consumerOrder",
+        "savedEpoch": "44444444-4444-4444-8444-444444444444",
+        "currentEpoch": "00000000-0000-4000-8000-000000000010",
+        "reusedID": "same-id"
+      },
+      "error": "RuntimeReset",
+      "outcome": "indeterminate",
+      "dispatch": false
+    },
+    {
+      "case": "consumer resolution consumerAttempt reset reused IDs",
+      "input": {
+        "operation": "consumerAttempt",
+        "savedEpoch": "44444444-4444-4444-8444-444444444444",
+        "currentEpoch": "00000000-0000-4000-8000-000000000010",
+        "reusedID": "same-id"
+      },
+      "error": "RuntimeReset",
+      "outcome": "indeterminate",
+      "dispatch": false
+    },
+    {
+      "case": "lifecycle opaque command lost reply",
+      "input": {
+        "commandID": "delete-once",
+        "lostReply": true,
+        "authRestart": true,
+        "scopeCutoff": true
+      },
+      "expected": {
+        "accepted": {
+          "commandID": "delete-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        },
+        "recovered": {
+          "commandID": "delete-once",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "restaurantIDs": [
+            "33333333-3333-4333-8333-333333333333"
+          ],
+          "lifecycle": "deleting",
+          "lifecycleVersion": "2",
+          "cleanup": "pending",
+          "services": [
+            {
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "closed",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2",
+              "restaurantID": "33333333-3333-4333-8333-333333333333"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "gateway",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "pending",
+              "lifecycleVersion": "2"
+            }
+          ],
+          "operationID": "66666666-6666-4666-8666-666666666666"
+        },
+        "poll": {
+          "operationID": "66666666-6666-4666-8666-666666666666",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "initiatingUserOnly": true
+        },
+        "globalSessionValidAfterCutoff": true
+      }
+    },
+    {
+      "case": "lifecycle readiness duplicate pair",
+      "input": {
+        "operationID": "66666666-6666-4666-8666-666666666666",
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          }
+        ]
+      },
+      "error": "InvalidArgument"
+    },
+    {
+      "case": "lifecycle readiness missing peer",
+      "input": {
+        "operationID": "66666666-6666-4666-8666-666666666666",
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "warehouse",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "closed"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "serving",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          },
+          {
+            "restaurantID": "00000000-0000-4000-8000-000000000099",
+            "service": "gateway",
+            "epoch": "00000000-0000-4000-8000-000000000010",
+            "lifecycleVersion": "2",
+            "state": "pending"
+          }
+        ]
+      },
+      "error": "InvalidArgument"
+    },
+    {
+      "case": "summary complete 501 rows",
+      "input": {
+        "stockPageRows": [
+          500,
+          1
+        ],
+        "movementPageRows": [
+          500,
+          1
+        ],
+        "stableCapturedIdentity": true
+      },
+      "expected": {
+        "status": "complete",
+        "stockRows": 501,
+        "movementRows": 501,
+        "nextCursorPresent": false
+      }
+    },
+    {
+      "case": "summary paging failure",
+      "input": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "firstPageRows": 500,
+        "secondPageFailure": "UpstreamUnavailable"
+      },
+      "expected": {
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "evaluatedAt": "2026-10-13T01:00:00+03:00",
+        "status": "unavailable",
+        "restaurants": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "status": "unavailable",
+            "error": {
+              "code": "UpstreamUnavailable",
+              "outcome": "unavailable",
+              "message": "Synthetic second page failure",
+              "retryable": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "writeoff lost reply",
+      "input": {
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "originalEpoch": "44444444-4444-4444-8444-444444444444",
+        "lostReply": true
+      },
+      "expected": {
+        "context": {
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "tenantID": "33333333-3333-4333-8333-333333333333",
+          "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "evaluatedAt": "2026-10-13T01:00:00+03:00",
+          "stateVersion": "4"
+        },
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "commandFingerprint": "ea23235910e79ada27bbae4995e5ec20fdcbb72acf209c54614751175841e3fb",
+        "observation": {
+          "state": "committed",
+          "outcome": "committed",
+          "result": {
+            "context": {
+              "orgID": "22222222-2222-4222-8222-222222222222",
+              "tenantID": "33333333-3333-4333-8333-333333333333",
+              "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+              "settings": {
+                "timeZone": "Europe/Moscow",
+                "settingsVersion": "1"
+              },
+              "evaluatedAt": "2026-10-13T01:00:00+03:00",
+              "stateVersion": "4"
+            },
+            "result": {
+              "batchID": "B1",
+              "productID": "P1",
+              "writtenOffQuantity": "5000",
+              "baseUnit": "g",
+              "actorUserID": "11111111-1111-4111-8111-111111111111",
+              "confirmedAt": "2026-10-13T01:00:00+03:00",
+              "eventID": "writeoff-fact-1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "case": "writeoff pending",
+      "input": {
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "originalEpoch": "44444444-4444-4444-8444-444444444444",
+        "recordedState": "pending"
+      },
+      "expected": {
+        "state": "pending",
+        "outcome": "unknown",
+        "appendCount": 0
+      }
+    },
+    {
+      "case": "writeoff unseen",
+      "input": {
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "originalEpoch": "44444444-4444-4444-8444-444444444444",
+        "recordedState": "unseen"
+      },
+      "expected": {
+        "state": "unseen",
+        "outcome": "unknown",
+        "appendCount": 0
+      }
+    },
+    {
+      "case": "writeoff concurrent confirms",
+      "input": {
+        "batchID": "B1",
+        "commandIDs": [
+          "writeoff-once",
+          "writeoff-competing"
+        ],
+        "authorizedUsers": 2,
+        "residualQuantity": "5000"
+      },
+      "expected": {
+        "winner": {
+          "context": {
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "tenantID": "33333333-3333-4333-8333-333333333333",
+            "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "evaluatedAt": "2026-10-13T01:00:00+03:00",
+            "stateVersion": "4"
+          },
+          "result": {
+            "batchID": "B1",
+            "productID": "P1",
+            "writtenOffQuantity": "5000",
+            "baseUnit": "g",
+            "actorUserID": "11111111-1111-4111-8111-111111111111",
+            "confirmedAt": "2026-10-13T01:00:00+03:00",
+            "eventID": "writeoff-fact-1"
+          }
+        },
+        "loserError": "AlreadyWrittenOff",
+        "loserOutcome": "not_committed",
+        "finalWriteoffFacts": 1,
+        "writtenOffQuantity": "5000"
+      }
+    },
+    {
+      "case": "writeoff reset reused ID",
+      "input": {
+        "commandID": "writeoff-once",
+        "batchID": "B1",
+        "originalEpoch": "44444444-4444-4444-8444-444444444444",
+        "currentEpoch": "00000000-0000-4000-8000-000000000010",
+        "reusedIDInCurrentEpoch": true
+      },
+      "error": "RuntimeReset",
+      "outcome": "indeterminate",
+      "dispatch": false
+    },
+    {
+      "case": "writeoff fingerprint conflict",
+      "input": {
+        "commandID": "writeoff-once",
+        "originalBatchID": "B1",
+        "queriedBatchID": "B2",
+        "epoch": "44444444-4444-4444-8444-444444444444"
+      },
+      "error": "CommandConflict",
+      "outcome": "unavailable",
+      "originalResultExposed": false
+    },
+    {
+      "case": "writeoff waiter denied",
+      "input": {
+        "roles": [
+          "Waiter"
+        ],
+        "operation": "resolveWriteoffCommand"
+      },
+      "error": "Forbidden",
+      "outcome": "unavailable",
+      "dispatch": false
+    },
+    {
+      "case": "first-free suggestion empty",
+      "input": {
+        "tenantID": "T2",
+        "kind": "product",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "1",
+              "2",
+              "4",
+              "01",
+              "manual"
+            ],
+            "dish": [
+              "1"
+            ]
+          },
+          "T2": {
+            "product": [],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "1",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "first-free suggestion gap",
+      "input": {
+        "tenantID": "T1",
+        "kind": "product",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "1",
+              "2",
+              "4",
+              "01",
+              "manual"
+            ],
+            "dish": [
+              "1"
+            ]
+          },
+          "T2": {
+            "product": [],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "3",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "first-free suggestion dish independent",
+      "input": {
+        "tenantID": "T1",
+        "kind": "dish",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "1",
+              "2",
+              "4",
+              "01",
+              "manual"
+            ],
+            "dish": [
+              "1"
+            ]
+          },
+          "T2": {
+            "product": [],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "2",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "first-free suggestion tenant independent",
+      "input": {
+        "tenantID": "T2",
+        "kind": "dish",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "1",
+              "2",
+              "4",
+              "01",
+              "manual"
+            ],
+            "dish": [
+              "1"
+            ]
+          },
+          "T2": {
+            "product": [],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "1",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "first-free suggestion opaque manual IDs",
+      "input": {
+        "tenantID": "T1",
+        "kind": "product",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "01",
+              "manual",
+              "0",
+              "-1",
+              "1.0"
+            ],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "1",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "first-free suggestion exact canonical occupied",
+      "input": {
+        "tenantID": "T1",
+        "kind": "product",
+        "catalogs": {
+          "T1": {
+            "product": [
+              "01",
+              "1",
+              "2"
+            ],
+            "dish": []
+          }
+        }
+      },
+      "expected": {
+        "suggestedID": "3",
+        "reserved": false,
+        "stateVersionChanged": false
+      }
+    },
+    {
+      "case": "lifecycle peer status unavailable",
+      "input": {
+        "operationID": "66666666-6666-4666-8666-666666666666",
+        "restaurantID": "00000000-0000-4000-8000-000000000099",
+        "service": "serving",
+        "statusTransport": "unavailable"
+      },
+      "expected": {
+        "restaurantID": "00000000-0000-4000-8000-000000000099",
+        "service": "serving",
+        "lifecycleVersion": "2",
+        "state": "pending",
+        "cleanup": "pending",
+        "completionAllowed": false
+      }
+    },
+    {
+      "case": "suggestion edited opaque ID",
+      "input": {
+        "tenantID": "T1",
+        "kind": "product",
+        "suggestedID": "3",
+        "suppliedID": "ручной/01"
+      },
+      "expected": {
+        "storedID": "ручной/01",
+        "autoRename": false
+      }
+    },
+    {
+      "case": "suggestion concurrent creates",
+      "input": {
+        "tenantID": "T1",
+        "kind": "product",
+        "suggestedIDs": [
+          "3",
+          "3"
+        ],
+        "suppliedIDs": [
+          "3",
+          "3"
+        ],
+        "differingDefinitions": true
+      },
+      "expected": {
+        "createdDefinitions": 1,
+        "appendedDefinitionFacts": 1,
+        "loserError": "ProductConflict",
+        "autoRename": false
+      }
+    }
+  ],
+  "wireExamples": [
+    {
+      "case": "resolveWriteoffCommand original epoch request",
+      "surface": "public",
+      "operationID": "resolveWriteoffCommand",
+      "route": "/api/v2/r/{restaurantID}/warehouse/writeoffs/commands",
+      "method": "GET",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once",
+          "batchID": "B1"
+        },
+        "headers": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444"
+        }
+      },
+      "onEpochMismatch": {
+        "status": 409,
+        "error": {
+          "code": "RuntimeReset",
+          "outcome": "indeterminate",
+          "message": "Original Warehouse epoch was lost; no current-epoch lookup occurred",
+          "retryable": false,
+          "details": {
+            "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+            "currentEpoch": "00000000-0000-4000-8000-000000000010"
+          }
+        }
+      }
+    },
+    {
+      "case": "consumerCommand original epoch request",
+      "surface": "private",
+      "operationID": "consumerCommand",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/commands",
+      "method": "GET",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once"
+        },
+        "headers": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444"
+        }
+      },
+      "onEpochMismatch": {
+        "status": 409,
+        "error": {
+          "code": "RuntimeReset",
+          "outcome": "indeterminate",
+          "message": "Original Warehouse epoch was lost; no current-epoch lookup occurred",
+          "retryable": false,
+          "details": {
+            "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+            "currentEpoch": "00000000-0000-4000-8000-000000000010"
+          }
+        }
+      }
+    },
+    {
+      "case": "consumerOrder original epoch request",
+      "surface": "private",
+      "operationID": "consumerOrder",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/orders",
+      "method": "GET",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "orderID": "order-once"
+        },
+        "headers": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444"
+        }
+      },
+      "onEpochMismatch": {
+        "status": 409,
+        "error": {
+          "code": "RuntimeReset",
+          "outcome": "indeterminate",
+          "message": "Original Warehouse epoch was lost; no current-epoch lookup occurred",
+          "retryable": false,
+          "details": {
+            "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+            "currentEpoch": "00000000-0000-4000-8000-000000000010"
+          }
+        }
+      }
+    },
+    {
+      "case": "consumerAttempt original epoch request",
+      "surface": "private",
+      "operationID": "consumerAttempt",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/order-attempts",
+      "method": "GET",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once"
+        },
+        "headers": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444"
+        }
+      },
+      "onEpochMismatch": {
+        "status": 409,
+        "error": {
+          "code": "RuntimeReset",
+          "outcome": "indeterminate",
+          "message": "Original Warehouse epoch was lost; no current-epoch lookup occurred",
+          "retryable": false,
+          "details": {
+            "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+            "currentEpoch": "00000000-0000-4000-8000-000000000010"
+          }
+        }
+      }
+    },
+    {
+      "case": "privateresolveWriteoffCommand original epoch request",
+      "surface": "private",
+      "operationID": "privateresolveWriteoffCommand",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/writeoffs/commands",
+      "method": "GET",
+      "request": {
+        "path": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {
+          "commandID": "writeoff-once",
+          "batchID": "B1"
+        },
+        "headers": {
+          "X-Umir-Runtime-Epoch": "44444444-4444-4444-8444-444444444444"
+        }
+      },
+      "onEpochMismatch": {
+        "status": 409,
+        "error": {
+          "code": "RuntimeReset",
+          "outcome": "indeterminate",
+          "message": "Original Warehouse epoch was lost; no current-epoch lookup occurred",
+          "retryable": false,
+          "details": {
+            "expectedEpoch": "44444444-4444-4444-8444-444444444444",
+            "currentEpoch": "00000000-0000-4000-8000-000000000010"
+          }
+        }
+      }
+    }
+  ]
+}

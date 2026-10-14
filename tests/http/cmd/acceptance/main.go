@@ -74,6 +74,11 @@ type proxyTraffic struct {
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
 func run(args []string, stdout, stderr io.Writer) int {
+	for _, arg := range args {
+		if arg == "--backend-run" || strings.HasPrefix(arg, "--backend-run=") {
+			return runBackendPhase(args, stdout, stderr)
+		}
+	}
 	var cfg config
 	flags := flag.NewFlagSet("http-acceptance", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)

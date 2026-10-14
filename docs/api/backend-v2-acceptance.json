@@ -1,0 +1,5672 @@
+{
+  "formatVersion": 1,
+  "contract": {
+    "version": "2.0.0-draft.2",
+    "identity": "sha256:733e102ff0b4f52bb49d435716f9f1720642c8fad3a8a5d0685847071950e9e6",
+    "manifestSHA256": "4b3536206cc94c411f04c737b961348e6284b2444ce142daae0745c5eae36e1d",
+    "decisionsSHA256": "623805c4bda3ea18be2720270430bdea8677ede26bcc4fae4ec1aa8c3f1cb29c",
+    "files": [
+      {
+        "path": "docs/api/backend-v2-public.json",
+        "sha256": "e710150288d650965cfee80b7cb623f5466583c03da9edf5561f94d127970897"
+      },
+      {
+        "path": "docs/api/backend-v2-private.json",
+        "sha256": "f1a46a199c5c616523ff24ed0c43a0ae92b43edd93e1264a854fd766030aa1c1"
+      },
+      {
+        "path": "docs/api/backend-v2-examples.json",
+        "sha256": "ac2f52f5d8667e54f1000eda0fbbd03356d990e9756a5a1982b3308ff206c6ed"
+      },
+      {
+        "path": "docs/api/backend-v2.md",
+        "sha256": "08a606696c1091096241df7a18120473f2e22bb6c60d04483732327d231b616f"
+      },
+      {
+        "path": "docs/business-core.md",
+        "sha256": "8e64f2ed3200cbdcf666f762107bf65c62e94273694fc857dc2428037051e011"
+      }
+    ]
+  },
+  "runtimeAcceptance": false,
+  "scope": "Acceptance requirements and executable equality/absence assertion specifications. F1 checks document consistency and assertion sensitivity only; observed service facts must be produced by F3/J1/E1-E5.",
+  "observationProtocol": {
+    "version": 1,
+    "operators": [
+      "equals",
+      "absent"
+    ],
+    "pointers": "RFC6901 paths into task-local normalized evidence, not new wire fields.",
+    "equals": "Deep equality, preserving JSON strings and arrays. Quantity/version/journal strings must never pass through Number.",
+    "absent": "The pointed field does not exist. Null and empty strings are not absence.",
+    "measurement": "Measure normalized booleans/counts from retained raw requests, typed responses and actual owner state/journal facts. Never copy expected facts into runtime observations. Every observation records the supplying service/container/source identity, clock instant, evidence path and extraction procedure. Missing observations fail equality; absence assertions require a captured parent record.",
+    "schemaGate": "Validate each raw request/response against its frozen operation schema before relational checks. Schema validity does not prove permissions, signature, calendar resolution, idempotency or commit.",
+    "execution": "All runtime cases require real Auth/Gateway/Warehouse/Serving/Feedback. Synthetic clocks, delivery sinks and fault infrastructure are permitted; no business or Auth decision doubles at J1/E."
+  },
+  "fixtures": {
+    "U": "11111111-1111-4111-8111-111111111111",
+    "orgA": "22222222-2222-4222-8222-222222222222",
+    "T1": "33333333-3333-4333-8333-333333333333",
+    "warehouseEpoch": "44444444-4444-4444-8444-444444444444",
+    "scope": "T2/T3 and orgB get separate canonical UUIDv4 identities from supported real bootstrap; symbolic labels are not route values.",
+    "addresses": "Only example.invalid/synthetic sink recipients. No real delivery."
+  },
+  "requirements": [
+    {
+      "id": "BE-E1-01",
+      "title": "Validate the exact request and response for every documented operation",
+      "source": "backend-v2.md#ownership-and-compatibility",
+      "executionStage": "E1",
+      "operations": [
+        "csrf",
+        "login",
+        "logout",
+        "logoutAll",
+        "me",
+        "displayName",
+        "password",
+        "access",
+        "createOrganization",
+        "organization",
+        "deleteOrganization",
+        "updateSettings",
+        "createRestaurant",
+        "deleteRestaurant",
+        "lifecycle",
+        "updateMembership",
+        "revokeMembership",
+        "revokeAssignment",
+        "createInvitation",
+        "resendInvitation",
+        "cancelInvitation",
+        "beginInvitationChallenge",
+        "resendChallenge",
+        "verifyChallenge",
+        "completeInvitedUser",
+        "acceptInvitation",
+        "authCommandLookup",
+        "products",
+        "registerProduct",
+        "dishCatalog",
+        "dishDetails",
+        "defineDish",
+        "receiveDelivery",
+        "inventory",
+        "expiringBatches",
+        "history",
+        "confirmWriteoff",
+        "suggestID",
+        "servingProducts",
+        "servingDishes",
+        "servingDish",
+        "menu",
+        "stopList",
+        "recommendations",
+        "prepareOrder",
+        "confirmOrder",
+        "resolveOrder",
+        "analyticsstock",
+        "analyticsmovements",
+        "orgSummary",
+        "appFeedback",
+        "anonymousFeedback",
+        "live",
+        "pendingWriteoffs",
+        "beginEmailChallenge",
+        "completeEmailChallenge",
+        "compatgetCsrfToken",
+        "compatsignIn",
+        "compatsignOut",
+        "compatgetCurrentOperator",
+        "compatupdateDisplayName",
+        "compatchangePassword",
+        "publicFeedbackRead",
+        "publicFeedbackExport",
+        "resolveWriteoffCommand",
+        "privateproducts",
+        "privateregisterProduct",
+        "privatedishCatalog",
+        "privatedishDetails",
+        "privatedefineDish",
+        "privatereceiveDelivery",
+        "privateinventory",
+        "privateexpiringBatches",
+        "privatehistory",
+        "privateconfirmWriteoff",
+        "privatesuggestID",
+        "privateservingProducts",
+        "privateservingDishes",
+        "privateservingDish",
+        "privatemenu",
+        "privatestopList",
+        "privaterecommendations",
+        "privateprepareOrder",
+        "privateconfirmOrder",
+        "privateresolveOrder",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements",
+        "authorize",
+        "accessCheck",
+        "serviceToken",
+        "anonymousToken",
+        "jwks",
+        "registry",
+        "ackReadiness",
+        "warehouseRuntime",
+        "warehouseRegister",
+        "warehouseClose",
+        "servingRuntime",
+        "servingRegister",
+        "servingClose",
+        "gatewayRuntime",
+        "gatewayRegister",
+        "gatewayClose",
+        "dueExpiry",
+        "consumerMenu",
+        "consumerEvaluate",
+        "consumerCommit",
+        "consumerCommand",
+        "consumerOrder",
+        "consumerAttempt",
+        "privateAppFeedback",
+        "privateAnonymousFeedback",
+        "feedbackRead",
+        "feedbackExport",
+        "authFacadecsrf",
+        "authFacadelogin",
+        "authFacadelogout",
+        "authFacadelogoutAll",
+        "authFacademe",
+        "authFacadedisplayName",
+        "authFacadepassword",
+        "authFacadeaccess",
+        "authFacadecreateOrganization",
+        "authFacadeorganization",
+        "authFacadedeleteOrganization",
+        "authFacadeupdateSettings",
+        "authFacadecreateRestaurant",
+        "authFacadedeleteRestaurant",
+        "authFacadelifecycle",
+        "authFacadeupdateMembership",
+        "authFacaderevokeMembership",
+        "authFacaderevokeAssignment",
+        "authFacadecreateInvitation",
+        "authFacaderesendInvitation",
+        "authFacadecancelInvitation",
+        "authFacadebeginInvitationChallenge",
+        "authFacaderesendChallenge",
+        "authFacadeverifyChallenge",
+        "authFacadecompleteInvitedUser",
+        "authFacadeacceptInvitation",
+        "authFacadeauthCommandLookup",
+        "privatePendingWriteoffs",
+        "authFacadebeginEmailChallenge",
+        "authFacadecompleteEmailChallenge",
+        "privateresolveWriteoffCommand"
+      ],
+      "setup": "Use the selected operation security context and a schema-valid fixture; retain raw bytes before any conversion.",
+      "action": "Validate parameters, request JSON, HTTP status and typed response against the frozen operation, including the default error schema.",
+      "assertions": [
+        {
+          "pointer": "/conformance/requestValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/conformance/responseValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/conformance/secretLeak",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-02",
+      "title": "One global session across permitted restaurants",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "login",
+        "me",
+        "access",
+        "inventory",
+        "menu",
+        "privateinventory",
+        "privatemenu",
+        "authFacadelogin",
+        "authFacademe",
+        "authFacadeaccess"
+      ],
+      "setup": "U has T1 and T2 assignments, and a membership in a second org.",
+      "action": "Use the same cookie to select each allowed restaurant; compare observed context to its URL.",
+      "assertions": [
+        {
+          "pointer": "/scope/eachResponseMatchesRoute",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/sameCookieAcrossScopes",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-03",
+      "title": "Cross-scope substitution and replay refusal",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "inventory",
+        "receiveDelivery",
+        "confirmOrder",
+        "live",
+        "appFeedback",
+        "privatereceiveDelivery",
+        "privateinventory",
+        "privateconfirmOrder"
+      ],
+      "setup": "U has only T1; T2 belongs to another org.",
+      "action": "Independently substitute URL, query, JSON body, browser tenant/user/org/role headers, saved command, and SSE cursor. Exercise reads and mutations.",
+      "assertions": [
+        {
+          "pointer": "/scope/unauthorizedDataBytes",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/owner/unauthorizedMutationCount",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/dispatch/unauthorizedBusinessCalls",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-04",
+      "title": "Role union stays inside its restaurant",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "confirmWriteoff",
+        "confirmOrder",
+        "analyticsstock",
+        "recommendations",
+        "privateconfirmWriteoff",
+        "privaterecommendations",
+        "privateconfirmOrder",
+        "privateAnalyticsstock"
+      ],
+      "setup": "U has Warehouse+Waiter in T1, Warehouse only in T2, Waiter only in T3.",
+      "action": "Exercise Warehouse and Waiter capabilities in T1; deny order confirmation in T2 and writeoff in T3 before dispatch.",
+      "assertions": [
+        {
+          "pointer": "/roles/unionPermitsT1",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/roles/orderConfirmT2Denied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/roles/writeoffT3Denied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/owner/deniedMutationCount",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-05",
+      "title": "Own-org Admin and global org creation",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "createOrganization",
+        "organization",
+        "createRestaurant",
+        "updateMembership",
+        "authFacadecreateOrganization",
+        "authFacadeorganization",
+        "authFacadecreateRestaurant",
+        "authFacadeupdateMembership"
+      ],
+      "setup": "Admin A also has ordinary membership in B; authenticated employee exists in another org.",
+      "action": "Admin A can manage A and its restaurant working routes; cannot manage B. The employee can create a new org and becomes its first Admin.",
+      "assertions": [
+        {
+          "pointer": "/scope/crossOrgManagementDenied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/membership/creatorIsNewOrgAdmin",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/scope/adminWorkingRightsAreScoped",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-06",
+      "title": "Last active Admin is protected atomically",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "updateMembership",
+        "revokeMembership",
+        "revokeAssignment",
+        "authFacadeupdateMembership",
+        "authFacaderevokeMembership",
+        "authFacaderevokeAssignment"
+      ],
+      "setup": "Active org has one Admin; another fixture has exactly two.",
+      "action": "Remove last Admin through aggregate membership mutation; race removals of both Admins. Preserve active org invariant and compare aggregate/jobs after the loser.",
+      "assertions": [
+        {
+          "pointer": "/membership/remainingAdminCount",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/membership/concurrentSuccessfulRemovals",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/owner/refusedAggregateUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/mail/refusedJobCount",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-07",
+      "title": "Invitation acceptance binds identity and roles",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E1",
+      "operations": [
+        "createInvitation",
+        "beginInvitationChallenge",
+        "verifyChallenge",
+        "completeInvitedUser",
+        "acceptInvitation",
+        "authFacadecreateInvitation",
+        "authFacadebeginInvitationChallenge",
+        "authFacadeverifyChallenge",
+        "authFacadecompleteInvitedUser",
+        "authFacadeacceptInvitation"
+      ],
+      "setup": "Invite worker@example.invalid to T1 Warehouse+Waiter; another browser/user has a different email.",
+      "action": "Complete invitation proof in the bound browser; wrong identity, another scope, Admin-grant body and duplicate restaurant assignment cannot escalate access.",
+      "assertions": [
+        {
+          "pointer": "/membership/savedRolesExactlyGranted",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/membership/unrequestedAdminGrant",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/proof/crossBrowserAcceptanceDenied",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-08",
+      "title": "Cookie, Origin and synchronizer CSRF boundary",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E1",
+      "operations": [
+        "csrf",
+        "login",
+        "logout",
+        "displayName",
+        "password",
+        "anonymousFeedback",
+        "authFacadecsrf",
+        "authFacadelogin",
+        "authFacadelogout",
+        "authFacadedisplayName",
+        "authFacadepassword"
+      ],
+      "setup": "Real preauth and session contexts use synthetic credentials.",
+      "action": "Check unsafe routes for missing/wrong Origin and CSRF and cross-site Fetch metadata; inspect production cookie attributes and no-store; check explicit loopback policy separately.",
+      "assertions": [
+        {
+          "pointer": "/dispatch/badBrowserBoundaryCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/cookie/secureProductionAttributesValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/response/noStoreProtected",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-09",
+      "title": "Auth unavailable closes new protected requests",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E1",
+      "operations": [
+        "inventory",
+        "menu",
+        "appFeedback",
+        "authorize",
+        "accessCheck",
+        "privateinventory",
+        "privatemenu"
+      ],
+      "setup": "A permitted session exists; fault Auth transport before a new request.",
+      "action": "Attempt each protected operation without a fresh Auth decision.",
+      "assertions": [
+        {
+          "pointer": "/response/status",
+          "operator": "equals",
+          "expected": 503
+        },
+        {
+          "pointer": "/dispatch/businessCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/owner/stateUnchanged",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-10",
+      "title": "Foreground idle persistence precedes dispatch",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E1",
+      "operations": [
+        "inventory",
+        "me",
+        "accessCheck",
+        "privateinventory",
+        "authFacademe"
+      ],
+      "setup": "Ordinary session has a measured durable deadline and injected clock.",
+      "action": "Foreground request extends idle before dispatch; background/me/SSE follow frozen rules. Definite storage failure blocks business dispatch; ambiguous persistence fails closed.",
+      "assertions": [
+        {
+          "pointer": "/session/foregroundPersistedBeforeDispatch",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/backgroundDeadlineUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/dispatch/definiteStorageFailureCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/session/ambiguousUpdateGranted",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-11",
+      "title": "Scoped revoke keeps session elsewhere",
+      "source": "backend-v2.md#membership-and-capabilities",
+      "executionStage": "E1",
+      "operations": [
+        "revokeAssignment",
+        "access",
+        "inventory",
+        "live",
+        "privateinventory",
+        "authFacadeaccess",
+        "authFacaderevokeAssignment"
+      ],
+      "setup": "U has T1 and T2; keep a live T1 stream and saved command/cursor.",
+      "action": "Revoke T1 assignment with its ID/version; subsequent requests and replay to T1 deny; T2 and global me remain authorized.",
+      "assertions": [
+        {
+          "pointer": "/scope/T1Denied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/scope/T2Allowed",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/globalStillValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/live/closedAfterDeniedCheck",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-12",
+      "title": "Verified app and explicitly anonymous Feedback",
+      "source": "backend-v2.md#sse-and-feedback",
+      "executionStage": "E1",
+      "operations": [
+        "appFeedback",
+        "anonymousFeedback",
+        "privateAppFeedback",
+        "privateAnonymousFeedback"
+      ],
+      "setup": "Same submissionID/content in T1, T2 and anonymous namespaces; synthetic sink only.",
+      "action": "Submit through each authorized path; send scope spoof fields; anonymous request carries an existing cookie but must remain unscoped.",
+      "assertions": [
+        {
+          "pointer": "/feedback/namespacesIndependent",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/anonymousScope",
+          "operator": "absent"
+        },
+        {
+          "pointer": "/feedback/spoofScopeAccepted",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-13",
+      "title": "Feedback reads and exports need own-org Admin",
+      "source": "backend-v2.md#sse-and-feedback",
+      "executionStage": "E1",
+      "operations": [
+        "publicFeedbackRead",
+        "publicFeedbackExport",
+        "feedbackRead",
+        "feedbackExport"
+      ],
+      "setup": "Scoped T1/T2 and legacy unscoped records exist; employee and own-org Admin sessions exist.",
+      "action": "Read/export explicit T1 through Gateway; deny employee/cross-org and operator export without authorized scope; never include legacy anonymous records.",
+      "assertions": [
+        {
+          "pointer": "/feedback/exportOnlyVerifiedT1",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/employeeReadDenied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/unscopedExportDenied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/legacyRowsInScopedExport",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E1-14",
+      "title": "Strict parsing and unscoped compatibility",
+      "source": "backend-v2.md#ownership-and-compatibility",
+      "executionStage": "E1",
+      "operations": [
+        "registerProduct",
+        "prepareOrder",
+        "compatgetCurrentOperator",
+        "compatsignIn",
+        "privateregisterProduct",
+        "privateprepareOrder"
+      ],
+      "setup": "Legacy selected mode stays separate; backend v2 mode is active.",
+      "action": "Try duplicate/unknown/case-changed keys, null, second JSON value, invalid UTF-8, duplicate query, semicolon, oversized body, unsupported method and unscoped business paths; verify operator aliases keep their original keys.",
+      "assertions": [
+        {
+          "pointer": "/dispatch/invalidInputCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/dispatch/unscopedBusinessCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/compat/operatorAndSessionKeysPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/compat/hiddenDefaultRestaurant",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-01",
+      "title": "JWT validation and trust boundary matrix",
+      "source": "backend-v2.md#internal-jwt-and-consumer-calls",
+      "executionStage": "E2",
+      "operations": [
+        "authorize",
+        "consumerEvaluate",
+        "privateinventory"
+      ],
+      "setup": "Auth issues a real valid token for its exact operation; test keys/clock are isolated.",
+      "action": "Independently corrupt signature, alg/iss/aud/subject/claims/time/kid/tenant/operation/permission; reject embedded key sources, duplicate claims and browser credentials. Test iat/nbf/exp exact boundary.",
+      "assertions": [
+        {
+          "pointer": "/jwt/invalidTokensAccepted",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/jwt/expirationBoundaryRejected",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/dispatch/forbiddenBusinessCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/jwt/privateKeyOutsideAuth",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-02",
+      "title": "Serving forwarding cannot widen Waiter access",
+      "source": "backend-v2.md#internal-jwt-and-consumer-calls",
+      "executionStage": "E2",
+      "operations": [
+        "menu",
+        "prepareOrder",
+        "confirmOrder",
+        "consumerMenu",
+        "consumerEvaluate",
+        "consumerCommit",
+        "consumerCommand",
+        "consumerOrder",
+        "consumerAttempt",
+        "privatemenu",
+        "privateprepareOrder",
+        "privateconfirmOrder"
+      ],
+      "setup": "Waiter T1 has real Auth token with exactly Serving+Warehouse target audiences and operation-bound consumer rights.",
+      "action": "Exercise allowed consumer operations through Serving; try Gateway key on consumer paths, Serving key on stock/delivery/writeoff and broader audience requests.",
+      "assertions": [
+        {
+          "pointer": "/consumer/authorizedMenuAndOrderWorks",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/consumer/escalatedPublicWarehouseCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/jwt/forwardedSubjectAndTenantUnchanged",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-03",
+      "title": "Private transport key and rotation fail closed",
+      "source": "backend-v2.md#internal-jwt-and-consumer-calls",
+      "executionStage": "E2",
+      "operations": [
+        "jwks",
+        "authorize",
+        "serviceToken",
+        "anonymousToken"
+      ],
+      "setup": "Separate per-caller keys; isolated signing rotation with active/next/previous keys.",
+      "action": "Reject missing/wrong key and forbidden caller; rotate after >=60s publication, retain previous >=60s after last issuance, refresh unknown kid once; fail absent keys without fallback.",
+      "assertions": [
+        {
+          "pointer": "/transport/invalidKeyAccepted",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/jwt/rotationOverlapValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/jwt/unknownKeyFailsClosed",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/jwt/refreshBoundRespected",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-04",
+      "title": "Registration partial readiness and current epochs",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E2",
+      "operations": [
+        "createRestaurant",
+        "registry",
+        "ackReadiness",
+        "warehouseRegister",
+        "servingRegister",
+        "gatewayRegister",
+        "authFacadecreateRestaurant"
+      ],
+      "setup": "Create T1 while one peer cannot register; retain accepted operationID.",
+      "action": "Confirm 201/registering, no business dispatch; recover peer and reconcile exact current epochs before readiness.",
+      "assertions": [
+        {
+          "pointer": "/lifecycle/acceptanceStatus",
+          "operator": "equals",
+          "expected": 201
+        },
+        {
+          "pointer": "/lifecycle/initialState",
+          "operator": "equals",
+          "expected": "registering"
+        },
+        {
+          "pointer": "/dispatch/beforeReadyCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/lifecycle/readyOnlyWhenAllCurrentPeers",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-05",
+      "title": "Idempotent registration and after-start creation",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E2",
+      "operations": [
+        "warehouseRegister",
+        "servingRegister",
+        "gatewayRegister",
+        "createRestaurant",
+        "authFacadecreateRestaurant"
+      ],
+      "setup": "Existing T1 has stock; all services have reconciled.",
+      "action": "Replay same operation/epoch registration without resetting stock, then create T2 after startup and wait for its own readiness.",
+      "assertions": [
+        {
+          "pointer": "/runtime/sameEpochReplayStateUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/runtime/newRestaurantInitiallyEmpty",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/registry/newRestaurantReady",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-06",
+      "title": "Incomplete registry and reset cannot imply empty success",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E2",
+      "operations": [
+        "registry",
+        "warehouseRuntime",
+        "servingRuntime",
+        "gatewayRuntime"
+      ],
+      "setup": "Durable registry has T1/T2; inject unavailable/partial/overflow response and restart a peer.",
+      "action": "Require not-ready with bounded retry; old epoch acknowledgement is insufficient and no unrelated runtime is deleted.",
+      "assertions": [
+        {
+          "pointer": "/readiness/staleEpochAccepted",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/registry/partialTreatedAsEmpty",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/runtime/unrelatedDeletionCount",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/retry/boundedAndCancelable",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-07",
+      "title": "Lifecycle peers remain completely associated",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E2",
+      "operations": [
+        "lifecycle",
+        "authFacadelifecycle",
+        "ackReadiness"
+      ],
+      "setup": "Two affected restaurants and three required services each; one peer status unavailable.",
+      "action": "Observe every pair in order; reject duplicate/missing/foreign associations and versions; pending unknown epoch is omitted, never invented.",
+      "assertions": [
+        {
+          "pointer": "/lifecycle/exactRestaurantServicePairs",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/lifecycle/pendingUnavailableEpoch",
+          "operator": "absent"
+        },
+        {
+          "pointer": "/lifecycle/falseCompletion",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E2-08",
+      "title": "SSE scope, cursor, expiry and denial termination",
+      "source": "backend-v2.md#sse-and-feedback",
+      "executionStage": "E2",
+      "operations": [
+        "live",
+        "accessCheck"
+      ],
+      "setup": "Real streams for U/T1 and U/T2; retain a T1 cursor; injected clock and access checks.",
+      "action": "Reject other actor/scope cursor without replay; reset journal gives refresh-required; revoke/expire/disable Auth and measure checks <=5s; no idle extension.",
+      "assertions": [
+        {
+          "pointer": "/live/foreignCursorDataBytes",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/live/noDataAfterDeniedCheck",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/live/oneTerminalEventThenClose",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/live/maxIdleCheckWithinFiveSeconds",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/sseDeadlineUnchanged",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-01",
+      "title": "First-free IDs do not reserve",
+      "source": "backend-v2.md#catalog-id-suggestion",
+      "executionStage": "E3",
+      "operations": [
+        "suggestID",
+        "privatesuggestID"
+      ],
+      "setup": "T1 products 1,2,4,01,manual; dishes 1; T2 catalogs empty.",
+      "action": "Suggest repeatedly: T1 product=3,dish=2; T2=1. Store edited opaque ID exactly. Race differing definitions with supplied ID 3.",
+      "assertions": [
+        {
+          "pointer": "/catalog/suggestions",
+          "operator": "equals",
+          "expected": [
+            "3",
+            "2",
+            "1"
+          ]
+        },
+        {
+          "pointer": "/catalog/suggestionVersionUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/catalog/competingDefinitionFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/catalog/loserConflictWithoutRename",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-02",
+      "title": "Catalogs, dishes and deliveries stay isolated",
+      "source": "backend-v2.md#ownership-and-compatibility",
+      "executionStage": "E3",
+      "operations": [
+        "products",
+        "registerProduct",
+        "dishCatalog",
+        "dishDetails",
+        "defineDish",
+        "receiveDelivery",
+        "servingProducts",
+        "servingDishes",
+        "servingDish",
+        "privateproducts",
+        "privateregisterProduct",
+        "privatedishCatalog",
+        "privatedishDetails",
+        "privatedefineDish",
+        "privatereceiveDelivery",
+        "privateservingProducts",
+        "privateservingDishes",
+        "privateservingDish"
+      ],
+      "setup": "T1/T2 reuse exact product and dish IDs; quantities include 9007199254740993 thousandths.",
+      "action": "Define/read each catalog, receive supplies, compare exact quantities/units and state; rejected conflicting definitions do not mutate the other tenant.",
+      "assertions": [
+        {
+          "pointer": "/catalog/tenantIndependent",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/quantity/largeExactString",
+          "operator": "equals",
+          "expected": "9007199254740993"
+        },
+        {
+          "pointer": "/quantity/crossUnitTotalsAbsent",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/owner/otherTenantUnchanged",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-03",
+      "title": "Recommendations are actual FEFO allocations without reservation",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "recommendations",
+        "menu",
+        "stopList",
+        "consumerMenu",
+        "privatemenu",
+        "privatestopList",
+        "privaterecommendations"
+      ],
+      "setup": "At least two products/batches share earliest used expiry, another unallocated batch expires earlier, pending/expired batches exist.",
+      "action": "Evaluate one portion; compare all earliest actual allocations and productID/batchID reason ordering; re-read stock and prepare another order.",
+      "assertions": [
+        {
+          "pointer": "/fefo/rankingMatchesActualAllocations",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/fefo/allTiedReasonsPresent",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/fefo/pendingOrExpiredUsed",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/quantity/recommendationReserved",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-04",
+      "title": "Order confirmation uses actual recheck and passive unknown semantics",
+      "source": "backend-v2.md#failure-and-consumer-signatures",
+      "executionStage": "E3",
+      "operations": [
+        "prepareOrder",
+        "confirmOrder",
+        "resolveOrder",
+        "consumerEvaluate",
+        "consumerCommit",
+        "consumerCommand",
+        "consumerOrder",
+        "consumerAttempt",
+        "privateprepareOrder",
+        "privateconfirmOrder",
+        "privateresolveOrder"
+      ],
+      "setup": "Prepare immutable proposal, alter available stock before confirmation; retain original attempt IDs/epoch.",
+      "action": "Observe RequiresConfirmation/Recheck and confirm permitted actual allocations; drop reply and resolve original attempt without constructing a new order.",
+      "assertions": [
+        {
+          "pointer": "/order/recheckMatchesActualState",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/order/confirmedAllocationFactsOnce",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/order/unknownDoesNotStartNewCommand",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/order/originalProposalImmutable",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-05",
+      "title": "At deadline expiry is pending and physical",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "dueExpiry",
+        "privateexpiringBatches",
+        "privatePendingWriteoffs",
+        "inventory",
+        "expiringBatches",
+        "pendingWriteoffs",
+        "privateinventory"
+      ],
+      "setup": "One batch has residual 5000 g-thousandths and fixed expiresAt; injected now moves from before to equality.",
+      "action": "At now>=expiresAt prepare due transition, repeat run and inspect menu/order/stock/history.",
+      "assertions": [
+        {
+          "pointer": "/quantity/available",
+          "operator": "equals",
+          "expected": "0"
+        },
+        {
+          "pointer": "/quantity/pending",
+          "operator": "equals",
+          "expected": "5000"
+        },
+        {
+          "pointer": "/quantity/onHand",
+          "operator": "equals",
+          "expected": "5000"
+        },
+        {
+          "pointer": "/journal/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/journal/finalWriteoffFacts",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-06",
+      "title": "Fresh stock prepares once before scheduler tick",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "analyticsstock",
+        "privateAnalyticsstock",
+        "inventory",
+        "consumerMenu",
+        "privateinventory"
+      ],
+      "setup": "Due batch exists, scheduler has not ticked.",
+      "action": "Read fresh stock, repeat with menu/evaluation; observe committed state version and only T1 invalidation.",
+      "assertions": [
+        {
+          "pointer": "/journal/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/quantity/physicalUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/live/invalidatedOnlyAffectedRestaurant",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/journal/finalWriteoffFacts",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-07",
+      "title": "One scheduler independent of browser and never human writeoff",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "serviceToken",
+        "dueExpiry",
+        "privateconfirmWriteoff"
+      ],
+      "setup": "Gateway runner active, browser idle, Warehouse has no timer; service:gateway token is expiry.due only.",
+      "action": "Advance owned clock across expiry; inspect runner ownership; attempt final writeoff with service and Waiter credentials.",
+      "assertions": [
+        {
+          "pointer": "/scheduler/activeOwners",
+          "operator": "equals",
+          "expected": [
+            "gateway"
+          ]
+        },
+        {
+          "pointer": "/journal/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/journal/finalWriteoffFacts",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/dispatch/schedulerOrWaiterWriteoffAccepted",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-08",
+      "title": "Human final writeoff once, replay and competing commands",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "confirmWriteoff",
+        "privateconfirmWriteoff"
+      ],
+      "setup": "Pending residual 5000 g-thousandths; two authorized humans with different command IDs.",
+      "action": "Race confirmation, replay winner from another authorized human, query history; new command against written-off batch and available batch must conflict.",
+      "assertions": [
+        {
+          "pointer": "/journal/finalWriteoffFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/quantity/writtenOff",
+          "operator": "equals",
+          "expected": "5000"
+        },
+        {
+          "pointer": "/writeoff/originalActorUnchangedOnReplay",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/writeoff/competingError",
+          "operator": "equals",
+          "expected": "AlreadyWrittenOff"
+        },
+        {
+          "pointer": "/writeoff/availableBatchError",
+          "operator": "equals",
+          "expected": "NotPendingWriteoff"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-09",
+      "title": "Passive writeoff lookup binds fingerprint without side effects",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "resolveWriteoffCommand",
+        "privateresolveWriteoffCommand"
+      ],
+      "setup": "Retain committed, pending, unseen and definite-rejected fixtures in the same epoch.",
+      "action": "Read original batch/command; changed batch conflicts and exposes no result; another authorized human observes original fact; never run preparation or append.",
+      "assertions": [
+        {
+          "pointer": "/writeoff/statesAndOutcomes",
+          "operator": "equals",
+          "expected": [
+            "committed/committed",
+            "pending/unknown",
+            "unseen/unknown",
+            "rejected/not_committed"
+          ]
+        },
+        {
+          "pointer": "/journal/lookupAppendCount",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/writeoff/changedBatchError",
+          "operator": "equals",
+          "expected": "CommandConflict"
+        },
+        {
+          "pointer": "/writeoff/changedBatchResult",
+          "operator": "absent"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-10",
+      "title": "Lookup transport and reset preserve unknown old outcome",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E3",
+      "operations": [
+        "resolveWriteoffCommand",
+        "privateresolveWriteoffCommand",
+        "consumerCommand",
+        "consumerOrder",
+        "consumerAttempt"
+      ],
+      "setup": "Original command/attempt and epoch saved; restart owner, reuse ID in new epoch; separate lost GET reply fixture.",
+      "action": "Read with saved epoch and compare before lookup; GET transport failure says unavailable about observation, never refusal of original POST.",
+      "assertions": [
+        {
+          "pointer": "/reset/errorCode",
+          "operator": "equals",
+          "expected": "RuntimeReset"
+        },
+        {
+          "pointer": "/reset/outcome",
+          "operator": "equals",
+          "expected": "indeterminate"
+        },
+        {
+          "pointer": "/dispatch/oldCommandExecuted",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/transport/lookupOutcome",
+          "operator": "equals",
+          "expected": "unavailable"
+        },
+        {
+          "pointer": "/order/oldOutcomeProvedByAbsence",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-11",
+      "title": "Historical expiry payload is still final writeoff",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "history",
+        "privatehistory"
+      ],
+      "setup": "Supported legacy BatchExpired schemaVersion 1 plus new pending/final records in isolated journal fixture.",
+      "action": "Read legacy exact WrittenOffQuantity and compare movement semantics; pending record is not a final movement.",
+      "assertions": [
+        {
+          "pointer": "/journal/legacyFinalWriteoffPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/movement/pendingCountedAsWriteoff",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E3-12",
+      "title": "Already-expired delivery and pending transition admit atomically",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E3",
+      "operations": [
+        "receiveDelivery",
+        "privatereceiveDelivery",
+        "inventory",
+        "privateinventory",
+        "pendingWriteoffs",
+        "privatePendingWriteoffs",
+        "history",
+        "privatehistory",
+        "updateSettings",
+        "authFacadeupdateSettings"
+      ],
+      "setup": "Ready T1/T2 in separate organizations with independent Warehouse epochs and the same product ID in base unit g. T1 receives one 5000 g-thousandths line: manufacturedAt 2026-10-12T00:59:00+03:00, shelfLife one physical day, receivedAt and injected operation time 2026-10-13T01:00:00+03:00. Capture current Europe/Moscow settingsVersion and loaded tzdataVersion from real readiness/owner evidence. Hold the Gateway scheduler and take test-only owner observations at admission barriers before any fresh stock read or due-expiry call. Use separate command/delivery IDs for the definite-failure branch.",
+      "action": "Submit delivery; observe its accepted batch, projections, journal, command record and committed invalidation as one admission. Require DeliveryReceived v2 plus BatchExpiryPending v2 together, with no observable intermediate available stock. Then verify public/private stock, pending and history. Advance operation time and update organization settings; exact-retry the original command, payload and epoch under current access, retaining its captured receipt, facts, settings, tzdata and immutable instants. In a separate branch inject a definite precommit admission failure, not a lost reply; observe before any subsequent read preparation that neither delivery nor pending fact, batch, index, stateVersion or committed invalidation was published. T2 is unchanged throughout.",
+      "assertions": [
+        {
+          "pointer": "/intake/availableQuantity",
+          "operator": "equals",
+          "expected": "0"
+        },
+        {
+          "pointer": "/intake/pendingQuantity",
+          "operator": "equals",
+          "expected": "5000"
+        },
+        {
+          "pointer": "/intake/onHandQuantity",
+          "operator": "equals",
+          "expected": "5000"
+        },
+        {
+          "pointer": "/intake/baseUnit",
+          "operator": "equals",
+          "expected": "g"
+        },
+        {
+          "pointer": "/intake/deliveryFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/intake/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/intake/deliverySchemaVersion",
+          "operator": "equals",
+          "expected": 2
+        },
+        {
+          "pointer": "/intake/pendingSchemaVersion",
+          "operator": "equals",
+          "expected": 2
+        },
+        {
+          "pointer": "/intake/jointAdmissionObserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/intake/noPartialPublishedState",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/intake/tenantAndEpochBound",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/intake/capturedSettingsMatch",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/intake/capturedTzdataMatch",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/intake/expiresAt",
+          "operator": "equals",
+          "expected": "2026-10-13T00:59:00+03:00"
+        },
+        {
+          "pointer": "/intake/finalWriteoffFacts",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/retry/originalReceiptAndBatchesUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/originalFactsAndInstantsUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/deliveryFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/retry/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/failure/outcome",
+          "operator": "equals",
+          "expected": "not_committed"
+        },
+        {
+          "pointer": "/failure/deliveryFacts",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/failure/pendingFacts",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/failure/batches",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/failure/stateVersionAndIndexesUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/failure/noCommittedInvalidation",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/owner/otherTenantUnchanged",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "raw redacted delivery requests and typed receipts/errors, exact retry and settings update",
+        "injected clock and scheduler hold, admission barrier trace and test-only owner snapshots before any read preparation",
+        "tenant/epoch/command-bound journal facts, projections, indexes and committed invalidation metadata before/after each admission",
+        "BatchV2 captured settings/tzdata and immutable instants compared with readiness and original receipt",
+        "definite precommit fault location/outcome plus unchanged T1 prior state and T2 evidence"
+      ]
+    },
+    {
+      "id": "BE-E4-01",
+      "title": "Stock accounting and risk use server cutoff",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsstock",
+        "privateAnalyticsstock"
+      ],
+      "setup": "P1 available 7000,pending 3000,available-expiring subset 2000; second product in ml.",
+      "action": "Read at fixed evaluatedAt with riskHours=48, compare per-unit exact strings and actual risk cutoff; change movement period without changing stock.",
+      "assertions": [
+        {
+          "pointer": "/quantity/onHand",
+          "operator": "equals",
+          "expected": "10000"
+        },
+        {
+          "pointer": "/quantity/available",
+          "operator": "equals",
+          "expected": "7000"
+        },
+        {
+          "pointer": "/quantity/pending",
+          "operator": "equals",
+          "expected": "3000"
+        },
+        {
+          "pointer": "/quantity/expiring",
+          "operator": "equals",
+          "expected": "2000"
+        },
+        {
+          "pointer": "/risk/physicalHours",
+          "operator": "equals",
+          "expected": 48
+        },
+        {
+          "pointer": "/stock/independentOfMovementPeriod",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-02",
+      "title": "Movements use RecordedAt half-open range and actual committed facts",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsmovements",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Committed supply 10000, actual allocation 2000, legacy/final writeoffs 1000/3000 in g-thousandths; boundary timestamps at from and to. Add pending/proposed/rejected/unknown/duplicate facts.",
+      "action": "Filter [from,to) using RecordedAt rather than effective date; include from,exclude to; compare actual sums and zero-stock product rows.",
+      "assertions": [
+        {
+          "pointer": "/movement/received",
+          "operator": "equals",
+          "expected": "10000"
+        },
+        {
+          "pointer": "/movement/served",
+          "operator": "equals",
+          "expected": "2000"
+        },
+        {
+          "pointer": "/movement/writtenOff",
+          "operator": "equals",
+          "expected": "4000"
+        },
+        {
+          "pointer": "/movement/fromIncludedToExcluded",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/movement/excludedFactsContribute",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/movement/zeroStockRowsIncluded",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-03",
+      "title": "Server filter, pagination and cursor capture",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsstock",
+        "analyticsmovements",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "More than 500 matching rows; NFC/case variants and a second tenant/actor.",
+      "action": "Apply productID/search intersection before pages; keep tenant/epoch/stateVersion/prefix/filter/period/cutoff/settings/limit constant; mutate each binding and expire cursor at five minutes.",
+      "assertions": [
+        {
+          "pointer": "/page/noDuplicateOrMissingRows",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/page/utf8IDAndUnitOrder",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/page/identityStable",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/page/changedBindingError",
+          "operator": "equals",
+          "expected": "RefreshRequired"
+        },
+        {
+          "pointer": "/page/lastCursor",
+          "operator": "absent"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-04",
+      "title": "Incomplete history is explicit after runtime reset",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsmovements",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Request starts before current runtime coverageFrom.",
+      "action": "Read only available facts; compare availableFrom=max(from,coverageFrom), new epoch and complete=false, without zero-history inference.",
+      "assertions": [
+        {
+          "pointer": "/coverage/complete",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/coverage/availableFromMatchesMax",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/coverage/newEpochVisible",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/coverage/claimedFullHistory",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-05",
+      "title": "Unknown schemas and arithmetic failure do not vanish",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsmovements",
+        "analyticsstock",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Inject unsupported event type/version, quantity overflow and unit mismatch in owner test fixture.",
+      "action": "Observe typed failure and no silent omitted movements or floating point/rounded success.",
+      "assertions": [
+        {
+          "pointer": "/analytics/unknownSchemaError",
+          "operator": "equals",
+          "expected": "UnknownEventSchema"
+        },
+        {
+          "pointer": "/analytics/invalidArithmeticSuccess",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/analytics/silentlyDroppedFacts",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-06",
+      "title": "Committed preparation survives following analytics failure",
+      "source": "backend-v2.md#expiry-final-writeoff-and-fefo",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsstock",
+        "analyticsmovements",
+        "live",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Expiry preparation succeeds at fixed boundary; force only later stock calculation failure.",
+      "action": "Observe committed-version/required-invalidation/runtime-epoch private metadata, Gateway scope invalidation before error, no browser private-header leak; movements stays readable.",
+      "assertions": [
+        {
+          "pointer": "/journal/pendingFacts",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/metadata/committedVersionPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/live/correctTenantInvalidatedDespiteFailure",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/response/privateMetadataLeaked",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/movement/separateReadAvailable",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-07",
+      "title": "Own-org summaries preserve separate reports and errors",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "orgSummary"
+      ],
+      "setup": "Own-org Admin selects T1/T2, per-unit reports with distinct versions; one target unavailable.",
+      "action": "Return HTTP200 partial with T1 reports and T2 typed error; all unavailable is unavailable. Cross-org selection fails whole request before Warehouse dispatch.",
+      "assertions": [
+        {
+          "pointer": "/summary/partialKeepsPerRestaurantIdentity",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/summary/failedRestaurantFakeZero",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/summary/crossOrgDispatchCount",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/summary/unitsMerged",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-08",
+      "title": "Summary gathers all 501 rows without truncation",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "orgSummary"
+      ],
+      "setup": "Each captured stock/movement report has 500 rows then one; second fixture faults page two.",
+      "action": "Concatenate all pages of each report with identity/ordering validation; preserve independent versions/times. A loop, drift or five-second timeout makes that whole restaurant unavailable.",
+      "assertions": [
+        {
+          "pointer": "/summary/stockRows",
+          "operator": "equals",
+          "expected": 501
+        },
+        {
+          "pointer": "/summary/movementRows",
+          "operator": "equals",
+          "expected": 501
+        },
+        {
+          "pointer": "/summary/successCursor",
+          "operator": "absent"
+        },
+        {
+          "pointer": "/summary/pageTwoFailureHasReports",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-09",
+      "title": "Org timezone authority and isolation",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "updateSettings",
+        "organization",
+        "analyticsmovements",
+        "privateAnalyticsmovements",
+        "authFacadeorganization",
+        "authFacadeupdateSettings"
+      ],
+      "setup": "Own Admin A, foreign Admin B; A Moscow,B Berlin; saved expected version.",
+      "action": "Change A zone, race stale fresh updates, unknown zone; restart Auth. Report applied zone/version and intervals without container timezone fallback.",
+      "assertions": [
+        {
+          "pointer": "/settings/otherOrgUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/settings/restartPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/settings/unknownZoneRejectedWithoutMutation",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/settings/staleFreshError",
+          "operator": "equals",
+          "expected": "SettingsChanged"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-10",
+      "title": "Calendar days are not physical 24-hour periods",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsmovements",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Berlin dates 2026-03-29 and 2026-10-25; Apia skipped boundary 2011-12-30 including successor-boundary test.",
+      "action": "Resolve inclusive date range to first-valid local day starts and next-day start; test earlier repeated midnight/first-valid missing midnight fixtures.",
+      "assertions": [
+        {
+          "pointer": "/calendar/shortDayHours",
+          "operator": "equals",
+          "expected": 23
+        },
+        {
+          "pointer": "/calendar/longDayHours",
+          "operator": "equals",
+          "expected": 25
+        },
+        {
+          "pointer": "/calendar/skippedDateError",
+          "operator": "equals",
+          "expected": "SkippedDate"
+        },
+        {
+          "pointer": "/calendar/rareMidnightPolicyValid",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-11",
+      "title": "Civil inputs require explicit fold and reject gap",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "receiveDelivery",
+        "privatereceiveDelivery"
+      ],
+      "setup": "Berlin ambiguous 2026-10-25T02:30:00 and nonexistent 2026-03-29T02:30:00; valid instant with unrelated offset.",
+      "action": "Reject missing fold choice, conflicting offset/occurrence and nonexistent local input; accept exact instants and both resolved fold occurrences.",
+      "assertions": [
+        {
+          "pointer": "/time/ambiguousError",
+          "operator": "equals",
+          "expected": "AmbiguousLocalTime"
+        },
+        {
+          "pointer": "/time/gapError",
+          "operator": "equals",
+          "expected": "NonexistentLocalTime"
+        },
+        {
+          "pointer": "/time/conflictingChoiceRejected",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/time/explicitInstantOffsetAccepted",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/journal/invalidInputFacts",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-12",
+      "title": "Shelf-life day24h and month clamp/fold/gap",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "receiveDelivery",
+        "privatereceiveDelivery"
+      ],
+      "setup": "Use frozen policyVectors: Jan31+1month Moscow; Sep25+1month Berlin fold; Jan29+2months Berlin gap; day shelf across DST.",
+      "action": "Inspect stored resolved expiresAt and captured zone/settings/tzdata; calendar month uses earlier fold and first-valid 03:00 gap target.",
+      "assertions": [
+        {
+          "pointer": "/expiry/clamp",
+          "operator": "equals",
+          "expected": "2026-02-28T12:00:00+03:00"
+        },
+        {
+          "pointer": "/expiry/fold",
+          "operator": "equals",
+          "expected": "2026-10-25T02:30:00+02:00"
+        },
+        {
+          "pointer": "/expiry/gap",
+          "operator": "equals",
+          "expected": "2026-03-29T03:00:00+02:00"
+        },
+        {
+          "pointer": "/expiry/dayDurationHours",
+          "operator": "equals",
+          "expected": 24
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-13",
+      "title": "Timezone changes preserve facts, FEFO and TTL instants",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "updateSettings",
+        "history",
+        "inventory",
+        "recommendations",
+        "me",
+        "privateinventory",
+        "privatehistory",
+        "privaterecommendations",
+        "authFacademe",
+        "authFacadeupdateSettings"
+      ],
+      "setup": "Saved stock, event/order times and session/OTP/invite/JWT deadlines from zone version 1.",
+      "action": "Update zone to version 2; compare all previous instants byte/instant-exact and current display/report zone; FEFO still uses saved expiry.",
+      "assertions": [
+        {
+          "pointer": "/time/oldInstantsUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/time/authTTLInstantsUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/fefo/savedExpiryOrderUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/settings/newReportsUseCurrentZone",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-14",
+      "title": "Retained exact retries precede stale settings rejection",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "receiveDelivery",
+        "confirmOrder",
+        "confirmWriteoff",
+        "updateSettings",
+        "privatereceiveDelivery",
+        "privateconfirmWriteoff",
+        "privateconfirmOrder",
+        "authFacadeupdateSettings"
+      ],
+      "setup": "Commit/lost reply and separately retained unknown attempts under zone v1; change zone to v2 while scope remains allowed.",
+      "action": "Retry exact original command/payload; return original captured outcome/zone or resolve retained candidate. Changed payload conflicts; a fresh stale form rejects.",
+      "assertions": [
+        {
+          "pointer": "/retry/originalCapturedSettingsPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/originalEventIDsUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/unknownNotReplacedByStaleRefusal",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/changedPayloadConflicts",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/fresh/staleError",
+          "operator": "equals",
+          "expected": "SettingsChanged"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-15",
+      "title": "In-flight settings and lost epoch ordering",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "receiveDelivery",
+        "confirmOrder",
+        "analyticsmovements",
+        "privatereceiveDelivery",
+        "privateconfirmOrder",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Authorized in-flight command captures v1; change profile before owner commit; separate saved command after owner restart.",
+      "action": "In-flight result reports captured v1, next request gets v2; reset old attempt returns indeterminate before stale version refusal; calendar cursor requires refresh.",
+      "assertions": [
+        {
+          "pointer": "/settings/inFlightCapturedVersion",
+          "operator": "equals",
+          "expected": "1"
+        },
+        {
+          "pointer": "/settings/nextRequestVersion",
+          "operator": "equals",
+          "expected": "2"
+        },
+        {
+          "pointer": "/reset/errorCode",
+          "operator": "equals",
+          "expected": "RuntimeReset"
+        },
+        {
+          "pointer": "/reset/outcome",
+          "operator": "equals",
+          "expected": "indeterminate"
+        },
+        {
+          "pointer": "/page/zoneChangeError",
+          "operator": "equals",
+          "expected": "RefreshRequired"
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-16",
+      "title": "Missing tzdata fails readiness and reports explicitly",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "warehouseRuntime",
+        "servingRuntime",
+        "gatewayRuntime",
+        "receiveDelivery",
+        "analyticsmovements",
+        "privatereceiveDelivery",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Isolated container fixture removes authority tzdata; unknown IANA zone separate input.",
+      "action": "Require failed readiness and TimeZoneDataUnavailable, no Local/UTC fallback; compare packaged tzdata versions when healthy.",
+      "assertions": [
+        {
+          "pointer": "/readiness/missingTzdata",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/time/missingDataError",
+          "operator": "equals",
+          "expected": "TimeZoneDataUnavailable"
+        },
+        {
+          "pointer": "/time/fallbackUsed",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/time/healthyPackagedVersionsMatch",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-17",
+      "title": "Analytics defaults and bounds",
+      "source": "backend-v2.md#timezone-and-calendar-protocol",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsstock",
+        "analyticsmovements",
+        "orgSummary",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Current authoritative org date; request default risk/period and edge limits.",
+      "action": "Default 48 physical hours and today+six previous local dates; allow page100/max500, risk1..8784 and <=366local dates, reject outside bounds before querying.",
+      "assertions": [
+        {
+          "pointer": "/analytics/defaultRiskHours",
+          "operator": "equals",
+          "expected": 48
+        },
+        {
+          "pointer": "/analytics/defaultLocalDates",
+          "operator": "equals",
+          "expected": 7
+        },
+        {
+          "pointer": "/analytics/boundsEnforced",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/analytics/invalidRangeDispatchCount",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E4-18",
+      "title": "Captured report admission is bounded per tenant and expires",
+      "source": "backend-v2.md#analytics-pagination-and-organization-summary",
+      "executionStage": "E4",
+      "operations": [
+        "analyticsstock",
+        "analyticsmovements",
+        "privateAnalyticsstock",
+        "privateAnalyticsmovements"
+      ],
+      "setup": "Ready T1/T2, fixed actors/settings/epochs and enough matching rows for live nextCursor handles. At one injected t0, create 64 stock and 64 movements captures in T1 through real public/private routes. Retain all 128 distinct report/cursor identities and page metadata. Freeze mutations and the clock so these captures remain live. T2 starts with independent capacity.",
+      "action": "Verify the first through 128th T1 captures succeed. While all remain live, request an additional stock capture and an additional movements capture; both return schema-valid typed 503 without evicting or changing an existing report. Page every retained cursor and compare exact captured identities and rows. At t0+1 physical second admit a T2 capture despite exhausted T1. At t0+299 physical seconds T1 still refuses admission. At t0+300 physical seconds old T1 cursors return 409 RefreshRequired with refreshRequired=true and capacity admits a new set of 128 distinct captures. T2 capture occurs after t0 and remains usable with unchanged identity during the T1 expiry check.",
+      "assertions": [
+        {
+          "pointer": "/capacity/acceptedReports",
+          "operator": "equals",
+          "expected": 128
+        },
+        {
+          "pointer": "/capacity/stockReports",
+          "operator": "equals",
+          "expected": 64
+        },
+        {
+          "pointer": "/capacity/movementReports",
+          "operator": "equals",
+          "expected": 64
+        },
+        {
+          "pointer": "/capacity/exhaustedStatuses",
+          "operator": "equals",
+          "expected": [
+            503,
+            503
+          ]
+        },
+        {
+          "pointer": "/capacity/typedErrorsValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/activeReportsAfterRefusal",
+          "operator": "equals",
+          "expected": 128
+        },
+        {
+          "pointer": "/capacity/existingReportsUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/existingCursorsUsable",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/otherTenantAccepted",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/otherTenantUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/stillFullBeforeExpiry",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/oldCursorStatusAfterExpiry",
+          "operator": "equals",
+          "expected": 409
+        },
+        {
+          "pointer": "/capacity/oldCursorCodeAfterExpiry",
+          "operator": "equals",
+          "expected": "RefreshRequired"
+        },
+        {
+          "pointer": "/capacity/oldCursorRefreshRequired",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/capacity/readmissionAfterExpiry",
+          "operator": "equals",
+          "expected": 128
+        }
+      ],
+      "evidence": [
+        "all 128 original capture requests/responses and distinct cursor identities, 129th stock/movements typed 503 responses",
+        "before/after report-store observations and complete page identities/rows proving no eviction on refusal",
+        "explicit injected t0, t0+299s, t0+300s and later T2 capture time, expired cursor errors and 128 successful readmissions",
+        "independent T2 capture/cursor evidence before and after T1 saturation and expiry"
+      ]
+    },
+    {
+      "id": "BE-E5-01",
+      "title": "Auth aggregate survives commit/lost reply restart",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E5",
+      "operations": [
+        "createOrganization",
+        "createInvitation",
+        "updateMembership",
+        "authCommandLookup",
+        "authFacadecreateOrganization",
+        "authFacadeupdateMembership",
+        "authFacadecreateInvitation",
+        "authFacadeauthCommandLookup"
+      ],
+      "setup": "Owned Auth JSON volume, real atomic storage; fault reply only after durable acceptance.",
+      "action": "Restart Auth, lookup and exact replay; compare saved typed result, revision, entity IDs and stable mail job IDs; no second aggregate entity/job.",
+      "assertions": [
+        {
+          "pointer": "/auth/originalResultRecovered",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/auth/duplicateEntities",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/mail/duplicateJobIDs",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/auth/restartAccessPreserved",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-02",
+      "title": "OTP, invitation and outbox atomic persistence",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E5",
+      "operations": [
+        "beginInvitationChallenge",
+        "resendChallenge",
+        "verifyChallenge",
+        "completeInvitedUser",
+        "beginEmailChallenge",
+        "completeEmailChallenge",
+        "authFacadebeginInvitationChallenge",
+        "authFacaderesendChallenge",
+        "authFacadeverifyChallenge",
+        "authFacadecompleteInvitedUser",
+        "authFacadebeginEmailChallenge",
+        "authFacadecompleteEmailChallenge"
+      ],
+      "setup": "Invited new User and existing verified User; synthetic SMTP; fixed clock.",
+      "action": "Restart before/after completion, inspect challenge/proof counters, session, User/Membership and job IDs; replay after proof expiry only if already committed. Password reset requires newPassword, forbids rememberMe, revokes old sessions.",
+      "assertions": [
+        {
+          "pointer": "/proof/restartStatePreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/auth/invitedUserAndMembershipCreatedOnce",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/mail/enqueuedOnceWithTransition",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/proof/freshExpiredCompletionDenied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/resetRevokesOldAndIssuesOne",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-03",
+      "title": "Mail unknown delivery does not promise exactly once",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E5",
+      "operations": [
+        "createInvitation",
+        "resendInvitation",
+        "resendChallenge",
+        "authFacadecreateInvitation",
+        "authFacaderesendInvitation",
+        "authFacaderesendChallenge"
+      ],
+      "setup": "Synthetic SMTP accepts DATA then drops acknowledgment; interrupted sending job exists.",
+      "action": "Restart, observe same job ID with unknown and bounded retry delays60/300seconds,max3; delivery duplicates are allowed, intake creates no duplicate job.",
+      "assertions": [
+        {
+          "pointer": "/mail/originalJobIDStable",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/mail/unknownDeliveryNotReportedAsDefiniteFailure",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/mail/retryPolicyRespected",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/mail/realRecipientMessages",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-04",
+      "title": "Auth storage faults and migration fail closed",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E5",
+      "operations": [
+        "login",
+        "authorize",
+        "authCommandLookup",
+        "authFacadelogin",
+        "authFacadeauthCommandLookup"
+      ],
+      "setup": "Separate owned volume fixtures: definite failure, ambiguous replacement, corrupt/unknown schema, invalid references and second writer; explicit legacy verifier/deadlines.",
+      "action": "Preserve previous revision on definite failure, recover ambiguous outcome; reject corrupt/contended readiness; migration keeps verifier/deadlines and explicit Moscow v1 without two writers.",
+      "assertions": [
+        {
+          "pointer": "/storage/definiteFailurePreviousRevisionPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/storage/ambiguousOutcome",
+          "operator": "equals",
+          "expected": "unknown"
+        },
+        {
+          "pointer": "/storage/invalidAggregateGrantsAccess",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/migration/identityAndDeadlinesPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/storage/concurrentWriters",
+          "operator": "equals",
+          "expected": 1
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-05",
+      "title": "Session deadlines, capacity and global revocation",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E5",
+      "operations": [
+        "login",
+        "logout",
+        "logoutAll",
+        "password",
+        "me",
+        "authFacadelogin",
+        "authFacadelogout",
+        "authFacadelogoutAll",
+        "authFacademe",
+        "authFacadepassword"
+      ],
+      "setup": "Injected clock, Unicode passwords8..32, remembered and ordinary sessions, 33 device logins.",
+      "action": "Check idle30min/absolute8h, remembered fixed30days, max32 evicts oldest; password change/logout-all revoke globally, scoped revoke does not.",
+      "assertions": [
+        {
+          "pointer": "/session/deadlinePolicyPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/maximumLiveDevices",
+          "operator": "equals",
+          "expected": 32
+        },
+        {
+          "pointer": "/session/oldestEvicted",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/globalRevocationApplies",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-06",
+      "title": "Password and login throttles preserve prior policy",
+      "source": "backend-v2.md#browser-and-auth-transport",
+      "executionStage": "E5",
+      "operations": [
+        "login",
+        "password",
+        "authFacadelogin",
+        "authFacadepassword"
+      ],
+      "setup": "Wrong-current-password counter and two sessions; oversized currentPassword, fifth actual wrong verification and subsequent cooldown.",
+      "action": "Reject oversized before verifier/counter; fifth returns429 and sessionRevoked=true only calling session; during cooldown false; login does not reset counter. Check login queue2+8 and rolling limits.",
+      "assertions": [
+        {
+          "pointer": "/password/oversizedVerifierCalls",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/password/fifthCallingSessionOnlyRevoked",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/password/cooldownSessionRevoked",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/password/newLoginDoesNotResetCooldown",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/login/capacityAndRatePolicyValid",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-07",
+      "title": "Invitation and OTP bounds, comparison and one-use binding",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E5",
+      "operations": [
+        "createInvitation",
+        "resendInvitation",
+        "cancelInvitation",
+        "verifyChallenge",
+        "acceptInvitation",
+        "authFacadecreateInvitation",
+        "authFacaderesendInvitation",
+        "authFacadecancelInvitation",
+        "authFacadeverifyChallenge",
+        "authFacadeacceptInvitation"
+      ],
+      "setup": "Synthetic address preserves local part case and delivery display; owned clock at expiry/resend/rate boundaries.",
+      "action": "Apply trimmedNFC/lower-domain comparison, no resend expiry extension,7days/60s invite limits; OTP6digits/10min/fivewrong; verify all frozen target/global capacities and one-use proof.",
+      "assertions": [
+        {
+          "pointer": "/invitation/comparisonAndDisplayValid",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/invitation/resendExpiryUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/proof/oneUseAndBrowserBinding",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/rate/allFrozenLimitsEnforced",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-08",
+      "title": "Business restart is empty and old attempts indeterminate",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E5",
+      "operations": [
+        "inventory",
+        "history",
+        "resolveOrder",
+        "resolveWriteoffCommand",
+        "registry",
+        "privateinventory",
+        "privatehistory",
+        "privateresolveOrder",
+        "privateresolveWriteoffCommand"
+      ],
+      "setup": "Durable Auth state, Warehouse/Serving stock/catalog/pending/order attempts exist with saved epochs.",
+      "action": "Restart each business process separately; re-register current epochs; inspect empty memory/coverage, preserved Auth, and no old-command recreation.",
+      "assertions": [
+        {
+          "pointer": "/runtime/businessStateEmpty",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/auth/entitiesAndSessionsPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/reset/oldAttemptOutcome",
+          "operator": "equals",
+          "expected": "indeterminate"
+        },
+        {
+          "pointer": "/runtime/oldBusinessReconstructed",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/runtime/newEpochReadyAfterReconciliation",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-09",
+      "title": "Restaurant/org cascade accepts cutoff before cleanup",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E5",
+      "operations": [
+        "deleteRestaurant",
+        "deleteOrganization",
+        "lifecycle",
+        "live",
+        "authFacadedeleteOrganization",
+        "authFacadedeleteRestaurant",
+        "authFacadelifecycle"
+      ],
+      "setup": "T1/T2 same org, T3 another org; retain global User/session; one cleanup peer unavailable.",
+      "action": "Delete T1 then separate org fixture; observe202/deleting/pending, immediate new-request cutoff, exact affected IDs, SSE close and preserved unrelated access/global Users.",
+      "assertions": [
+        {
+          "pointer": "/lifecycle/acceptanceStatus",
+          "operator": "equals",
+          "expected": 202
+        },
+        {
+          "pointer": "/lifecycle/initialCleanup",
+          "operator": "equals",
+          "expected": "pending"
+        },
+        {
+          "pointer": "/scope/afterCommitDenied",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/scope/unrelatedScopesPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/session/globalUserAndSessionPreserved",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-10",
+      "title": "Deletion replay recovers immutable polling identity",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E5",
+      "operations": [
+        "deleteRestaurant",
+        "deleteOrganization",
+        "lifecycle",
+        "authCommandLookup",
+        "authFacadedeleteOrganization",
+        "authFacadedeleteRestaurant",
+        "authFacadelifecycle",
+        "authFacadeauthCommandLookup"
+      ],
+      "setup": "Opaque delete commandID, lost accepted reply then Auth restart/cutoff.",
+      "action": "Initiating User with valid global session replays exact delete and polls UUID operationID; unauthorized actor cannot poll; replay returns original accepted result, not later poll state.",
+      "assertions": [
+        {
+          "pointer": "/lifecycle/originalOperationIDRecovered",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/lifecycle/opaqueCommandNotUsedAsPollingUUID",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/lifecycle/replayAcceptedResultUnchanged",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/lifecycle/unauthorizedPollingDenied",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-11",
+      "title": "Tombstone wins registration and cleanup retry races",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E5",
+      "operations": [
+        "warehouseRegister",
+        "warehouseClose",
+        "servingRegister",
+        "servingClose",
+        "gatewayRegister",
+        "gatewayClose",
+        "registry"
+      ],
+      "setup": "Deletion intent exists; peer restarts during partial cleanup and old registration races close.",
+      "action": "Reconcile tombstone/current epoch, retry bounded cleanup after Auth restart; never recreate deleted ID; complete only after all current epoch closes.",
+      "assertions": [
+        {
+          "pointer": "/runtime/deletedIDRecreated",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/lifecycle/oldClosedEpochCompletes",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/lifecycle/completeOnlyCurrentPeersClosed",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retry/intentSurvivesRestart",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-12",
+      "title": "Deleted invitation and late command cannot restore access",
+      "source": "backend-v2.md#tenant-lifecycle-and-epochs",
+      "executionStage": "E5",
+      "operations": [
+        "acceptInvitation",
+        "completeInvitedUser",
+        "consumerCommit",
+        "confirmOrder",
+        "privateconfirmOrder",
+        "authFacadecompleteInvitedUser",
+        "authFacadeacceptInvitation"
+      ],
+      "setup": "Invitation/job and unknown in-flight business attempt exist before cutoff.",
+      "action": "Delete scope, race invitation and late command; suppress unaccepted mail, preserve previous in-flight outcomes without automatic fresh retry; no cleanup access rollback.",
+      "assertions": [
+        {
+          "pointer": "/membership/deletedInvitationGrantsAccess",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/mail/undeliveredScopedJobSuppressed",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/order/unknownReclassifiedAsRefused",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/order/automaticNewAttemptCount",
+          "operator": "equals",
+          "expected": 0
+        },
+        {
+          "pointer": "/scope/cleanupFailureRestoresAccess",
+          "operator": "equals",
+          "expected": false
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-13",
+      "title": "Feedback namespaces and jobs survive restart",
+      "source": "backend-v2.md#sse-and-feedback",
+      "executionStage": "E5",
+      "operations": [
+        "appFeedback",
+        "anonymousFeedback",
+        "privateAppFeedback",
+        "privateAnonymousFeedback"
+      ],
+      "setup": "Same UUID in T1,T2,anonymous; original trusted contexts and stable jobs; synthetic delivery.",
+      "action": "Drop accepted reply, restart Feedback, exact retry original namespace; altered payload conflicts, changed tenant is a different namespace without retargeting old record.",
+      "assertions": [
+        {
+          "pointer": "/feedback/intakeRecordsPerNamespace",
+          "operator": "equals",
+          "expected": 1
+        },
+        {
+          "pointer": "/feedback/originalScopeAndFingerprintPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/originalJobIDsReused",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/sameNamespacePayloadConflict",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-14",
+      "title": "Feedback migration, privacy and retained facts",
+      "source": "backend-v2.md#sse-and-feedback",
+      "executionStage": "E5",
+      "operations": [
+        "publicFeedbackRead",
+        "publicFeedbackExport",
+        "feedbackRead",
+        "feedbackExport"
+      ],
+      "setup": "Old unscoped journal plus verified T1 records; synthetic SMTP/Telegram; scoped deletion.",
+      "action": "Migrate old facts without guessing tenant; compare fingerprint/jobs, no scoped export leak. Inspect redacted delivery and preserve Feedback/outbox/tombstone evidence on cascade.",
+      "assertions": [
+        {
+          "pointer": "/feedback/legacyMigratedUnscoped",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/feedback/originalFingerprintAndJobsPreserved",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/delivery/telegramPrivateFieldsAbsent",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/retention/noAutomaticPurge",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/delivery/realRecipients",
+          "operator": "equals",
+          "expected": 0
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    },
+    {
+      "id": "BE-E5-15",
+      "title": "Auth command namespace and cookie recovery",
+      "source": "backend-v2.md#invitations-otp-and-durable-retries",
+      "executionStage": "E5",
+      "operations": [
+        "authCommandLookup",
+        "login",
+        "completeInvitedUser",
+        "completeEmailChallenge",
+        "authFacadelogin",
+        "authFacadecompleteInvitedUser",
+        "authFacadeauthCommandLookup",
+        "authFacadecompleteEmailChallenge"
+      ],
+      "setup": "Actor-scoped committed completion stores encrypted recoverable token; another actor reuses same commandID; current access remains required.",
+      "action": "Lookup reveals typed result/restore flag but no raw token; exact original completion restores cookie after restart, changed payload conflicts; revoked scope refuses replay without changing original outcome.",
+      "assertions": [
+        {
+          "pointer": "/auth/lookupRawToken",
+          "operator": "absent"
+        },
+        {
+          "pointer": "/auth/crossActorResultExposed",
+          "operator": "equals",
+          "expected": false
+        },
+        {
+          "pointer": "/cookie/exactCompletionRestored",
+          "operator": "equals",
+          "expected": true
+        },
+        {
+          "pointer": "/auth/changedPayloadError",
+          "operator": "equals",
+          "expected": "CommandConflict"
+        },
+        {
+          "pointer": "/auth/originalOutcomeUnchangedOnDeniedReplay",
+          "operator": "equals",
+          "expected": true
+        }
+      ],
+      "evidence": [
+        "redacted request/typed response",
+        "before/after owner state or journal observations"
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "operationID": "csrf",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/csrf",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/CsrfTokenView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08"
+      ]
+    },
+    {
+      "operationID": "login",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/session",
+      "requestSchema": "#/components/schemas/LoginRequestV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/UserView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-08",
+        "BE-E5-04",
+        "BE-E5-05",
+        "BE-E5-06",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "logout",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/session",
+      "requestSchema": null,
+      "responseSchemas": {
+        "204": null,
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "logoutAll",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/sessions/logout-all",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "me",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/me",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/UserView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-10",
+        "BE-E4-13",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "displayName",
+      "surface": "public",
+      "method": "PATCH",
+      "route": "/api/v2/me/display-name",
+      "requestSchema": "#/components/schemas/DisplayNameRequestV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/User",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08"
+      ]
+    },
+    {
+      "operationID": "password",
+      "surface": "public",
+      "method": "PATCH",
+      "route": "/api/v2/me/password",
+      "requestSchema": "#/components/schemas/PasswordChangeRequestV2",
+      "responseSchemas": {
+        "204": null,
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08",
+        "BE-E5-05",
+        "BE-E5-06"
+      ]
+    },
+    {
+      "operationID": "access",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/access",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/AccessView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-11"
+      ]
+    },
+    {
+      "operationID": "createOrganization",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/orgs",
+      "requestSchema": "#/components/schemas/CreateOrganization",
+      "responseSchemas": {
+        "201": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E5-01"
+      ]
+    },
+    {
+      "operationID": "organization",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/orgs/{orgID}",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/Organization",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E4-09"
+      ]
+    },
+    {
+      "operationID": "deleteOrganization",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "202": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "updateSettings",
+      "surface": "public",
+      "method": "PATCH",
+      "route": "/api/v2/orgs/{orgID}/settings",
+      "requestSchema": "#/components/schemas/UpdateSettings",
+      "responseSchemas": {
+        "200": "#/components/schemas/Organization",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-12",
+        "BE-E4-09",
+        "BE-E4-13",
+        "BE-E4-14"
+      ]
+    },
+    {
+      "operationID": "createRestaurant",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/orgs/{orgID}/restaurants",
+      "requestSchema": "#/components/schemas/CreateRestaurant",
+      "responseSchemas": {
+        "201": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E2-04",
+        "BE-E2-05"
+      ]
+    },
+    {
+      "operationID": "deleteRestaurant",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}/restaurants/{restaurantID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "202": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "lifecycle",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/orgs/{orgID}/lifecycle/{operationID}",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-07",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "updateMembership",
+      "surface": "public",
+      "method": "PUT",
+      "route": "/api/v2/orgs/{orgID}/memberships/{membershipID}",
+      "requestSchema": "#/components/schemas/UpdateMembership",
+      "responseSchemas": {
+        "200": "#/components/schemas/Membership",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E1-06",
+        "BE-E5-01"
+      ]
+    },
+    {
+      "operationID": "revokeMembership",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}/memberships/{membershipID}",
+      "requestSchema": "#/components/schemas/RevokeMembership",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-06"
+      ]
+    },
+    {
+      "operationID": "revokeAssignment",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}/memberships/{membershipID}/assignments/{assignmentID}",
+      "requestSchema": "#/components/schemas/RevokeAssignment",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-06",
+        "BE-E1-11"
+      ]
+    },
+    {
+      "operationID": "createInvitation",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/orgs/{orgID}/invitations",
+      "requestSchema": "#/components/schemas/CreateInvitation",
+      "responseSchemas": {
+        "201": "#/components/schemas/Invitation",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-01",
+        "BE-E5-03",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "resendInvitation",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/orgs/{orgID}/invitations/{invitationID}/resend",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-03",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "cancelInvitation",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/v2/orgs/{orgID}/invitations/{invitationID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "beginInvitationChallenge",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/invitations/{invitationID}/challenges",
+      "requestSchema": "#/components/schemas/ChallengeBegin",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02"
+      ]
+    },
+    {
+      "operationID": "resendChallenge",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/challenges/{challengeID}/resend",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02",
+        "BE-E5-03"
+      ]
+    },
+    {
+      "operationID": "verifyChallenge",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/challenges/{challengeID}/verify",
+      "requestSchema": "#/components/schemas/ChallengeVerify",
+      "responseSchemas": {
+        "200": "#/components/schemas/VerifiedChallenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "completeInvitedUser",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/challenges/{challengeID}/complete",
+      "requestSchema": "#/components/schemas/ChallengeComplete",
+      "responseSchemas": {
+        "200": "#/components/schemas/UserView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02",
+        "BE-E5-12",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "acceptInvitation",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/invitations/{invitationID}/accept",
+      "requestSchema": "#/components/schemas/AcceptInvitation",
+      "responseSchemas": {
+        "200": "#/components/schemas/Membership",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-07",
+        "BE-E5-12"
+      ]
+    },
+    {
+      "operationID": "authCommandLookup",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/commands",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/IdempotencyResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-01",
+        "BE-E5-04",
+        "BE-E5-10",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "products",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/products",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedProducts",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "registerProduct",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/warehouse/products",
+      "requestSchema": "#/components/schemas/RegisterProductRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedProduct",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "dishCatalog",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/dish-catalog",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDishCatalog",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "dishDetails",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/dish",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDishDetails",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "defineDish",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/warehouse/dishes",
+      "requestSchema": "#/components/schemas/DefineDishRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDish",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "receiveDelivery",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/warehouse/deliveries",
+      "requestSchema": "#/components/schemas/ReceiveDeliveryV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDeliveryReceipt",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E3-02",
+        "BE-E3-12",
+        "BE-E4-11",
+        "BE-E4-12",
+        "BE-E4-14",
+        "BE-E4-15",
+        "BE-E4-16"
+      ]
+    },
+    {
+      "operationID": "inventory",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/inventory",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedInventory",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-03",
+        "BE-E1-09",
+        "BE-E1-10",
+        "BE-E1-11",
+        "BE-E3-05",
+        "BE-E3-06",
+        "BE-E3-12",
+        "BE-E4-13",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "expiringBatches",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/expiring-batches",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedExpiringBatches",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-05"
+      ]
+    },
+    {
+      "operationID": "history",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/history",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedHistory",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-11",
+        "BE-E3-12",
+        "BE-E4-13",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "confirmWriteoff",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/warehouse/writeoffs",
+      "requestSchema": "#/components/schemas/WriteoffRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWriteoffResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-08",
+        "BE-E4-14"
+      ]
+    },
+    {
+      "operationID": "suggestID",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/id-suggestions",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedSuggestion",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-01"
+      ]
+    },
+    {
+      "operationID": "servingProducts",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/products",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedProducts",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "servingDishes",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/dish-catalog",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedDishCatalog",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "servingDish",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/dish",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedDishDetails",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "menu",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/menu",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedMenu",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-09",
+        "BE-E2-02",
+        "BE-E3-03"
+      ]
+    },
+    {
+      "operationID": "stopList",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/stop-list",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedStopList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-03"
+      ]
+    },
+    {
+      "operationID": "recommendations",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/recommendations",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedRecommendations",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-03",
+        "BE-E4-13"
+      ]
+    },
+    {
+      "operationID": "prepareOrder",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/serving/order-proposals",
+      "requestSchema": "#/components/schemas/PrepareOrderRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedOrderProposal",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14",
+        "BE-E2-02",
+        "BE-E3-04"
+      ]
+    },
+    {
+      "operationID": "confirmOrder",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/serving/order-confirmations",
+      "requestSchema": "#/components/schemas/ConfirmOrderRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedConfirmResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E1-04",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E4-14",
+        "BE-E4-15",
+        "BE-E5-12"
+      ]
+    },
+    {
+      "operationID": "resolveOrder",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/serving/order-confirmations/resolve",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedConfirmResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-04",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "analyticsstock",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/analytics/stock",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/StockReport",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-06",
+        "BE-E4-01",
+        "BE-E4-03",
+        "BE-E4-05",
+        "BE-E4-06",
+        "BE-E4-17",
+        "BE-E4-18"
+      ]
+    },
+    {
+      "operationID": "analyticsmovements",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/analytics/movements",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/MovementReport",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E4-02",
+        "BE-E4-03",
+        "BE-E4-04",
+        "BE-E4-05",
+        "BE-E4-06",
+        "BE-E4-09",
+        "BE-E4-10",
+        "BE-E4-15",
+        "BE-E4-16",
+        "BE-E4-17",
+        "BE-E4-18"
+      ]
+    },
+    {
+      "operationID": "orgSummary",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/orgs/{orgID}/analytics/summary",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/OrgSummary",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E4-07",
+        "BE-E4-08",
+        "BE-E4-17"
+      ]
+    },
+    {
+      "operationID": "appFeedback",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/r/{restaurantID}/feedback",
+      "requestSchema": "#/components/schemas/FeedbackSubmission",
+      "responseSchemas": {
+        "201": "#/components/schemas/FeedbackSaved",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E1-09",
+        "BE-E1-12",
+        "BE-E5-13"
+      ]
+    },
+    {
+      "operationID": "anonymousFeedback",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/feedback/anonymous",
+      "requestSchema": "#/components/schemas/FeedbackSubmission",
+      "responseSchemas": {
+        "201": "#/components/schemas/FeedbackSaved",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08",
+        "BE-E1-12",
+        "BE-E5-13"
+      ]
+    },
+    {
+      "operationID": "live",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/live",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/LiveEvent",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E1-11",
+        "BE-E2-08",
+        "BE-E4-06",
+        "BE-E5-09"
+      ]
+    },
+    {
+      "operationID": "pendingWriteoffs",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/pending-writeoffs",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/PendingBatches",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-05",
+        "BE-E3-12"
+      ]
+    },
+    {
+      "operationID": "beginEmailChallenge",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/email-challenges",
+      "requestSchema": "#/components/schemas/EmailChallengeBegin",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02"
+      ]
+    },
+    {
+      "operationID": "completeEmailChallenge",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/v2/email-challenges/{challengeID}/complete",
+      "requestSchema": "#/components/schemas/EmailChallengeComplete",
+      "responseSchemas": {
+        "200": "#/components/schemas/UserView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "compatgetCsrfToken",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/operator/csrf",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/CsrfTokenView",
+        "405": null,
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01"
+      ]
+    },
+    {
+      "operationID": "compatsignIn",
+      "surface": "public",
+      "method": "POST",
+      "route": "/api/operator/session",
+      "requestSchema": "#/components/schemas/SignInRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/OperatorView",
+        "400": null,
+        "401": "#/components/schemas/OperatorError",
+        "403": null,
+        "405": null,
+        "413": null,
+        "415": null,
+        "429": "#/components/schemas/OperatorError",
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14"
+      ]
+    },
+    {
+      "operationID": "compatsignOut",
+      "surface": "public",
+      "method": "DELETE",
+      "route": "/api/operator/session",
+      "requestSchema": null,
+      "responseSchemas": {
+        "204": null,
+        "403": null,
+        "405": null,
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01"
+      ]
+    },
+    {
+      "operationID": "compatgetCurrentOperator",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/operator/me",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/OperatorView",
+        "401": null,
+        "405": null,
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14"
+      ]
+    },
+    {
+      "operationID": "compatupdateDisplayName",
+      "surface": "public",
+      "method": "PATCH",
+      "route": "/api/operator/me/display-name",
+      "requestSchema": "#/components/schemas/DisplayNameRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/OperatorProfileView",
+        "400": null,
+        "401": null,
+        "403": null,
+        "405": null,
+        "413": null,
+        "415": null,
+        "422": "#/components/schemas/OperatorError",
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01"
+      ]
+    },
+    {
+      "operationID": "compatchangePassword",
+      "surface": "public",
+      "method": "PATCH",
+      "route": "/api/operator/me/password",
+      "requestSchema": "#/components/schemas/PasswordChangeRequest",
+      "responseSchemas": {
+        "204": null,
+        "400": null,
+        "401": null,
+        "403": "#/components/schemas/OperatorError",
+        "405": null,
+        "413": null,
+        "415": null,
+        "422": "#/components/schemas/OperatorError",
+        "429": "#/components/schemas/OperatorError",
+        "502": null,
+        "503": null,
+        "504": null
+      },
+      "acceptanceIDs": [
+        "BE-E1-01"
+      ]
+    },
+    {
+      "operationID": "publicFeedbackRead",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/feedback/submissions",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/FeedbackList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-13",
+        "BE-E5-14"
+      ]
+    },
+    {
+      "operationID": "publicFeedbackExport",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/feedback/export",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/FeedbackList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-13",
+        "BE-E5-14"
+      ]
+    },
+    {
+      "operationID": "resolveWriteoffCommand",
+      "surface": "public",
+      "method": "GET",
+      "route": "/api/v2/r/{restaurantID}/warehouse/writeoffs/commands",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/WriteoffCommandLookup",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-09",
+        "BE-E3-10",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "privateproducts",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/products",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedProducts",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privateregisterProduct",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/products",
+      "requestSchema": "#/components/schemas/RegisterProductRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedProduct",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privatedishCatalog",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/dish-catalog",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDishCatalog",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privatedishDetails",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/dish",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDishDetails",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privatedefineDish",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/dishes",
+      "requestSchema": "#/components/schemas/DefineDishRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDish",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privatereceiveDelivery",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/deliveries",
+      "requestSchema": "#/components/schemas/ReceiveDeliveryV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDeliveryReceipt",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E3-02",
+        "BE-E3-12",
+        "BE-E4-11",
+        "BE-E4-12",
+        "BE-E4-14",
+        "BE-E4-15",
+        "BE-E4-16"
+      ]
+    },
+    {
+      "operationID": "privateinventory",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/inventory",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedInventory",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-03",
+        "BE-E1-09",
+        "BE-E1-10",
+        "BE-E1-11",
+        "BE-E2-01",
+        "BE-E3-05",
+        "BE-E3-06",
+        "BE-E3-12",
+        "BE-E4-13",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "privateexpiringBatches",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/expiring-batches",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedExpiringBatches",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-05"
+      ]
+    },
+    {
+      "operationID": "privatehistory",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/history",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedHistory",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-11",
+        "BE-E3-12",
+        "BE-E4-13",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "privateconfirmWriteoff",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/writeoffs",
+      "requestSchema": "#/components/schemas/WriteoffRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWriteoffResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-07",
+        "BE-E3-08",
+        "BE-E4-14"
+      ]
+    },
+    {
+      "operationID": "privatesuggestID",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/id-suggestions",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedSuggestion",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-01"
+      ]
+    },
+    {
+      "operationID": "privateservingProducts",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/products",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedProducts",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privateservingDishes",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/dish-catalog",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedDishCatalog",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privateservingDish",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/dish",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedDishDetails",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-02"
+      ]
+    },
+    {
+      "operationID": "privatemenu",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/menu",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedMenu",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-09",
+        "BE-E2-02",
+        "BE-E3-03"
+      ]
+    },
+    {
+      "operationID": "privatestopList",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/stop-list",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedStopList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-03"
+      ]
+    },
+    {
+      "operationID": "privaterecommendations",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/recommendations",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedRecommendations",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-03",
+        "BE-E4-13"
+      ]
+    },
+    {
+      "operationID": "privateprepareOrder",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/serving/v2/r/{restaurantID}/order-proposals",
+      "requestSchema": "#/components/schemas/PrepareOrderRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedOrderProposal",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-14",
+        "BE-E2-02",
+        "BE-E3-04"
+      ]
+    },
+    {
+      "operationID": "privateconfirmOrder",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/serving/v2/r/{restaurantID}/order-confirmations",
+      "requestSchema": "#/components/schemas/ConfirmOrderRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedConfirmResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-03",
+        "BE-E1-04",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E4-14",
+        "BE-E4-15",
+        "BE-E5-12"
+      ]
+    },
+    {
+      "operationID": "privateresolveOrder",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/r/{restaurantID}/order-confirmations/resolve",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ServingScopedConfirmResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-04",
+        "BE-E5-08"
+      ]
+    },
+    {
+      "operationID": "privateAnalyticsstock",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/analytics/stock",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/StockReport",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-04",
+        "BE-E3-06",
+        "BE-E4-01",
+        "BE-E4-03",
+        "BE-E4-05",
+        "BE-E4-06",
+        "BE-E4-17",
+        "BE-E4-18"
+      ]
+    },
+    {
+      "operationID": "privateAnalyticsmovements",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/analytics/movements",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/MovementReport",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E4-02",
+        "BE-E4-03",
+        "BE-E4-04",
+        "BE-E4-05",
+        "BE-E4-06",
+        "BE-E4-09",
+        "BE-E4-10",
+        "BE-E4-15",
+        "BE-E4-16",
+        "BE-E4-17",
+        "BE-E4-18"
+      ]
+    },
+    {
+      "operationID": "authorize",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/authorize",
+      "requestSchema": "#/components/schemas/AuthorizationRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/AuthorizationResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-09",
+        "BE-E2-01",
+        "BE-E2-03",
+        "BE-E5-04"
+      ]
+    },
+    {
+      "operationID": "accessCheck",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/access-check",
+      "requestSchema": "#/components/schemas/AccessCheckRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/RestaurantAccess",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-09",
+        "BE-E1-10",
+        "BE-E2-08"
+      ]
+    },
+    {
+      "operationID": "serviceToken",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/service-tokens",
+      "requestSchema": "#/components/schemas/ServiceAuthorizationRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/Token",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-03",
+        "BE-E3-07"
+      ]
+    },
+    {
+      "operationID": "anonymousToken",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/anonymous-feedback-token",
+      "requestSchema": "#/components/schemas/AnonymousAuthorizationRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/Token",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-03"
+      ]
+    },
+    {
+      "operationID": "jwks",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/jwks",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/JWKS",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-03"
+      ]
+    },
+    {
+      "operationID": "registry",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/registry",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/Registry",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-04",
+        "BE-E2-06",
+        "BE-E5-08",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "ackReadiness",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/readiness",
+      "requestSchema": "#/components/schemas/ReadinessAck",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-04",
+        "BE-E2-07"
+      ]
+    },
+    {
+      "operationID": "warehouseRuntime",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/runtime",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeStatus",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-06",
+        "BE-E4-16"
+      ]
+    },
+    {
+      "operationID": "warehouseRegister",
+      "surface": "private",
+      "method": "PUT",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/RegisterRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-04",
+        "BE-E2-05",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "warehouseClose",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/CloseRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "servingRuntime",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/serving/v2/runtime",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeStatus",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-06",
+        "BE-E4-16"
+      ]
+    },
+    {
+      "operationID": "servingRegister",
+      "surface": "private",
+      "method": "PUT",
+      "route": "/internal/serving/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/RegisterRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-04",
+        "BE-E2-05",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "servingClose",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/serving/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/CloseRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "gatewayRuntime",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/gateway/v2/runtime",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeStatus",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-06",
+        "BE-E4-16"
+      ]
+    },
+    {
+      "operationID": "gatewayRegister",
+      "surface": "private",
+      "method": "PUT",
+      "route": "/internal/gateway/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/RegisterRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-04",
+        "BE-E2-05",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "gatewayClose",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/gateway/v2/r/{restaurantID}/registry",
+      "requestSchema": "#/components/schemas/CloseRuntime",
+      "responseSchemas": {
+        "200": "#/components/schemas/RuntimeReadiness",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-11"
+      ]
+    },
+    {
+      "operationID": "dueExpiry",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/expiry-runs",
+      "requestSchema": "#/components/schemas/DueExpiryRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedDueExpiryResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-05",
+        "BE-E3-07"
+      ]
+    },
+    {
+      "operationID": "consumerMenu",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/menu-evaluation",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWMenuEvaluation",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-02",
+        "BE-E3-03",
+        "BE-E3-06"
+      ]
+    },
+    {
+      "operationID": "consumerEvaluate",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/order-evaluations",
+      "requestSchema": "#/components/schemas/WOrderEvaluationRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWOrderEvaluation",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-01",
+        "BE-E2-02",
+        "BE-E3-04"
+      ]
+    },
+    {
+      "operationID": "consumerCommit",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/order-commits",
+      "requestSchema": "#/components/schemas/WOrderCommitRequest",
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWOrderCommitResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E5-12"
+      ]
+    },
+    {
+      "operationID": "consumerCommand",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/commands",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWCommandLookup",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E3-10"
+      ]
+    },
+    {
+      "operationID": "consumerOrder",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/orders",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWOrderLookup",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E3-10"
+      ]
+    },
+    {
+      "operationID": "consumerAttempt",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/order-attempts",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/ScopedWOrderAttempt",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-02",
+        "BE-E3-04",
+        "BE-E3-10"
+      ]
+    },
+    {
+      "operationID": "privateAppFeedback",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/feedback/v2/submissions/app",
+      "requestSchema": "#/components/schemas/ScopedFeedback",
+      "responseSchemas": {
+        "201": "#/components/schemas/FeedbackSaved",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-12",
+        "BE-E5-13"
+      ]
+    },
+    {
+      "operationID": "privateAnonymousFeedback",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/feedback/v2/submissions/anonymous",
+      "requestSchema": "#/components/schemas/FeedbackSubmission",
+      "responseSchemas": {
+        "201": "#/components/schemas/FeedbackSaved",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-12",
+        "BE-E5-13"
+      ]
+    },
+    {
+      "operationID": "feedbackRead",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/feedback/v2/r/{restaurantID}/submissions",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/FeedbackList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-13",
+        "BE-E5-14"
+      ]
+    },
+    {
+      "operationID": "feedbackExport",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/feedback/v2/r/{restaurantID}/export",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/FeedbackList",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-13",
+        "BE-E5-14"
+      ]
+    },
+    {
+      "operationID": "authFacadecsrf",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/csrf",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": null,
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08"
+      ]
+    },
+    {
+      "operationID": "authFacadelogin",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/session",
+      "requestSchema": "#/components/schemas/LoginRequestV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/SessionIssued",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-08",
+        "BE-E5-04",
+        "BE-E5-05",
+        "BE-E5-06",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "authFacadelogout",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/session",
+      "requestSchema": null,
+      "responseSchemas": {
+        "204": null,
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "authFacadelogoutAll",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/sessions/logout-all",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "authFacademe",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/me",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/UserView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-10",
+        "BE-E4-13",
+        "BE-E5-05"
+      ]
+    },
+    {
+      "operationID": "authFacadedisplayName",
+      "surface": "private",
+      "method": "PATCH",
+      "route": "/internal/auth/v1/public/me/display-name",
+      "requestSchema": "#/components/schemas/DisplayNameRequestV2",
+      "responseSchemas": {
+        "200": "#/components/schemas/User",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08"
+      ]
+    },
+    {
+      "operationID": "authFacadepassword",
+      "surface": "private",
+      "method": "PATCH",
+      "route": "/internal/auth/v1/public/me/password",
+      "requestSchema": "#/components/schemas/PasswordChangeRequestV2",
+      "responseSchemas": {
+        "204": null,
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-08",
+        "BE-E5-05",
+        "BE-E5-06"
+      ]
+    },
+    {
+      "operationID": "authFacadeaccess",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/access",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/AccessView",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-02",
+        "BE-E1-11"
+      ]
+    },
+    {
+      "operationID": "authFacadecreateOrganization",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs",
+      "requestSchema": "#/components/schemas/CreateOrganization",
+      "responseSchemas": {
+        "201": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E5-01"
+      ]
+    },
+    {
+      "operationID": "authFacadeorganization",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/orgs/{orgID}",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/Organization",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E4-09"
+      ]
+    },
+    {
+      "operationID": "authFacadedeleteOrganization",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "202": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "authFacadeupdateSettings",
+      "surface": "private",
+      "method": "PATCH",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/settings",
+      "requestSchema": "#/components/schemas/UpdateSettings",
+      "responseSchemas": {
+        "200": "#/components/schemas/Organization",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-12",
+        "BE-E4-09",
+        "BE-E4-13",
+        "BE-E4-14"
+      ]
+    },
+    {
+      "operationID": "authFacadecreateRestaurant",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/restaurants",
+      "requestSchema": "#/components/schemas/CreateRestaurant",
+      "responseSchemas": {
+        "201": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E2-04",
+        "BE-E2-05"
+      ]
+    },
+    {
+      "operationID": "authFacadedeleteRestaurant",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/restaurants/{restaurantID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "202": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "authFacadelifecycle",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/lifecycle/{operationID}",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/LifecycleResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E2-07",
+        "BE-E5-09",
+        "BE-E5-10"
+      ]
+    },
+    {
+      "operationID": "authFacadeupdateMembership",
+      "surface": "private",
+      "method": "PUT",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/memberships/{membershipID}",
+      "requestSchema": "#/components/schemas/UpdateMembership",
+      "responseSchemas": {
+        "200": "#/components/schemas/Membership",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-05",
+        "BE-E1-06",
+        "BE-E5-01"
+      ]
+    },
+    {
+      "operationID": "authFacaderevokeMembership",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/memberships/{membershipID}",
+      "requestSchema": "#/components/schemas/RevokeMembership",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-06"
+      ]
+    },
+    {
+      "operationID": "authFacaderevokeAssignment",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/memberships/{membershipID}/assignments/{assignmentID}",
+      "requestSchema": "#/components/schemas/RevokeAssignment",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-06",
+        "BE-E1-11"
+      ]
+    },
+    {
+      "operationID": "authFacadecreateInvitation",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/invitations",
+      "requestSchema": "#/components/schemas/CreateInvitation",
+      "responseSchemas": {
+        "201": "#/components/schemas/Invitation",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-01",
+        "BE-E5-03",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "authFacaderesendInvitation",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/invitations/{invitationID}/resend",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-03",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "authFacadecancelInvitation",
+      "surface": "private",
+      "method": "DELETE",
+      "route": "/internal/auth/v1/public/orgs/{orgID}/invitations/{invitationID}",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/DurableResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "authFacadebeginInvitationChallenge",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/invitations/{invitationID}/challenges",
+      "requestSchema": "#/components/schemas/ChallengeBegin",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02"
+      ]
+    },
+    {
+      "operationID": "authFacaderesendChallenge",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/challenges/{challengeID}/resend",
+      "requestSchema": "#/components/schemas/Command",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02",
+        "BE-E5-03"
+      ]
+    },
+    {
+      "operationID": "authFacadeverifyChallenge",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/challenges/{challengeID}/verify",
+      "requestSchema": "#/components/schemas/ChallengeVerify",
+      "responseSchemas": {
+        "200": "#/components/schemas/VerifiedChallenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02",
+        "BE-E5-07"
+      ]
+    },
+    {
+      "operationID": "authFacadecompleteInvitedUser",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/challenges/{challengeID}/complete",
+      "requestSchema": "#/components/schemas/ChallengeComplete",
+      "responseSchemas": {
+        "200": "#/components/schemas/SessionIssued",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-02",
+        "BE-E5-12",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "authFacadeacceptInvitation",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/invitations/{invitationID}/accept",
+      "requestSchema": "#/components/schemas/AcceptInvitation",
+      "responseSchemas": {
+        "200": "#/components/schemas/Membership",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E1-07",
+        "BE-E5-07",
+        "BE-E5-12"
+      ]
+    },
+    {
+      "operationID": "authFacadeauthCommandLookup",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/auth/v1/public/commands",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/IdempotencyResult",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-01",
+        "BE-E5-04",
+        "BE-E5-10",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "privatePendingWriteoffs",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/pending-writeoffs",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/PendingBatches",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-05",
+        "BE-E3-12"
+      ]
+    },
+    {
+      "operationID": "authFacadebeginEmailChallenge",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/email-challenges",
+      "requestSchema": "#/components/schemas/EmailChallengeBegin",
+      "responseSchemas": {
+        "200": "#/components/schemas/Challenge",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02"
+      ]
+    },
+    {
+      "operationID": "authFacadecompleteEmailChallenge",
+      "surface": "private",
+      "method": "POST",
+      "route": "/internal/auth/v1/public/email-challenges/{challengeID}/complete",
+      "requestSchema": "#/components/schemas/EmailChallengeComplete",
+      "responseSchemas": {
+        "200": "#/components/schemas/SessionIssued",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E5-02",
+        "BE-E5-15"
+      ]
+    },
+    {
+      "operationID": "privateresolveWriteoffCommand",
+      "surface": "private",
+      "method": "GET",
+      "route": "/internal/warehouse/v2/r/{restaurantID}/writeoffs/commands",
+      "requestSchema": null,
+      "responseSchemas": {
+        "200": "#/components/schemas/WriteoffCommandLookup",
+        "default": "#/components/schemas/Error"
+      },
+      "acceptanceIDs": [
+        "BE-E1-01",
+        "BE-E3-09",
+        "BE-E3-10",
+        "BE-E5-08"
+      ]
+    }
+  ]
+}
