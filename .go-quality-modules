@@ -1,3 +1,4 @@
 tools/assembly-checks
 tests/business
 tests/http
+reference/durable

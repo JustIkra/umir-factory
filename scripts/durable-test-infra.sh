@@ -164,9 +164,10 @@ cmd_env() {
 
   # Tests create their own t_<repo>_<rand> database and vhost; the administrative
   # database `postgres` and the default vhost `/` are only the entry points.
-  printf 'export UMIR_TEST_DATABASE_URL=%q UMIR_TEST_AMQP_URL=%q UMIR_TEST_REDIS_LIMITER_URL=%q UMIR_TEST_REDIS_CACHE_URL=%q\n' \
+  printf 'export UMIR_TEST_DATABASE_URL=%q UMIR_TEST_AMQP_URL=%q UMIR_TEST_AMQP_MANAGEMENT_URL=%q UMIR_TEST_REDIS_LIMITER_URL=%q UMIR_TEST_REDIS_CACHE_URL=%q\n' \
     "postgres://$pg_auth@$host:$pg_port/postgres?sslmode=disable" \
     "amqp://$mq_auth@$host:$mq_port/%2F" \
+    "http://$mq_auth@$host:$mq_mgmt_port" \
     "redis://:$rp@$host:$limiter_port/0" \
     "redis://:$rp@$host:$cache_port/0"
 }

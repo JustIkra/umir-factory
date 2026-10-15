@@ -134,12 +134,13 @@ run_case "$both" env || { cat "$test_dir/err" >&2; fail "env"; }
 [[ ! -s "$test_dir/err" ]] || fail "env wrote to stderr"
 line="$(cat "$test_dir/out")"
 [[ "$(printf '%s\n' "$line" | wc -l | tr -d ' ')" == 1 ]] || fail "env must print one line"
-for var in UMIR_TEST_DATABASE_URL UMIR_TEST_AMQP_URL UMIR_TEST_REDIS_LIMITER_URL UMIR_TEST_REDIS_CACHE_URL; do
+for var in UMIR_TEST_DATABASE_URL UMIR_TEST_AMQP_URL UMIR_TEST_AMQP_MANAGEMENT_URL UMIR_TEST_REDIS_LIMITER_URL UMIR_TEST_REDIS_CACHE_URL; do
   [[ "$line" == export\ *" $var="* || "$line" == "export $var="* ]] || fail "env lacks $var"
 done
 eval "$line"
 [[ "$UMIR_TEST_DATABASE_URL" == 'postgres://umir:p%40ss%2Fw%3Ard-PGSECRET@127.0.0.1:55432/postgres?sslmode=disable' ]] || fail "database url"
 [[ "$UMIR_TEST_AMQP_URL" == 'amqp://umir:mq%23secret%3FMQSECRET@127.0.0.1:55672/%2F' ]] || fail "amqp url"
+[[ "$UMIR_TEST_AMQP_MANAGEMENT_URL" == 'http://umir:mq%23secret%3FMQSECRET@127.0.0.1:55673' ]] || fail "amqp management url"
 [[ "$UMIR_TEST_REDIS_LIMITER_URL" == "redis://:${redis_password}@127.0.0.1:56379/0" ]] || fail "limiter url"
 [[ "$UMIR_TEST_REDIS_CACHE_URL" == "redis://:${redis_password}@127.0.0.1:56380/0" ]] || fail "cache url"
 ! grep -qE 'PGSECRET|MQSECRET' "$test_dir/err" || fail "env leaks to stderr"

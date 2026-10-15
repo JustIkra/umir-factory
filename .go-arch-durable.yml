@@ -1,0 +1,36 @@
+version: 3
+workdir: .
+allow:
+  deepScan: false
+  depOnAnyVendor: false
+  ignoreNotFoundComponents: false
+components:
+  postgres: {in: "postgres"}
+  rabbitmq: {in: "rabbitmq"}
+  redis: {in: "redis"}
+  relay: {in: "relay"}
+  itest: {in: "itest"}
+  # Temporary: deps.go in the module root; remove together with deps.go.
+  scaffold: {in: "."}
+vendors:
+  pgx: {in: ["github.com/jackc/pgx/v5", "github.com/jackc/pgx/v5/**"]}
+  amqp091: {in: "github.com/rabbitmq/amqp091-go"}
+  go-redis: {in: "github.com/redis/go-redis/v9"}
+deps:
+  postgres:
+    mayDependOn: [postgres]
+    canUse: [pgx]
+  rabbitmq:
+    mayDependOn: [rabbitmq]
+    canUse: [amqp091]
+  redis:
+    mayDependOn: [redis]
+    canUse: [go-redis]
+  relay:
+    mayDependOn: [relay]
+  itest:
+    mayDependOn: [itest]
+    canUse: [pgx, amqp091, go-redis]
+  scaffold:
+    mayDependOn: [scaffold]
+    canUse: [pgx, amqp091, go-redis]
