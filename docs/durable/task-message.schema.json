@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://umir.local/schemas/durable/task-message.schema.json",
+  "title": "Task message",
+  "description": "Body of every message published to umir.tasks. It is an alarm, not the work itself: the job (recipient, text, payload) stays in the owner's database and is read by jobID. The object is closed, so addresses, phone numbers, one-time codes, tokens and message texts cannot be added.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "messageID",
+    "owner",
+    "schemaVersion",
+    "jobID",
+    "generation",
+    "occurredAt",
+    "correlationID"
+  ],
+  "properties": {
+    "messageID": {
+      "description": "Opaque string, at most 256 characters, unique within the owner.",
+      "$ref": "#/$defs/opaqueID"
+    },
+    "owner": {
+      "description": "Service that created the job.",
+      "enum": ["auth", "feedback"]
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "jobID": {
+      "description": "Identifier of the job row in the owner's database.",
+      "$ref": "#/$defs/opaqueID"
+    },
+    "channel": {
+      "description": "Delivery channel. Absent for Auth mail jobs.",
+      "enum": ["smtp", "telegram"]
+    },
+    "generation": {
+      "description": "Storage generation of the owner at the time the job was created.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "occurredAt": {
+      "description": "RFC 3339 date-time.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "correlationID": {
+      "$ref": "#/$defs/opaqueID"
+    }
+  },
+  "$defs": {
+    "opaqueID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[!-~]+$"
+    }
+  }
+}
