@@ -274,6 +274,11 @@ export function prepare({
     settings.smtp.Port > 65535
   )
     throw new Error("incomplete private operational inputs");
+  if (settings.registration !== undefined &&
+      (settings.registration === null || typeof settings.registration !== "object" ||
+       Object.keys(settings.registration).some((key) => key !== "enabled") ||
+       typeof settings.registration.enabled !== "boolean"))
+    throw new Error("registration.enabled must be an explicit boolean");
   const username = privateFile(settings.smtpUsernameFile);
   const password = privateFile(settings.smtpPasswordFile);
   const smtpCA =
@@ -440,6 +445,7 @@ export function prepare({
     tlsKeyFile: authPath("server.key"),
     smtp: settings.smtp,
     registrationMail: settings.registrationMail,
+    registration: settings.registration ?? { enabled: false },
     invitationMail: {
       frontendOrigin: origin,
       allowLoopbackHTTP: cookieMode === "loopback-development",

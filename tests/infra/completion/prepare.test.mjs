@@ -260,3 +260,19 @@ test("the documented synthetic mail recipe omits an unpublished privacy URL", (t
   );
   assert.match(certificate, /DNS:demo-smtp/);
 });
+
+test("public registration is disabled by default and enabled only by an explicit boolean", (t) => {
+  for (const enabled of [undefined, false, true, "true"]) {
+    const { options } = fixture(t);
+    const inputs = JSON.parse(readFileSync(options.inputs, "utf8"));
+    if (enabled !== undefined) inputs.registration = { enabled };
+    writeFileSync(options.inputs, JSON.stringify(inputs));
+    if (enabled === "true") {
+      assert.throws(() => prepare(options), /registration/i);
+      continue;
+    }
+    const result = prepare(options);
+    const config = JSON.parse(readFileSync(join(result.directory, "auth/config.json"), "utf8"));
+    assert.equal(config.registration.enabled, enabled === true);
+  }
+});

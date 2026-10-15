@@ -1,0 +1,67 @@
+{
+  "profile": "REG1",
+  "examples": [
+    {
+      "name": "registration-begin",
+      "schema": "EmailChallengeBegin",
+      "value": {
+        "commandID": "registration-begin",
+        "email": "new@umir.invalid",
+        "purpose": "registration"
+      }
+    },
+    {
+      "name": "login-begin",
+      "schema": "EmailChallengeBegin",
+      "value": {
+        "commandID": "login-begin",
+        "email": "new@umir.invalid",
+        "purpose": "login"
+      }
+    },
+    {
+      "name": "password_reset-begin",
+      "schema": "EmailChallengeBegin",
+      "value": {
+        "commandID": "password_reset-begin",
+        "email": "new@umir.invalid",
+        "purpose": "password_reset"
+      }
+    },
+    {
+      "name": "registration-complete",
+      "schema": "EmailChallengeComplete",
+      "value": {
+        "commandID": "registration-complete",
+        "challengeID": "00000000-0000-4000-8000-000000000001",
+        "proof": "01234567890123456789012345678901",
+        "purpose": "registration",
+        "displayName": "New User",
+        "password": "valid-password",
+        "rememberMe": true
+      }
+    },
+    {
+      "name": "login-complete",
+      "schema": "EmailChallengeComplete",
+      "value": {
+        "commandID": "registration-complete",
+        "challengeID": "00000000-0000-4000-8000-000000000001",
+        "proof": "01234567890123456789012345678901",
+        "purpose": "login",
+        "rememberMe": true
+      }
+    },
+    {
+      "name": "password_reset-complete",
+      "schema": "EmailChallengeComplete",
+      "value": {
+        "commandID": "registration-complete",
+        "challengeID": "00000000-0000-4000-8000-000000000001",
+        "proof": "01234567890123456789012345678901",
+        "purpose": "password_reset",
+        "newPassword": "replacement-password"
+      }
+    }
+  ]
+}

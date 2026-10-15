@@ -1,5 +1,9 @@
 # Спецификация бизнес-логики ресторана
 
+## Configurable public registration (REG1)
+
+The [REG1 supplement](registration-api-amendment.md) permits self-registration when Auth `registration.enabled` is true. A six-digit email code proves the address. Completion atomically creates a global user and session without restaurant access. The user then creates an organization or accepts an invitation. Disabled is the default. Occupied addresses receive a neutral challenge without an OTP. Password login does not add a second factor. C2/UA1/FIN1 historical contracts remain unchanged.
+
 ## Backend v2 candidate contract
 
 The selected single-restaurant implementation described below remains a separate legacy assembly. The authorized backend successor is [contract 2.0.0-draft.2](api/backend-v2.md), with public/private OpenAPI and conformance examples beside it. C1 authored this candidate; C2 approval is required before implementation. It supersedes fixed Moscow calendar rules and automatic final expiry for the future backend candidate only.

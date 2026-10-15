@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Add the REG1 public email registration supplement, strict overlays, composed profiles, examples and reproducible contract gate. Pass an explicit boolean registration policy through completion preparation; keep it disabled by default. Add the Nginx/Gateway/Auth and STARTTLS SMTP acceptance client.
+
 - Add a separate FIN1 candidate Compose with real Auth, exact-source builds, private TLS, persistent Auth authority and optional Feedback. Private input preparation is idempotent and refuses incomplete or changed bundles. Selected production pins are unchanged.
 
 - Define the FIN1 supply and recommendation contract supplement, strict composed schemas, examples, 26 acceptance predicates and explicit transition from the predecessor recommendation policy. Preserve C2/UA1 files and evidence. Add test-only JSON Schema validation and deterministic composition checks; runtime integration remains pending.

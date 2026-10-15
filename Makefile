@@ -11,3 +11,8 @@ fmt-all:
 	bash scripts/go-quality.sh fmt-all
 fmt-check build lint arch test check check-tools check-business check-http:
 	bash scripts/go-quality.sh $@
+
+.PHONY: check-contract
+check-contract:
+	node --test tests/infra/completion/prepare.test.mjs
+	cd tests/http && GOWORK=off go test ./cmd/acceptance -run 'Test(Registration|Completion)' -count=1
