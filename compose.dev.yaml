@@ -11,6 +11,8 @@ services:
     image: umir-warehouse:dev
     pull_policy: build
     build: ../umir-warehouse
+    environment:
+      WAREHOUSE_API_MODE: legacy
   frontend:
     image: umir-frontend:dev
     pull_policy: build
