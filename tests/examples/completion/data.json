@@ -1,0 +1,82 @@
+{
+  "version": "FIN1-demo-1",
+  "organization": "Ровный ход · демо",
+  "restaurant": "Тестовая кухня",
+  "products": [
+    { "productID": "FIN-FISH", "name": "Филе рыбы", "baseUnit": "g" },
+    { "productID": "FIN-PARSLEY", "name": "Петрушка", "baseUnit": "g" },
+    { "productID": "FIN-RICE", "name": "Рис", "baseUnit": "g" },
+    { "productID": "FIN-CREAM", "name": "Сливки", "baseUnit": "ml" },
+    {
+      "productID": "FIN-EXPIRED",
+      "name": "Продукт к списанию",
+      "baseUnit": "pcs"
+    }
+  ],
+  "dishes": [
+    {
+      "dishID": "FIN-FISH-RICE",
+      "name": "Рыба с рисом",
+      "ingredients": [
+        { "productID": "FIN-FISH", "quantity": "10000" },
+        { "productID": "FIN-RICE", "quantity": "50000" }
+      ]
+    },
+    {
+      "dishID": "FIN-PARSLEY-DISH",
+      "name": "Зелень к блюду",
+      "ingredients": [{ "productID": "FIN-PARSLEY", "quantity": "1000" }]
+    },
+    {
+      "dishID": "FIN-CREAM-DISH",
+      "name": "Сливочный соус",
+      "ingredients": [{ "productID": "FIN-CREAM", "quantity": "10000" }]
+    },
+    {
+      "dishID": "FIN-RICE-DISH",
+      "name": "Рис на гарнир",
+      "ingredients": [{ "productID": "FIN-RICE", "quantity": "50000" }]
+    }
+  ],
+  "batches": [
+    {
+      "productID": "FIN-FISH",
+      "quantity": "100000",
+      "manufacturedHoursAgo": 24,
+      "receivedHoursAgo": 1,
+      "shelfLife": { "value": "2", "unit": "day" }
+    },
+    {
+      "productID": "FIN-PARSLEY",
+      "quantity": "1000000",
+      "manufacturedHoursAgo": 22,
+      "receivedHoursAgo": 1,
+      "shelfLife": { "value": "1", "unit": "day" }
+    },
+    {
+      "productID": "FIN-RICE",
+      "quantity": "10000000",
+      "manufacturedHoursAgo": 24,
+      "receivedHoursAgo": 1,
+      "shelfLife": { "value": "6", "unit": "month" }
+    },
+    {
+      "productID": "FIN-CREAM",
+      "quantity": "25000",
+      "manufacturedHoursAgo": 24,
+      "receivedHoursAgo": 1,
+      "shelfLife": { "value": "3", "unit": "day" }
+    },
+    {
+      "productID": "FIN-EXPIRED",
+      "quantity": "1000",
+      "manufacturedHoursAgo": 48,
+      "receivedHoursAgo": 47,
+      "shelfLife": { "value": "1", "unit": "day" }
+    }
+  ],
+  "order": [
+    { "dishID": "FIN-FISH-RICE", "portions": "1" },
+    { "dishID": "FIN-CREAM-DISH", "portions": "2" }
+  ]
+}

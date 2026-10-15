@@ -4,60 +4,35 @@
 
 The [FIN1 API supplement](docs/completion-api-amendment.md) defines supply suggestions and the revised recommendation policy. Its [public profile](docs/api/completion-v1-composed-public.json), [private profile](docs/api/completion-v1-composed-private.json), [examples](docs/api/completion-v1-examples.json), [acceptance predicates](docs/api/completion-v1-acceptance.json) and [policy transition](docs/api/completion-v1-transition.json) are separate from frozen C2/UA1 artifacts. Generate both profiles with `node tests/http/tools/compose-completion-contract.mjs docs/api`. `make check` validates schema examples, malformed values and reproducible composition in the HTTP test module. These checks validate the contract files; they do not establish service or assembly acceptance. FIN1 runtime integration remains in progress.
 
-Сборка системы учёта продуктов для одного ресторана. Фабрика закрепляет версии четырёх сервисных образов и запускает их через Docker Compose.
+Фабрика собирает Auth, Gateway, Warehouse, Serving и Frontend. Поддерживаемый FIN1-запуск описан в разделе [candidate with real Auth](#fin1-candidate-with-real-auth). Feedback включается отдельным профилем. Публикация образов и доставка на существующий HTTPS-стенд выполняются после приёмки candidate.
 
 ## Репозитории и границы
 
 | Репозиторий | Ответственность |
 | --- | --- |
-| [umir-factory](https://github.com/JustIkra/umir-factory) | Compose, версии образов, запуск и проверка сборки. |
-| [umir-gateway](https://github.com/JustIkra/umir-gateway) | Единый API-вход; маршрутизация к serving и warehouse. |
-| [umir-serving](https://github.com/JustIkra/umir-serving) | OrdersService, MenuService (включая стоп-лист) и RecommendationsService. |
-| [umir-warehouse](https://github.com/JustIkra/umir-warehouse) | Единый владелец склада: каталог, поставки, оценки, оформление, просрочка и запросы. |
-| [umir-frontend](https://github.com/JustIkra/umir-frontend) | React и раздача интерфейса; запросы API через gateway. |
-| [umir-feedback](https://github.com/JustIkra/umir-feedback) | Durable intake, SMTP notifications, and Telegram through a private VPN proxy. |
-
-Бизнес-ядро в памяти реализует поставки и партии, приготовление по FEFO, подтверждение сокращённого состава заказа, списание просрочки, стоп-лист и рекомендации по продаже. Warehouse владеет остатками и атомарно фиксирует окончательную продажу вместе с расходом ингредиентов. Serving хранит предложения заказа и координирует подтверждение через склад.
-
-Продукты, блюда и рецептуры хранятся в warehouse вместе с событиями. MenuService в serving работает с ними через порт склада. Мониторинг показывает остатки и сроки партий; отчёт для закупок находится вне текущей версии.
-
-Перед новым оформлением и запросами актуальных остатков warehouse восстанавливает очередь и применяет записанные события наступивших списаний. При невозможности подготовки возвращается техническая ошибка InventoryUnavailable. Оформление подтверждается только записанным OrderPlaced; неизвестный исход записи разрешается повтором исходной попытки.
-
-Остатки и индекс истечения публикуются вместе после полной команды; полная сверка нужна при восстановлении или известном сбое. Чистые расчёты используют захваченное неизменяемое состояние. GetMenu показывает только доступные блюда без количества порций. Снапшоты сохраняются в фоне после полных команд; точка восстановления меняется только после успешного сохранения.
-
-Решение рассчитано на один ресторан. Время — `Europe/Moscow`. Регистрация пользователей, роли приложения и несколько ресторанов находятся вне базовой бизнес-версии. Отдельное расширение gateway реализует личный кабинет одного оператора; OTP-регистрация, OTP-вход и восстановление пароля остаются самостоятельными задачами и не меняют бизнес-контракты.
-
-Основной документ бизнес-контрактов — [docs/business-core.md](docs/business-core.md). При расхождении описаний контрактов в README и docs приоритет имеет docs. Согласованные правила сохранены в документе; отдельно обозначенные предложения остаются на рассмотрении.
-
-[Проект observability](docs/observability.md) описывает JSON-логи операций, связь запросов между сервисами, метрики зависаний и трассировку. Он подготовлен для рассмотрения; инструментация и стек мониторинга ещё не подключены.
+| [umir-factory](https://github.com/JustIkra/umir-factory) | Версии контрактов, точные source/image identities, Compose, seed и проверки сборки. |
+| [umir-auth](https://github.com/JustIkra/umir-auth) | Аккаунты, сессии, роли, организации/рестораны, OTP и собственная почта. Auth один владеет durable authority и signing secrets. |
+| [umir-gateway](https://github.com/JustIkra/umir-gateway) | Публичный API, свежая авторизация, маршрутизация и SSE. |
+| [umir-serving](https://github.com/JustIkra/umir-serving) | Меню, стоп-лист, рекомендации и координация подтверждения заказа. |
+| [umir-warehouse](https://github.com/JustIkra/umir-warehouse) | Каталог, поставки, партии, FEFO, атомарная продажа, сроки, ручное списание, история и предложение поставки. |
+| [umir-frontend](https://github.com/JustIkra/umir-frontend) | Существующий React-интерфейс через Nginx и Gateway; бизнес-решения остаются у backend. |
+| [umir-feedback](https://github.com/JustIkra/umir-feedback) | Необязательная обратная связь с отдельными SMTP/Telegram/VPN inputs. |
 
 ## Текущее состояние
 
-Статус на 2026-10-12. Реализация в исходниках, выбранные образы и развёртывание проверяются отдельно.
+FIN1 source profile закреплён в `scripts/completion/sources.json`. `compose.completion.yaml` запускает production-сервисы с реальным Auth и одним внешним входом frontend. Private transport использует проверяемый TLS. Auth authority хранится на отдельном постоянном томе; Warehouse и Serving сохраняют текущий режим в памяти. После их reset фиксированный демо-набор восстанавливается [одной командой seed](tests/examples/completion/README.md).
 
-Warehouse и serving предоставляют независимые Go-модули с публичными contract/bootstrap и сценариями в памяти. Совместные тесты вызывают оба реальных Runtime через bridge фабрики, который сохраняет метаданные `GetDish` и копирует вложенный рецепт. Реальные HTTP-процессы обслуживают публичный API через gateway; serving обращается к private listener warehouse на 8082. Исходники warehouse предоставляют service-only `POST /expiration-runs` для одной атомарной оценки и обработки просрочки; свежие складские операции также продолжают обрабатывать наступившие списания. Warehouse запускает только независимый snapshot worker; `SNAPSHOT_RETRY_INTERVAL` задаёт его паузу после ошибки и по умолчанию равен `1s`. Оба сервиса ожидают завершения своих обработчиков. Новый endpoint warehouse и изменённый snapshot lifecycle реализованы в исходниках, но пока не входят в selected image pins. Планировщик gateway и его SSE остаются следующей частью [gateway #19](https://github.com/JustIkra/umir-gateway/issues/19). HTTP-адаптеры и разрешение незавершённых попыток в рамках работающих процессов реализованы. События и снапшоты хранятся только в памяти: постоянное состояние бизнес-ядра и восстановление попытки после перезапуска остаются следующей задачей. Фабрика отдельно проверяет HTTP-сценарии и сетевые сбои на четырёх точных исходниках или опубликованных образах. Выбранные в compose.yaml образы не меняются вместе с исходным кодом рабочих веток.
+Склад исключает просроченное из пригодного остатка, переводит его в ожидание списания и фиксирует окончательное списание по команде человека. Заказ подтверждается только записанным OrderPlaced, неизвестный исход проверяется исходной командой и в сохранённой эпохе. Интерфейс показывает реальные партии FEFO и исходный расход; исторический срок берётся из записанного поступления той же эпохи.
 
-Gateway main пока содержит аккаунт и сессии одного оператора вместе с интеграцией формы обратной связи. Форма и её уведомления по SMTP/Telegram остаются в feedback. Исправление SMTP-клиента опубликовано в [feedback commit `6c59bbf0`](https://github.com/JustIkra/umir-feedback/commit/6c59bbf0ad19048a5ddd0fe47d771c1c567ca4dd): после TLS он предпочитает объявленный PLAIN, а если его нет — использует объявленный LOGIN; отказ AUTH не запускает повторную попытку другим механизмом. Проверка подтвердила TLS, AUTH и MAIL FROM; реальная доставка письма не проверялась. Выбранные образы остаются на прежних SHA.
+Минимальный М6 использует фиксированное окно 7×24 часа, порог покрытия 3 дня и цель 7 дней. Рекомендации FIN1 учитывают срок, количество под риском и спрос; обе операции показывают неполную историю явно и не создают закупку. Количества сохраняют точность целых тысячных. Контракт и правила расчёта находятся в [FIN1 supplement](docs/completion-api-amendment.md).
 
-Будущий приватный `umir-auth` будет владеть аккаунтами, сессиями и OTP и отправлять собственные письма через ту же SMTP-привязку, что и feedback. Перенос делает JustIkra по [Gateway #18](https://github.com/JustIkra/umir-gateway/issues/18); реализация auth service и перенос ещё не выполнены, gateway сейчас по-прежнему владеет аккаунтом и сессиями. OTP-код из [feedback PR #3](https://github.com/JustIkra/umir-feedback/pull/3) теперь находится в feedback main ([merge commit `e98747a1`](https://github.com/JustIkra/umir-feedback/commit/e98747a1771cd3de1e6defa1c849fdff3ea88154)) и выключен по умолчанию. Это код для переноса или повторного использования; интеграция и окончательный контракт будущего auth ещё не определены. Пины, production delivery и deployment не менялись.
+Форматы C2/UA1, прежние manifests и evidence остаются историческими артефактами своих профилей. `compose.yaml` пока закрепляет опубликованный legacy compatibility profile. Он не является новой Auth-сборкой и не доказывает её готовность. FIN1 candidate имеет отдельный явный файл запуска; selected images переключают только после разрешённой доставки.
 
-Frontend main на `2339f1a` рендерит `null`. Опубликованная ветка [feat/frontend-quality, `962f7a9`](https://github.com/JustIkra/umir-frontend/commit/962f7a9ef1f2d5d2b7218e181e8f59bfb490c5c4) содержит TypeScript, React, SCSS, пять слоёв, Bun 1.4.3 и 35 quality-тестов. Она ещё не объединена с main; экранов и API-клиента нет в обеих версиях. Chakra UI запланирована, Stylelint отложен. [Figma Screens](https://www.figma.com/design/6Y1Jglyvc1xVsTzII54A2u/UmirHack?node-id=42-2) уже существует; оставшиеся экраны, результаты заказа и исправления переходов описаны в [дизайн-брифе](docs/frontend-design-brief.md).
+## Доставка текущей версии
 
-## Оставшиеся задачи
+До завершения текущего пакета нужны публикация точных проверенных image SHA/digest, запуск той же FIN1 assembly на существующей VM/NPM и повторный HTTPS readback. Доставка сохраняет private inputs и Auth volume; Warehouse/Serving reseed выполняется через публичные API. Старые backlog и отдельные проекты аналитики/observability не входят в этот пакет.
 
-Рекомендуемый порядок: завершить дизайн и перенести quality-каркас в main → реализовать API-клиент и UI → проверить браузерный путь через frontend → gateway → реальные serving/warehouse. Межмодульные тесты двух Runtime в tests/business и HTTP-приёмка реальных процессов в tests/http уже реализованы. Они используются как основа общей приёмки. Следующие issues отражают незакрытые критерии на 2026-10-12.
-
-| Приоритет | Issue и владелец | Оставшаяся работа | Зависимость |
-| --- | --- | --- | --- |
-| 1 | [Factory #2](https://github.com/JustIkra/umir-factory/issues/2) — factory | Завершить общий frontend/Figma handoff и браузерную приёмку на реальных сервисах; межмодульные и HTTP-проверки backend уже есть. | Реализация экранов frontend #1. |
-| 1 | [Frontend #1](https://github.com/JustIkra/umir-frontend/issues/1) — frontend | Перенести quality-каркас в main и реализовать API/UI, восстановление pending и browser checks. В Figma каталоги, формы и исходы заказа добавлены; остались пустой повторный вход, навигация, валидация пустой поставки, прокрутка длинных экранов и привязка F4 к определённому результату warehouse. | Реальные HTTP-сервисы готовы; browser evidence входит в общий handoff factory #2. |
-| 2 | [Gateway #10](https://github.com/JustIkra/umir-gateway/issues/10) — gateway + frontend | Завершить UX ожидания сессии: предупреждения о простое и абсолютном сроке, продолжение сессии по действию пользователя. Feedback route и серверная интеграция уже есть. | Экраны и browser acceptance frontend #1. |
-| 2 | [Gateway #19](https://github.com/JustIkra/umir-gateway/issues/19) — gateway + frontend | Warehouse `POST /expiration-runs`, отдельный snapshot retry, Factory OpenAPI `1.1.0-draft.1` и тесты `--realtime` реализованы. Остались gateway journal/SSE/scheduler, Nginx `/api/live` и клиентское обновление `/app`. | Сквозные R01–R07 запускаются с точными gateway/frontend revisions после их реализации; selected pins пока прежние. |
-| 3 | [Gateway #18](https://github.com/JustIkra/umir-gateway/issues/18) — gateway, JustIkra | Перенести владение аккаунтами, сессиями и OTP в будущий приватный auth service; auth отправляет собственные письма через общую с feedback SMTP-привязку. | Auth service и миграция ещё не реализованы. OTP-код из feedback PR #3 уже в main, но выключен по умолчанию и остаётся кандидатом для переноса/повторного использования, не финальной интеграцией. |
-| 3 | [Feedback #2](https://github.com/JustIkra/umir-feedback/issues/2), [Gateway #13](https://github.com/JustIkra/umir-gateway/issues/13) — прежний кандидат | Эти задачи описывали OTP через feedback private challenge API. Их исходные границы заменены решением для Gateway #18; согласовать нужный API в рамках миграции, не выводить контракт из кандидата PR #3. | Auth #18. |
-| 4 | [Gateway #12](https://github.com/JustIkra/umir-gateway/issues/12) — gateway + frontend | Предыдущая постановка OTP-входа и восстановления пароля предшествует решению вынести auth и отправку писем в приватный сервис. | Уточнить контракт и клиент при выполнении Gateway #18. |
-
-На 2026-10-12 [Gateway #1](https://github.com/JustIkra/umir-gateway/issues/1), [Gateway #8](https://github.com/JustIkra/umir-gateway/issues/8) и [Feedback #1](https://github.com/JustIkra/umir-feedback/issues/1) закрыты как выполненные для сервисного кода и согласованной исходной интеграции. Приёмка gateway #1 подтверждается межмодульными тестами и HTTP-проверками реальных сервисов. В комментариях приведены merged PR и evidence. Их закрытие не меняет selected pins и не подтверждает deployment. Публикация новых SHA, настройка секретов на ВМ и проверка реальных каналов доставки остаются отдельным этапом.
+Бизнес-правила исходного ядра описаны в [docs/business-core.md](docs/business-core.md), scoped wire contracts — в [docs/api](docs/api/backend-v2.md), выбранные изменения — в FIN1 supplement. При расхождении описаний приоритет имеет соответствующий контракт. Межмодульные, HTTP и браузерные проверки подтверждают разные уровни поведения; старое evidence не переименовывают в новый PASS.
 
 ## Бизнес-ядро и разработка
 
@@ -68,8 +43,8 @@ Frontend main на `2339f1a` рендерит `null`. Опубликованна
 | Область | Рекомендуется организаторами | Используется в проекте |
 | --- | --- | --- |
 | Backend | C#/.NET/ASP.NET, Java, Go | Go, net/http, хранилища в памяти |
-| Frontend | JavaScript или TypeScript со SCSS, React, Chakra | В main JavaScript и React/Vite; в опубликованной quality-ветке TypeScript и SCSS. Chakra UI запланирована. |
-| Типы и тесты frontend | Конкретные инструменты не заданы | В quality-ветке TypeScript, ESLint, dependency-cruiser и Bun. openapi-typescript и browser/E2E-проверки добавляются при реализации клиента и экранов. |
+| Frontend | JavaScript или TypeScript со SCSS, React, Chakra | В FIN1 candidate TypeScript, React/Vite и Chakra UI с существующей темой. SCSS установлен, но не используется. |
+| Типы и тесты frontend | Конкретные инструменты не заданы | TypeScript, ESLint, dependency-cruiser, pinned Bun, генерация OpenAPI-типов и runtime-декодеры. Браузерная приёмка проходит через реальные сервисы. |
 | Проверка и сборка системы | Конкретные инструменты не заданы | Go/race и HTTP-проверки фабрики, Docker Compose, Nginx, GitHub Actions |
 
 Таблица различает установленный стек и согласованные дополнения. Правила подключения frontend-инструментов находятся в [handoff](docs/gateway-frontend-handoff.md#11-стек-и-проверки-frontend) и README frontend. Рекомендации презентации не меняют согласованные бизнес-контракты и владельцев сервисов.
@@ -204,7 +179,41 @@ Data and confirmation attempts stay in process memory. Restarts lose the state o
 
 Contract sources are the local [gateway handoff](docs/gateway-frontend-handoff.md) and [business rules](docs/business-core.md), updated with the reviewed delivery form fields and timestamp semantics.
 
-## Запуск опубликованной сборки
+## FIN1 candidate with real Auth
+
+`compose.completion.yaml` is a separate candidate. It does not change the selected images in `compose.yaml`. Exact application source identities are in `scripts/completion/sources.json`; local builds use `compose.completion.build.yaml`. Required tools are Docker Compose with `env_file.format: raw` and volume subpaths, Node.js 24.21.0 or newer, OpenSSL and Git. CI and the Auth readiness helper pin Node.js 24.21.0.
+
+1. Copy `scripts/completion/inputs.example.json` to a private absolute path. Set the initial operator, real SMTP transport, private credential file references and registration sender details. Input and credential files must be owned regular mode 0600 files with no symlinks. Optional `smtpCAFile` supplies a private SMTP CA file. Do not put credentials in JSON values, shell arguments or repository files.
+2. Prepare a new private directory and an explicit project. Use the exact ASCII HTTPS browser origin for the existing Nginx Proxy Manager route. The generated initial operator password is in `<directory>/auth/secrets/password`; read it only through a secure local channel. It is never printed.
+
+```sh
+node scripts/completion/prepare.mjs \
+  --directory /absolute/private/umir-completion-stand \
+  --inputs /absolute/private/inputs.json \
+  --project umir-completion-stand \
+  --origin https://example.org
+```
+
+3. After permitted image publication, start the pinned candidate:
+
+```sh
+docker compose --env-file /absolute/private/umir-completion-stand/compose.env \
+  -f compose.completion.yaml config --quiet
+docker compose --env-file /absolute/private/umir-completion-stand/compose.env \
+  -f compose.completion.yaml up -d --wait --wait-timeout 120
+```
+
+For a local exact-source build, add `--sources /absolute/checkouts` during preparation and add `-f compose.completion.build.yaml` only to the `build` command. The directory contains clean `auth`, `warehouse`, `serving`, `gateway` and `frontend` checkouts at the recorded SHAs. Re-run preparation before rebuilding to verify their identities. Use the [isolated demo recipe](tests/examples/completion/README.md) for loopback cookies and synthetic mail.
+
+The base assembly publishes frontend on `127.0.0.1:8080`. Keep the existing HTTPS proxy as the external edge. If that proxy runs on another host, set `COMPLETION_BIND` to the exact private interface IP reachable by it. Only frontend is published; do not expose backend ports or bind the app edge to all interfaces. Backend ports remain private. Auth uses verified TLS and a persistent `auth-state` volume. A private Nginx transport terminates verified TLS for the existing internal owner listeners. The readiness sidecar uses the discovery-only Warehouse credential to read JWKS. Auth checks its real runtime readiness before that response; a 401, 403 or unavailable store makes the sidecar unhealthy. Warehouse and Serving keep their existing in-memory storage model.
+
+Re-running preparation validates the original bundle and preserves every credential. Partial files, changed private bindings and tampering cause an explicit refusal; preparation never repairs or replaces existing authority. Source/image changes require the explicit `--update-images` preparation flag after review. It verifies the existing private bundle, then atomically updates only `compose.env` and its bundle metadata. Auth config, bootstrap input, transport keys and persistent authority remain unchanged. A normal repeat still refuses a source pin change. Initial configuration volumes are copied once and compared on subsequent starts. Auth alone writes its state and owner secrets. Retain all private files and volumes across restart. Use `stop` or `down` without `--volumes`; removing Auth state loses account authority.
+
+Feedback is opt-in with `--profile feedback`. Set `COMPLETION_FEEDBACK_IMAGE` to its reviewed exact image and `COMPLETION_FEEDBACK_ENV_FILE` to its existing private SMTP/Telegram configuration. Missing optional-provider inputs fail that service; the base demo has no readiness or dependency on it. With Feedback off, its endpoint reports unavailable rather than fabricated success. Auth invitation/OTP mail retains its separate SMTP configuration.
+
+The source recipe and preparation tests are not runtime or deployment evidence. Seed, candidate acceptance, image digest recording and the final permitted HTTPS readback are required before calling this candidate ready for the defense.
+
+## Опубликованный legacy compatibility profile
 
 Требуются Git, Docker Engine и Docker Compose v2. Образы публичные; для скачивания из GHCR вход не требуется.
 

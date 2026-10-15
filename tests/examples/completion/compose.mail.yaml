@@ -1,0 +1,18 @@
+x-umir-completion-test-mail: isolated-invalid-recipients-only
+services:
+  demo-smtp:
+    image: axllent/mailpit:v1.31.5
+    user: "0:0"
+    environment:
+      TZ: Europe/Moscow
+      MP_SMTP_TLS_CERT: /tls/smtp.crt
+      MP_SMTP_TLS_KEY: /tls/smtp.key
+      MP_SMTP_AUTH_FILE: /tls/smtp-auth
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+      MP_SMTP_ALLOWED_RECIPIENTS: '@[^@]+\.invalid$$'
+      MP_SMTP_DISABLE_RDNS: "true"
+    volumes:
+      - ${COMPLETION_TEST_MAIL_DIR:?prepare isolated test mail inputs}:/tls:ro
+    ports:
+      - "127.0.0.1:${COMPLETION_SMTP_VIEW_PORT:-19125}:8025"
+    networks: [default, edge]

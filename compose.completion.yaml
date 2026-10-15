@@ -1,0 +1,197 @@
+name: ${COMPOSE_PROJECT_NAME:?prepare a completion bundle}
+x-umir-completion-profile: FIN1
+services:
+  private-init:
+    image: alpine:3.23
+    user: "0:0"
+    network_mode: none
+    volumes:
+      - ${COMPLETION_PRIVATE_DIR:?prepare private inputs}:/bootstrap:ro
+      - auth-config:/targets/auth
+      - transport-config:/targets/transport
+      - trust-config:/targets/trust
+      - health-config:/targets/health
+    command:
+      - sh
+      - -ec
+      - |
+        for name in auth transport trust health; do
+          if [ -e "/targets/$$name/.ready" ]; then
+            diff -rq "/bootstrap/$$name" "/targets/$$name" >/dev/null || exit 1
+          else
+            [ -z "$$(ls -A "/targets/$$name")" ] || exit 1
+            cp -R "/bootstrap/$$name/." "/targets/$$name/"
+            chown -R 65532:65532 "/targets/$$name"
+            find "/targets/$$name" -type d -exec chmod 700 {} +
+            find "/targets/$$name" -type f -exec chmod 600 {} +
+          fi
+        done
+
+  transport:
+    image: nginxinc/nginx-unprivileged:1.30.5-alpine
+    user: "65532:65532"
+    entrypoint: [nginx]
+    command: [-g, "daemon off;"]
+    volumes:
+      - transport-config:/run/transport:ro
+      - type: volume
+        source: transport-config
+        target: /etc/nginx/conf.d
+        volume:
+          subpath: conf
+    depends_on:
+      private-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  auth:
+    image: ${COMPLETION_AUTH_IMAGE:?prepare image identities}
+    environment:
+      TZ: Europe/Moscow
+      UMIR_AUTH_CONFIG_FILE: /run/umir-auth/config.json
+      SSL_CERT_FILE: /run/trust/ca.crt
+    volumes:
+      - auth-config:/run/umir-auth:ro
+      - trust-config:/run/trust:ro
+      - auth-state:/var/lib/umir-auth
+    networks: [default, mail]
+    depends_on:
+      private-init:
+        condition: service_completed_successfully
+      transport:
+        condition: service_started
+    restart: unless-stopped
+
+  auth-ready:
+    image: node:24.21.0-alpine
+    user: "65532:65532"
+    command: [node, -e, "setInterval(() => {}, 60000)"]
+    volumes:
+      - health-config:/run/auth-health:ro
+      - ./scripts/completion/auth-health.mjs:/health.mjs:ro
+    depends_on:
+      auth:
+        condition: service_started
+    healthcheck:
+      test: [CMD, node, /health.mjs]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  warehouse:
+    image: ${COMPLETION_WAREHOUSE_IMAGE:?prepare image identities}
+    env_file:
+      - path: ${COMPLETION_PRIVATE_DIR}/env/warehouse.env
+        format: raw
+    environment:
+      TZ: Europe/Moscow
+      WAREHOUSE_API_MODE: v2
+      AUTH_JWKS_URL: https://auth:8085/internal/auth/v1/jwks
+      SSL_CERT_FILE: /run/trust/ca.crt
+      PORT: "8080"
+      INTERNAL_PORT: "8082"
+    volumes:
+      - trust-config:/run/trust:ro
+    depends_on:
+      auth-ready:
+        condition: service_healthy
+    restart: unless-stopped
+
+  serving:
+    image: ${COMPLETION_SERVING_IMAGE:?prepare image identities}
+    env_file:
+      - path: ${COMPLETION_PRIVATE_DIR}/env/serving.env
+        format: raw
+    environment:
+      TZ: Europe/Moscow
+      TZDATA_VERSION: go1.26.9
+      AUTH_INTERNAL_URL: https://auth:8085
+      WAREHOUSE_INTERNAL_URL: https://transport:8442
+      SSL_CERT_FILE: /run/trust/ca.crt
+      REGISTRY_POLL_INTERVAL: 1s
+    volumes:
+      - trust-config:/run/trust:ro
+    depends_on:
+      auth-ready:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  gateway:
+    image: ${COMPLETION_GATEWAY_IMAGE:?prepare image identities}
+    env_file:
+      - path: ${COMPLETION_PRIVATE_DIR}/env/gateway.env
+        format: raw
+    environment:
+      TZ: Europe/Moscow
+      AUTH_URL: https://auth:8085
+      SERVING_URL: https://transport:8443
+      WAREHOUSE_URL: https://transport:8442
+      FEEDBACK_URL: https://transport:8445
+      SSL_CERT_FILE: /run/trust/ca.crt
+      OPERATOR_PUBLIC_ORIGIN: ${COMPLETION_ORIGIN:?set exact browser origin}
+      OPERATOR_COOKIE_MODE: ${COMPLETION_COOKIE_MODE:-secure}
+      LISTEN_HOST: 0.0.0.0
+      PRIVATE_LISTEN_HOST: 0.0.0.0
+      PRIVATE_PORT: "8086"
+    volumes:
+      - trust-config:/run/trust:ro
+    depends_on:
+      auth-ready:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+      serving:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${COMPLETION_FRONTEND_IMAGE:?prepare image identities}
+    ports:
+      - "${COMPLETION_BIND:-127.0.0.1}:${COMPLETION_WEB_PORT:-8080}:8080"
+    networks: [default, edge]
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+  feedback:
+    profiles: [feedback]
+    image: ${COMPLETION_FEEDBACK_IMAGE:-ghcr.io/justikra/umir-feedback:sha-136a88a96a80eee3b5553cecf5b305bcd8d0e851}
+    env_file:
+      - path: ${COMPLETION_PRIVATE_DIR}/env/feedback.env
+        format: raw
+      - path: ${COMPLETION_FEEDBACK_ENV_FILE:-.completion-feedback.env}
+        required: false
+        format: raw
+    environment:
+      TZ: Europe/Moscow
+      FEEDBACK_AUTH_URL: https://auth:8085
+      SSL_CERT_FILE: /run/trust/ca.crt
+      FEEDBACK_LISTEN_ADDRESS: 0.0.0.0:8084
+      FEEDBACK_STORE_PATH: /var/lib/umir-feedback/feedback.json
+    volumes:
+      - trust-config:/run/trust:ro
+      - feedback-state:/var/lib/umir-feedback
+    networks: [default, mail]
+    depends_on:
+      auth-ready:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    internal: true
+  mail:
+  edge:
+
+volumes:
+  auth-config:
+  transport-config:
+  trust-config:
+  health-config:
+  auth-state:
+  feedback-state:

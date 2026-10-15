@@ -12,3 +12,5 @@ node_modules/
 dist/
 .cache/go-quality/
 
+.completion*/
+.completion-feedback.env

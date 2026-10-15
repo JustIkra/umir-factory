@@ -1,0 +1,33 @@
+services:
+  auth:
+    pull_policy: build
+    build:
+      context: ${COMPLETION_SOURCES:?pass --sources during preparation}/auth
+      args:
+        SOURCE_REVISION: ${COMPLETION_AUTH_SHA}
+      labels:
+        org.opencontainers.image.revision: ${COMPLETION_AUTH_SHA}
+  warehouse:
+    pull_policy: build
+    build:
+      context: ${COMPLETION_SOURCES}/warehouse
+      labels:
+        org.opencontainers.image.revision: ${COMPLETION_WAREHOUSE_SHA}
+  serving:
+    pull_policy: build
+    build:
+      context: ${COMPLETION_SOURCES}/serving
+      labels:
+        org.opencontainers.image.revision: ${COMPLETION_SERVING_SHA}
+  gateway:
+    pull_policy: build
+    build:
+      context: ${COMPLETION_SOURCES}/gateway
+      labels:
+        org.opencontainers.image.revision: ${COMPLETION_GATEWAY_SHA}
+  frontend:
+    pull_policy: build
+    build:
+      context: ${COMPLETION_SOURCES}/frontend
+      labels:
+        org.opencontainers.image.revision: ${COMPLETION_FRONTEND_SHA}

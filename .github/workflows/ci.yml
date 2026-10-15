@@ -53,6 +53,9 @@ jobs:
         with:
           go-version: '1.26.9'
           check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
       - name: Install pinned Go quality tools
         run: make tools
       - name: Check standalone assembly-check module
@@ -102,6 +105,9 @@ jobs:
         with:
           go-version: '1.26.9'
           check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
       - name: Build assembly checks
         env:
           GOWORK: 'off'
@@ -132,6 +138,9 @@ jobs:
         with:
           go-version: '1.26.9'
           check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
       - name: Select the published HTTP assembly when enabled
         id: stage
         run: bash scripts/http-acceptance-stage.sh >> "$GITHUB_OUTPUT"
@@ -167,6 +176,9 @@ jobs:
         with:
           go-version: '1.26.9'
           check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
       - name: Install pinned Go quality tools
         run: make tools
       - name: Check HTTP module

@@ -1,0 +1,10 @@
+{
+  "profile": "FIN1",
+  "services": {
+    "auth": "c6f831335b9f25c58e5cd6da62c8cad3c1ac0743",
+    "warehouse": "52aae498e0d5501323849910013ac1a076cd159d",
+    "serving": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
+    "gateway": "e677d0ea4e973fd772ea739ee0dcbead25447fd6",
+    "frontend": "146590d19cc3520055f2ef7d74e86e67b960435b"
+  }
+}

@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Add a separate FIN1 candidate Compose with real Auth, exact-source builds, private TLS, persistent Auth authority and optional Feedback. Private input preparation is idempotent and refuses incomplete or changed bundles. Selected production pins are unchanged.
+
 - Define the FIN1 supply and recommendation contract supplement, strict composed schemas, examples, 26 acceptance predicates and explicit transition from the predecessor recommendation policy. Preserve C2/UA1 files and evidence. Add test-only JSON Schema validation and deterministic composition checks; runtime integration remains pending.
 
 - Published the sole user-selected completion plan, revision 2, and its HTML view. Marked the previous backend execution backlog as superseded. This documentation change does not qualify services, select images or deploy the assembly.
