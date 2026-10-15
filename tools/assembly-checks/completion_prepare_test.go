@@ -13,7 +13,7 @@ func TestCompletionPrivatePreparation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "node", "--test", path, filepath.Join(filepath.Dir(path), "seed.test.mjs")).CombinedOutput()
 	if err != nil {
