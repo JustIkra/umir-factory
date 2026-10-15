@@ -1,10 +1,10 @@
 {
-  "profile": "FIN1",
+  "profile": "REG1",
   "services": {
-    "auth": "e413e035372bc07188a600c87df080bb0df636e3",
+    "auth": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b",
     "warehouse": "52aae498e0d5501323849910013ac1a076cd159d",
     "serving": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
-    "gateway": "e677d0ea4e973fd772ea739ee0dcbead25447fd6",
-    "frontend": "146590d19cc3520055f2ef7d74e86e67b960435b"
+    "gateway": "1c8604dc72bb2aefee22e82e7586943770e7ffdc",
+    "frontend": "4a6452f56850c02dad83981e1b26770a35d0bd44"
   }
 }

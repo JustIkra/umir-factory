@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Select reviewed REG1 Auth/Gateway and the merged map/friendly-copy Frontend for the authorized stand update. Retain Warehouse/Serving revisions, original accounts and private inputs. Document matched Auth migration backups and a targeted update that preserves business processes.
+
 - Address REG1 review issue #16: command ID bound, distinct completion schemas, explicit 403/429/lockout/remember-me semantics and unique example IDs. Document default abuse limits, neutral resets, disabled code login and storage/rollback constraints; validate configurable preparation limits.
 
 - Document the existing private runtime input directory and owner-specific handling; keep the root Docker context exclusion.
