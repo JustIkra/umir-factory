@@ -2,9 +2,13 @@
 
 ## Не выпущено
 
+- Make the restart polling regression cancel on its second readiness attempt with the existing bounded scenario guard. Preserve ownership-drift and unsuccessful-restart assertions; a one-second setup race no longer prevents reaching the tested polling path.
+
+- Publish the exact FIN1 service images after main CI and deploy the pinned profile to the existing HTTPS stand. Record digest identities, secure-cookie login, seed/repeat, FEFO/order recovery, explicit shortage and human writeoff. Verify real production invitation/OTP delivery; keep OTP completion and fresh-user role readback distinct. Preserve legacy profile evidence.
+
 - Add a separate FIN1 candidate Compose with real Auth, exact-source builds, private TLS, persistent Auth authority and optional Feedback. Private input preparation is idempotent and refuses incomplete or changed bundles. Selected production pins are unchanged.
 
-- Define the FIN1 supply and recommendation contract supplement, strict composed schemas, examples, 26 acceptance predicates and explicit transition from the predecessor recommendation policy. Preserve C2/UA1 files and evidence. Add test-only JSON Schema validation and deterministic composition checks; runtime integration remains pending.
+- Define the FIN1 supply and recommendation contract supplement, strict composed schemas, examples, 26 acceptance predicates and explicit transition from the predecessor recommendation policy. Preserve C2/UA1 files and evidence. Add test-only JSON Schema validation and deterministic composition checks; keep contract validation separate from the runtime observations in the stand receipt.
 
 - Published the sole user-selected completion plan, revision 2, and its HTML view. Marked the previous backend execution backlog as superseded. This documentation change does not qualify services, select images or deploy the assembly.
 

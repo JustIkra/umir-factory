@@ -1,7 +1,7 @@
 {
   "profile": "FIN1",
   "services": {
-    "auth": "c4c27240d62509033781d6106fd79ddeba94ecb4",
+    "auth": "e413e035372bc07188a600c87df080bb0df636e3",
     "warehouse": "52aae498e0d5501323849910013ac1a076cd159d",
     "serving": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
     "gateway": "e677d0ea4e973fd772ea739ee0dcbead25447fd6",

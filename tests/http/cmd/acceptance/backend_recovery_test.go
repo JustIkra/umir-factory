@@ -144,7 +144,7 @@ func TestRestartStartupPollingHonorsBudgetAndOwnership(t *testing.T) {
 	for _, failure := range []string{"budget", "ownership-drift"} {
 		t.Run(failure, func(t *testing.T) {
 			rig := newBackendInfrastructureRig(t, "warehouse")
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := backendScenarioContext(context.Background())
 			defer cancel()
 			if _, err := rig.client.control(ctx, "warehouse", "fixture.ready", map[string]any{}); err != nil {
 				t.Fatal(err)
@@ -171,7 +171,7 @@ func TestRestartStartupPollingHonorsBudgetAndOwnership(t *testing.T) {
 			if _, err := rig.client.restart(ctx, "warehouse"); err == nil {
 				t.Fatal("failed startup accepted")
 			}
-			if failure == "budget" && (calls != 2 || ctx.Err() == nil) {
+			if failure == "budget" && (calls != 2 || !errors.Is(ctx.Err(), context.Canceled)) {
 				t.Fatalf("budget was not honored after polling: calls=%d err=%v", calls, ctx.Err())
 			}
 			if failure == "ownership-drift" && calls != 1 {
