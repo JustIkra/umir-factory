@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Add a reproducibility test for the composed UA1 contract profiles, matching the FIN1 and REG1 gates: it recomposes them in a temporary directory, compares the bytes with the committed files and checks that the inputs stay unchanged. `make check-contract` runs it.
+
 - Set `WAREHOUSE_API_MODE=legacy` explicitly for Warehouse in `compose.yaml` and `compose.dev.yaml`, so the legacy profiles keep starting once Warehouse refuses an empty mode. The completion profile already sets `v2`. A Compose test now checks every profile that runs Warehouse.
 
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
