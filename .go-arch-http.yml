@@ -9,9 +9,12 @@ components:
   fault-proxy: {in: "cmd/fault-proxy"}
   faultproxy: {in: "internal/faultproxy"}
   feedback-fixture: {in: "cmd/feedback-fixture"}
+vendors:
+  json-schema: {in: "github.com/santhosh-tekuri/jsonschema/v6"}
 deps:
   acceptance:
     mayDependOn: [acceptance, faultproxy]
+    canUse: [json-schema]
   fault-proxy:
     mayDependOn: [fault-proxy, faultproxy]
   faultproxy:

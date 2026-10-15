@@ -1,0 +1,55 @@
+{
+  "profile": "FIN1",
+  "predecessor": "UA1.1 on C2",
+  "status": "policy mapping only; original artifacts/results unchanged",
+  "affectedCase": "BE-E3-03",
+  "assertions": [
+    {
+      "caseID": "BE-E3-03",
+      "index": 0,
+      "pointer": "/fefo/rankingMatchesActualAllocations",
+      "disposition": "replace-for-FIN1",
+      "finRows": [
+        "FIN-REC-03",
+        "FIN-REC-05",
+        "FIN-REC-09"
+      ],
+      "reason": "FIN1 exact U*A*E ranking and all risky product reasons replace earliest-allocation ranking/reason policy."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 1,
+      "pointer": "/fefo/allTiedReasonsPresent",
+      "disposition": "replace-for-FIN1",
+      "finRows": [
+        "FIN-REC-03",
+        "FIN-REC-05",
+        "FIN-REC-09"
+      ],
+      "reason": "FIN1 exact U*A*E ranking and all risky product reasons replace earliest-allocation ranking/reason policy."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 2,
+      "pointer": "/fefo/pendingOrExpiredUsed",
+      "disposition": "retain",
+      "finRows": [
+        "FIN-REC-01",
+        "FIN-REC-02"
+      ],
+      "reason": "Eligibility and no-reservation guarantees are unchanged."
+    },
+    {
+      "caseID": "BE-E3-03",
+      "index": 3,
+      "pointer": "/quantity/recommendationReserved",
+      "disposition": "retain",
+      "finRows": [
+        "FIN-REC-01",
+        "FIN-REC-02"
+      ],
+      "reason": "Eligibility and no-reservation guarantees are unchanged."
+    }
+  ],
+  "retained": "Every unrelated C2/UA1 predicate, including timezone-preserved stored expiries, remains applicable. This mapping is not execution evidence."
+}

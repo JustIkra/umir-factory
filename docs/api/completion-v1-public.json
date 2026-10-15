@@ -1,0 +1,637 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Umir FIN1 public amendment",
+    "version": "1.0.0-draft.1",
+    "description": "Completion-only supplement on the composed UA1 profile. Frozen predecessors are unchanged."
+  },
+  "paths": {
+    "/api/v2/r/{restaurantID}/warehouse/supply-suggestions": {
+      "get": {
+        "operationId": "supplySuggestions",
+        "x-owner": "warehouse",
+        "x-required-capability": "stock.read",
+        "description": "FIN1 semantics and cross-field rules are in ../completion-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "restaurantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/EntityID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One coherent read-only capture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopedSupplySuggestions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed read failure. A failure is not an empty success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FINDecimal": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+        "maxLength": 64,
+        "description": "Finite nonnegative display decimal, exactly six places. Exact policy arithmetic precedes wire rounding."
+      },
+      "FINWindow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "days"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "to": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "days": {
+            "type": "integer",
+            "const": 7
+          }
+        }
+      },
+      "FINPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "historyDays",
+          "coverageThresholdDays",
+          "targetDays"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "FIN1"
+          },
+          "historyDays": {
+            "type": "integer",
+            "const": 7
+          },
+          "coverageThresholdDays": {
+            "type": "integer",
+            "const": 3
+          },
+          "targetDays": {
+            "type": "integer",
+            "const": 7
+          }
+        }
+      },
+      "FINSupplyRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productID",
+          "productName",
+          "baseUnit",
+          "availableQuantity",
+          "consumedQuantity",
+          "averageDailyBaseUnits",
+          "coverageDays",
+          "onePortionDeficit",
+          "suggestedQuantity",
+          "blockedDishIDs",
+          "reasons"
+        ],
+        "properties": {
+          "productID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "productName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "baseUnit": {
+            "$ref": "#/components/schemas/BaseUnit"
+          },
+          "availableQuantity": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "consumedQuantity": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "averageDailyBaseUnits": {
+            "$ref": "#/components/schemas/FINDecimal"
+          },
+          "coverageDays": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FINDecimal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "onePortionDeficit": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "suggestedQuantity": {
+            "$ref": "#/components/schemas/PositiveQuantity"
+          },
+          "blockedDishIDs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ID"
+            },
+            "minItems": 0,
+            "maxItems": 500,
+            "uniqueItems": true
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low_coverage",
+                "stop_list_deficit"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 2,
+            "uniqueItems": true
+          }
+        }
+      },
+      "FINSupplySuggestions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evaluatedAt",
+          "stateVersion",
+          "policy",
+          "window",
+          "coverage",
+          "items"
+        ],
+        "properties": {
+          "evaluatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "stateVersion": {
+            "$ref": "#/components/schemas/NonNegativeInt64"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/FINPolicy"
+          },
+          "window": {
+            "$ref": "#/components/schemas/FINWindow"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FINSupplyRow"
+            },
+            "minItems": 0,
+            "maxItems": 500
+          }
+        }
+      },
+      "ScopedSupplySuggestions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context",
+          "result"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/BusinessContext"
+          },
+          "result": {
+            "$ref": "#/components/schemas/FINSupplySuggestions"
+          }
+        }
+      },
+      "FINRiskBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productID",
+          "productName",
+          "batchID",
+          "remainingQuantity",
+          "baseUnit",
+          "expiresAt",
+          "remainingSeconds"
+        ],
+        "properties": {
+          "productID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "productName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "batchID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "remainingQuantity": {
+            "$ref": "#/components/schemas/PositiveQuantity"
+          },
+          "baseUnit": {
+            "$ref": "#/components/schemas/BaseUnit"
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "remainingSeconds": {
+            "$ref": "#/components/schemas/NonNegativeInt64"
+          }
+        }
+      },
+      "FINDishDemand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dishID",
+          "portions"
+        ],
+        "properties": {
+          "dishID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "portions": {
+            "$ref": "#/components/schemas/PositiveInt64"
+          }
+        }
+      },
+      "FINRecommendationInputs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evaluatedAt",
+          "stateVersion",
+          "horizonHours",
+          "window",
+          "coverage",
+          "menu",
+          "riskBatches",
+          "demand"
+        ],
+        "properties": {
+          "evaluatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "stateVersion": {
+            "$ref": "#/components/schemas/NonNegativeInt64"
+          },
+          "horizonHours": {
+            "type": "integer",
+            "const": 72
+          },
+          "window": {
+            "$ref": "#/components/schemas/FINWindow"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "menu": {
+            "$ref": "#/components/schemas/WMenuEvaluation"
+          },
+          "riskBatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FINRiskBatch"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          },
+          "demand": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FINDishDemand"
+            },
+            "minItems": 0,
+            "maxItems": 10000
+          }
+        }
+      },
+      "ScopedRecommendationInputs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context",
+          "result"
+        ],
+        "properties": {
+          "context": {
+            "$ref": "#/components/schemas/BusinessContext"
+          },
+          "result": {
+            "$ref": "#/components/schemas/FINRecommendationInputs"
+          }
+        }
+      },
+      "FINRecommendationReason": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "productID",
+          "productName",
+          "batchID",
+          "quantityPerPortion",
+          "riskQuantity",
+          "targetPortions",
+          "baseUnit",
+          "expiresAt",
+          "remainingSeconds"
+        ],
+        "properties": {
+          "productID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "productName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "batchID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "quantityPerPortion": {
+            "$ref": "#/components/schemas/PositiveQuantity"
+          },
+          "riskQuantity": {
+            "$ref": "#/components/schemas/PositiveQuantity"
+          },
+          "targetPortions": {
+            "$ref": "#/components/schemas/PositiveInt64"
+          },
+          "baseUnit": {
+            "$ref": "#/components/schemas/BaseUnit"
+          },
+          "expiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "remainingSeconds": {
+            "$ref": "#/components/schemas/NonNegativeInt64"
+          }
+        }
+      },
+      "FINRecommendation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dishID",
+          "dishName",
+          "score",
+          "demandBasis",
+          "priorityExpiresAt",
+          "reasons"
+        ],
+        "properties": {
+          "dishID": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "dishName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "score": {
+            "$ref": "#/components/schemas/FINDecimal"
+          },
+          "demandBasis": {
+            "type": "string",
+            "enum": [
+              "history",
+              "fallback"
+            ]
+          },
+          "priorityExpiresAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FINRecommendationReason"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        }
+      },
+      "FINRecommendations": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evaluatedAt",
+          "stateVersion",
+          "policyVersion",
+          "horizonHours",
+          "window",
+          "coverage",
+          "items"
+        ],
+        "properties": {
+          "evaluatedAt": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "stateVersion": {
+            "$ref": "#/components/schemas/NonNegativeInt64"
+          },
+          "policyVersion": {
+            "type": "string",
+            "const": "FIN1"
+          },
+          "horizonHours": {
+            "type": "integer",
+            "const": 72
+          },
+          "window": {
+            "$ref": "#/components/schemas/FINWindow"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FINRecommendation"
+            },
+            "minItems": 0,
+            "maxItems": 10
+          }
+        }
+      },
+      "FINCapability": {
+        "type": "string",
+        "enum": [
+          "catalog.read",
+          "catalog.write",
+          "stock.read",
+          "delivery.create",
+          "analytics.read",
+          "writeoff.confirm",
+          "menu.read",
+          "recommendations.read",
+          "order.prepare",
+          "order.confirm",
+          "order.read",
+          "feedback.submit",
+          "org.read",
+          "org.settings.write",
+          "restaurant.create",
+          "restaurant.delete",
+          "org.delete",
+          "membership.manage",
+          "invitation.manage",
+          "org.summary.read",
+          "runtime.register",
+          "runtime.close",
+          "expiry.due",
+          "consumer.menu.evaluate",
+          "consumer.order.evaluate",
+          "consumer.order.commit",
+          "consumer.order.resolve",
+          "feedback.anonymous.submit",
+          "feedback.read",
+          "feedback.export",
+          "consumer.recommendations.read"
+        ]
+      }
+    }
+  },
+  "x-schema-replacements": {
+    "ScopedRecommendations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "result"
+      ],
+      "properties": {
+        "context": {
+          "$ref": "#/components/schemas/BusinessContext"
+        },
+        "result": {
+          "$ref": "#/components/schemas/FINRecommendations"
+        }
+      }
+    },
+    "ServingScopedRecommendations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "result"
+      ],
+      "properties": {
+        "context": {
+          "$ref": "#/components/schemas/ServingContext"
+        },
+        "result": {
+          "$ref": "#/components/schemas/FINRecommendations"
+        }
+      }
+    },
+    "AuthorizationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "userID",
+        "sessionID",
+        "sessionVersion",
+        "credentialVersion",
+        "accessVersion",
+        "orgID",
+        "tenantID",
+        "permissions",
+        "settings",
+        "lifecycleVersion",
+        "token",
+        "expiresAt",
+        "session"
+      ],
+      "properties": {
+        "userID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "sessionID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "sessionVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "credentialVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "accessVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "orgID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "tenantID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/FINCapability"
+          },
+          "minItems": 1,
+          "maxItems": 40,
+          "uniqueItems": true
+        },
+        "settings": {
+          "$ref": "#/components/schemas/Settings"
+        },
+        "lifecycleVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expiresAt": {
+          "$ref": "#/components/schemas/Instant"
+        },
+        "session": {
+          "$ref": "#/components/schemas/Session"
+        }
+      }
+    }
+  },
+  "x-policy-transition": {
+    "recommendations": "FIN1 replaces the predecessor ranking and strict result shape; preserve historical C2 inputs/results."
+  }
+}

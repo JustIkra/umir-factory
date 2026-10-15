@@ -1,0 +1,400 @@
+{
+  "profile": "FIN1",
+  "contractVersion": "1.0.0-draft.1",
+  "status": "normative predicates; no execution evidence",
+  "examples": "completion-v1-examples.json",
+  "rows": [
+    {
+      "id": "FIN-M6-01",
+      "fixture": {
+        "name": "period",
+        "setup": "RecordedAt at from minus 1ns, from, to minus 1ns and to; Order.PlacedAt intentionally differs"
+      },
+      "assertion": "Only [from,to) event RecordedAt contributes; actual allocation quantities survive later recipe changes.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-02",
+      "fixture": {
+        "name": "eligible-stock",
+        "setup": "Eligible, zero, pending and just-expired batches for the same product"
+      },
+      "assertion": "Only positive, nonpending stock with expiry strictly after capture contributes, before any scheduler transition.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-03",
+      "fixture": {
+        "name": "consumption",
+        "setup": "One order, one pending transition, one human confirmed writeoff and one legacy automatic expiry"
+      },
+      "assertion": "Count order allocation plus human writeoff once; pending/legacy expiry contributes zero.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-04",
+      "fixture": {
+        "name": "no-history",
+        "setup": "Empty journal with sufficient stock, then a one-portion deficit"
+      },
+      "assertion": "No invented usage/finite coverage; no row when enough stock; deficit-only suggestion otherwise.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-05",
+      "fixture": {
+        "name": "partial-history",
+        "setup": "Coverage starts inside the 7-day window, then exactly at window start"
+      },
+      "assertion": "Average denominator remains 7; complete false/true and availableFrom=max(from,coverageFrom).",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-06",
+      "fixture": {
+        "name": "threshold",
+        "setup": "Consumed quantity 7000 and available 2999,3000,3001 in separate captures"
+      },
+      "assertion": "Only 2999 triggers low_coverage; exact comparison precedes six-place display rounding.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-07",
+      "fixture": {
+        "name": "deficit",
+        "setup": "Two dishes require 5000 and 7000 of one product with available 2000"
+      },
+      "assertion": "Deficit 5000, not 8000; sorted blockedDishIDs contains both dishes; suggestion max(target,deficit).",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-08",
+      "fixture": {
+        "name": "quantity",
+        "setup": "Products in g/ml/pcs, fractional base-unit quantum and exact target ceiling"
+      },
+      "assertion": "No cross-unit sum; average in base units/day; ceil to existing 0.001 quantum; deterministic ID order.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-09",
+      "fixture": {
+        "name": "overflow",
+        "setup": "Individually valid events whose period sum exceeds int64, and a capacity overflow"
+      },
+      "assertion": "Typed CalculationUnavailable/LimitExceeded, never wraparound or truncated successful data.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-10",
+      "fixture": {
+        "name": "read-only",
+        "setup": "Capture before/after event version and batches while expiry is due"
+      },
+      "assertion": "No new event, writeoff, reservation or delivery; repeat results coherent and returned values cannot mutate owner.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-11",
+      "fixture": {
+        "name": "scope",
+        "setup": "Wrong org/tenant/epoch/settings, expired credentials and Waiter-only token"
+      },
+      "assertion": "Current scoped refusal mapping; no cross-restaurant data or read elevation.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-M6-12",
+      "fixture": {
+        "name": "public-ui",
+        "setup": "Real scoped read through Gateway in existing Warehouse tab"
+      },
+      "assertion": "Strict FIN1 response; pending/empty/error/partial history visible; stale/cancelled scope cannot install result.",
+      "owners": [
+        "warehouse",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-01",
+      "fixture": {
+        "name": "risk-window",
+        "setup": "Expiry at capture, capture+72h, capture+72h+1ns and pending positive stock"
+      },
+      "assertion": "Include only capture<expiry<=capture+72h, positive and nonpending.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-02",
+      "fixture": {
+        "name": "availability",
+        "setup": "Unavailable dish, available no-risk dish and available risky dish"
+      },
+      "assertion": "Return only available dishes with risky product; no stock reservation.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-03",
+      "fixture": {
+        "name": "fish-parsley-rice",
+        "setup": "completion-v1-examples.json recommendation-inputs and recommendations"
+      },
+      "assertion": "Fish score 0.666667 > parsley 0.133333; rice six months away excluded; reason r includes fresh parsley allocations.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-04",
+      "fixture": {
+        "name": "whole-recipe",
+        "setup": "Risky 1g plus fresh 4g cover one 5g parsley portion"
+      },
+      "assertion": "r=5g and A=1/5; do not use 1g as the whole recipe quantity.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-05",
+      "fixture": {
+        "name": "aggregation",
+        "setup": "Two risky batches of one product with different expiry and a second risky product"
+      },
+      "assertion": "W=sum eligible horizon batches; earliest batch/expiry supplies t; one reason per product; dish score sums factors.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-06",
+      "fixture": {
+        "name": "edge-quantities",
+        "setup": "W<r, W=r, W>r and W=0"
+      },
+      "assertion": "A=min(1,W/r); zero risk has no reason/division; target portions ceil(W/r).",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-07",
+      "fixture": {
+        "name": "demand-history",
+        "setup": "Complete coverage with one dish having 168 recorded portions and a second no orders"
+      },
+      "assertion": "Demand first 1 portion/hour with history basis; second 2/hour fallback. RecordedAt boundaries apply.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-08",
+      "fixture": {
+        "name": "demand-fallback",
+        "setup": "Partial coverage even with recorded orders"
+      },
+      "assertion": "Exactly 2 portions/hour fallback; explicit partial coverage; no extrapolated full-history claim.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-09",
+      "fixture": {
+        "name": "exact-ranking",
+        "setup": "Two exact scores differ below six decimals; equal exact scores/expiry; more than ten dishes"
+      },
+      "assertion": "Sort exact score descending then expiry then dishID; wire rounding does not determine ties; at most ten.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-10",
+      "fixture": {
+        "name": "finite-score",
+        "setup": "Subsecond positive expiry, large int64 quantities/portion counts, several products"
+      },
+      "assertion": "Exact rational intermediates; finite nonnegative six-decimal score and checked target quantities.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-11",
+      "fixture": {
+        "name": "coherent-input",
+        "setup": "Mutate scope/state during transport; mismatched menu/window/prefix/epoch/settings"
+      },
+      "assertion": "Reject inconsistent capture; menu/risk/demand share capture; no raw orders leave Warehouse.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-12",
+      "fixture": {
+        "name": "least-privilege",
+        "setup": "Recommendations user policy and stock/history-only policies"
+      },
+      "assertion": "Only recommendation policy grants consumer.recommendations.read; endpoint checks it; no broad stock/history escalation.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-13",
+      "fixture": {
+        "name": "strict-boundary",
+        "setup": "Malformed/exponential/overflow quantities, unknown fields and upstream typed failures"
+      },
+      "assertion": "Gateway/client strict rejection; unavailable is never converted to successful empty recommendations.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    },
+    {
+      "id": "FIN-REC-14",
+      "fixture": {
+        "name": "existing-ui",
+        "setup": "Existing recommendations tab against real assembled services, then scope/logout/unmount"
+      },
+      "assertion": "Reasons and demand/coverage shown without new page; minute refresh and SSE invalidation are cancelled on scope end.",
+      "owners": [
+        "warehouse",
+        "serving",
+        "auth",
+        "gateway",
+        "frontend"
+      ],
+      "execution": "pending; definition only"
+    }
+  ]
+}

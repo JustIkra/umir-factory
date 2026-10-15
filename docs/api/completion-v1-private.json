@@ -1,0 +1,218 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Umir FIN1 private amendment",
+    "version": "1.0.0-draft.1"
+  },
+  "paths": {
+    "/internal/warehouse/v2/r/{restaurantID}/supply-suggestions": {
+      "get": {
+        "operationId": "privateSupplySuggestions",
+        "x-owner": "warehouse",
+        "x-required-capability": "stock.read",
+        "description": "FIN1 semantics and cross-field rules are in ../completion-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "restaurantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/EntityID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One coherent read-only capture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopedSupplySuggestions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed read failure. A failure is not an empty success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": [],
+            "serviceJWT": []
+          }
+        ]
+      }
+    },
+    "/internal/warehouse/v2/r/{restaurantID}/recommendation-inputs": {
+      "get": {
+        "operationId": "consumerRecommendations",
+        "x-owner": "warehouse",
+        "x-required-capability": "consumer.recommendations.read",
+        "description": "FIN1 semantics and cross-field rules are in ../completion-api-amendment.md.",
+        "parameters": [
+          {
+            "name": "restaurantID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/EntityID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One coherent read-only capture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopedRecommendationInputs"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Existing typed read failure. A failure is not an empty success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "serviceKey": [],
+            "serviceJWT": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  },
+  "x-schema-replacements": {
+    "UserClaims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iss",
+        "aud",
+        "iat",
+        "nbf",
+        "exp",
+        "jti",
+        "operation",
+        "permissions",
+        "kind",
+        "sub",
+        "sid",
+        "session_version",
+        "credential_version",
+        "access_version",
+        "org_id",
+        "tenant_id",
+        "time_zone",
+        "settings_version",
+        "lifecycle_version",
+        "azp"
+      ],
+      "properties": {
+        "iss": {
+          "type": "string",
+          "const": "urn:umir:auth"
+        },
+        "aud": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "umir-warehouse",
+              "umir-serving",
+              "umir-gateway",
+              "umir-feedback"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true
+        },
+        "iat": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nbf": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exp": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "jti": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/FINCapability"
+          },
+          "minItems": 1,
+          "maxItems": 40,
+          "uniqueItems": true
+        },
+        "kind": {
+          "type": "string",
+          "const": "user"
+        },
+        "sub": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "sid": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "session_version": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "credential_version": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "access_version": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "org_id": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "tenant_id": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "time_zone": {
+          "$ref": "#/components/schemas/TimeZone"
+        },
+        "settings_version": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "lifecycle_version": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "azp": {
+          "type": "string",
+          "const": "umir-gateway"
+        }
+      }
+    }
+  }
+}

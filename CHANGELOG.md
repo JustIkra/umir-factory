@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Define the FIN1 supply and recommendation contract supplement, strict composed schemas, examples, 26 acceptance predicates and explicit transition from the predecessor recommendation policy. Preserve C2/UA1 files and evidence. Add test-only JSON Schema validation and deterministic composition checks; runtime integration remains pending.
+
 - Published the sole user-selected completion plan, revision 2, and its HTML view. Marked the previous backend execution backlog as superseded. This documentation change does not qualify services, select images or deploy the assembly.
 
 - Add a separate typed UA1 invitation-link SMTP receiver library with exact

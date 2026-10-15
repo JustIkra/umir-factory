@@ -2,6 +2,8 @@
 
 Единственный текущий план исполнения — [«Версия для защиты», редакция 2](docs/current-plan.md), выбранная пользователем 14.10.2026. [HTML-артефакт](docs/current-plan.html). Обязательны FIN-01–09 и FIN-11–13; FIN-10 и Feedback optional. Все прежние планы и незавершённый qualification backlog отменены как задачи исполнения. Действующие contracts и необходимые regression/quality gates сохраняются. Реализация начата; публикация этого плана не означает готовность сервисов, новых образов или стенда.
 
+The [FIN1 API supplement](docs/completion-api-amendment.md) defines supply suggestions and the revised recommendation policy. Its [public profile](docs/api/completion-v1-composed-public.json), [private profile](docs/api/completion-v1-composed-private.json), [examples](docs/api/completion-v1-examples.json), [acceptance predicates](docs/api/completion-v1-acceptance.json) and [policy transition](docs/api/completion-v1-transition.json) are separate from frozen C2/UA1 artifacts. Generate both profiles with `node tests/http/tools/compose-completion-contract.mjs docs/api`. `make check` validates schema examples, malformed values and reproducible composition in the HTTP test module. These checks validate the contract files; they do not establish service or assembly acceptance. FIN1 runtime integration remains in progress.
+
 Сборка системы учёта продуктов для одного ресторана. Фабрика закрепляет версии четырёх сервисных образов и запускает их через Docker Compose.
 
 ## Репозитории и границы
