@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
+
 - Select reviewed REG1 Auth/Gateway and the merged map/friendly-copy Frontend for the authorized stand update. Retain Warehouse/Serving revisions, original accounts and private inputs. Document matched Auth migration backups and a targeted update that preserves business processes.
 
 - Address REG1 review issue #16: command ID bound, distinct completion schemas, explicit 403/429/lockout/remember-me semantics and unique example IDs. Document default abuse limits, neutral resets, disabled code login and storage/rollback constraints; validate configurable preparation limits.

@@ -1,17 +1,17 @@
 {
-  "profile": "FIN1",
+  "profile": "REG1",
   "status": "runtime-accepted-deployed",
   "verifiedDate": "2026-10-15",
   "timeZone": "Europe/Moscow",
   "origin": "https://xn----ctbhsteek4c3c.empty-lab.ru",
-  "recipeSourceSHA": "aae68fc286ae059f3be356508f372f637830e65e",
+  "recipeSourceSHA": "b5ee47d0e92f9b74659eafae23335a6dc2de8d1c",
   "recipe": "compose.completion.yaml",
   "sources": {
-    "auth": "e413e035372bc07188a600c87df080bb0df636e3",
     "warehouse": "52aae498e0d5501323849910013ac1a076cd159d",
     "serving": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
-    "gateway": "e677d0ea4e973fd772ea739ee0dcbead25447fd6",
-    "frontend": "146590d19cc3520055f2ef7d74e86e67b960435b"
+    "gateway": "1c8604dc72bb2aefee22e82e7586943770e7ffdc",
+    "frontend": "4a6452f56850c02dad83981e1b26770a35d0bd44",
+    "auth": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b"
   },
   "images": {
     "warehouse": {
@@ -33,94 +33,89 @@
       "revision": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5"
     },
     "gateway": {
-      "sourceSHA": "e677d0ea4e973fd772ea739ee0dcbead25447fd6",
-      "ref": "ghcr.io/justikra/umir-gateway@sha256:f3c73510b889df092506c9bd196959cf375408155b58f297ec2697fe136ec8b0",
-      "indexDigest": "sha256:c39bd8bb06bfcf6d3a7ba548f7e388c32b5584f3d026c3ccf69f83610602968e",
-      "platformDigest": "sha256:f3c73510b889df092506c9bd196959cf375408155b58f297ec2697fe136ec8b0",
-      "configDigest": "sha256:97211849f775189903c452fde48a0c0d8b4fc98de37e4cdd9a352375829440bc",
+      "sourceSHA": "1c8604dc72bb2aefee22e82e7586943770e7ffdc",
+      "ref": "ghcr.io/justikra/umir-gateway@sha256:79df495bbd10b63894b07caf483da3ed922854cac78fe7837e4d8716dea17aec",
+      "indexDigest": "sha256:66b27525b6eb6245aa83733eb1cfa038be6ac1fae303a601b2fcb83b324c256e",
+      "platformDigest": "sha256:79df495bbd10b63894b07caf483da3ed922854cac78fe7837e4d8716dea17aec",
+      "configDigest": "sha256:7752763635f9fa9715d18a8b3623cbb96f35b4516cf9cbf5aadfa79d3e6d29fb",
       "source": "https://github.com/JustIkra/umir-gateway",
-      "revision": "e677d0ea4e973fd772ea739ee0dcbead25447fd6"
+      "revision": "1c8604dc72bb2aefee22e82e7586943770e7ffdc"
     },
     "frontend": {
-      "sourceSHA": "146590d19cc3520055f2ef7d74e86e67b960435b",
-      "ref": "ghcr.io/justikra/umir-frontend@sha256:73c8dee579e233e38845c1a472ac2368224605898157da61431f51698724c19a",
-      "indexDigest": "sha256:5c94c3e5536caafc4fe177eb51cfdd12ff6b4d8ae5b608219e703fa7e236f796",
-      "platformDigest": "sha256:73c8dee579e233e38845c1a472ac2368224605898157da61431f51698724c19a",
-      "configDigest": "sha256:04c92d99b311f2b4e614addd90430c462c66f7b5c39224acdbd5809173b7adb7",
+      "sourceSHA": "4a6452f56850c02dad83981e1b26770a35d0bd44",
+      "ref": "ghcr.io/justikra/umir-frontend@sha256:7d5c1b97ddccaad33b303b2ded019465cdda7c19694c0313f7ebebcfa3b09190",
+      "indexDigest": "sha256:5354eb2cddc8234a36cca02414dd314092e9b7a061a966ebb3bf0eb42b3f1477",
+      "platformDigest": "sha256:7d5c1b97ddccaad33b303b2ded019465cdda7c19694c0313f7ebebcfa3b09190",
+      "configDigest": "sha256:27365d4ae43939e6643ea0109ce5e6aff7a33e9d2358476732ac04b65f3888ce",
       "source": "https://github.com/JustIkra/umir-frontend",
-      "revision": "146590d19cc3520055f2ef7d74e86e67b960435b"
+      "revision": "4a6452f56850c02dad83981e1b26770a35d0bd44"
     },
     "auth": {
-      "sourceSHA": "e413e035372bc07188a600c87df080bb0df636e3",
-      "ref": "ghcr.io/justikra/umir-auth@sha256:00968cf84529186a3db68e3f967e00642ba08238b945fefcb16b0d7e840918bb",
-      "indexDigest": "sha256:ffcb0e2fa49df6654539f76e7138b7b32a0fa9ee9f7d930633e95172f5ab95c3",
-      "platformDigest": "sha256:00968cf84529186a3db68e3f967e00642ba08238b945fefcb16b0d7e840918bb",
-      "configDigest": "sha256:f4febbb6060f13ff10591538d665766bc0c1e7b8219e81dda2a98165e5b70c3c",
+      "sourceSHA": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b",
+      "ref": "ghcr.io/justikra/umir-auth@sha256:0a1d6b4ded50daa05b97b1167fb8b65ee460d0e4ea44e15f7563be15ffff7247",
+      "indexDigest": "sha256:26b403aa39530b0ccd9a35b6d4daf706c3d57f2226b3607f3558dfdfaa28f151",
+      "platformDigest": "sha256:0a1d6b4ded50daa05b97b1167fb8b65ee460d0e4ea44e15f7563be15ffff7247",
+      "configDigest": "sha256:15eabaa3dcd58a723e4bacfca93b4c7bc455ebdc1a97ea6ba3b164554e911be3",
       "source": "https://github.com/JustIkra/umir-auth",
-      "revision": "e413e035372bc07188a600c87df080bb0df636e3"
+      "revision": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b"
     }
+  },
+  "previousAcceptedProfile": {
+    "profile": "FIN1",
+    "receipt": "completion-stand-fin1-20261015.json"
   },
   "feedback": "off",
   "backendHostPorts": 0,
-  "authState": "persistent named volume; preserve it and original private inputs",
+  "authState": {
+    "persistentVolume": "umir-completion-stand_auth-state",
+    "schemaBefore": 2,
+    "schemaAfter": 3,
+    "originalUsersRetained": 2,
+    "originalMembershipsRetained": 2,
+    "originalCredentialsVerified": true,
+    "ownerKeysRetained": true,
+    "existingSessionsRetained": true,
+    "registrationEnabled": true,
+    "activation": "explicit user request; policy-only private configuration change",
+    "matchedBackups": [
+      "/opt/umir/backups/reg1-20261015-frontend-4a6452f",
+      "/opt/umir/backups/registration-enable-20261015"
+    ]
+  },
   "https": {
     "tlsVerified": true,
     "healthz": 200,
-    "privacy": 200,
-    "login": "verified Secure HttpOnly SameSite=Strict session"
+    "existingAdminLogin": 200,
+    "existingWaiterLogin": 200,
+    "waiterMenu": 200,
+    "waiterStock": 403
   },
-  "seed": "fixed public-API seed passed; same-epoch repeat returned already-seeded with same order",
   "coreReadback": [
-    "delivery form",
-    "real stock and FEFO batches",
-    "recommendations and supply reasons",
-    "recorded allocation expiry after batch exhaustion",
-    "lost committed order reply, reload and same-command result; exactly one sale",
-    "explicit shortage reduction 2 to 1",
-    "human writeoff 1 piece",
-    "Auth-only source update preserved the same cookie, operator password, Warehouse epoch and seed order; real SSE refresh/change frames received",
-    "After the Auth SSE update, another order committed successfully; authoritative history retained one sale for the previously unknown command",
-    "Real recipient OTP completed a new Waiter; fresh login/menu/recommendations/SSE succeeded and stock returned403"
+    "Original Warehouse/Serving container IDs and epochs retained",
+    "Inventory and complete history unchanged across the update",
+    "Existing Admin/Waiter passwords and user identities verified",
+    "Existing browser session survived the Auth schema migration",
+    "Real Waiter SSE200 with initial event bytes",
+    "Merged office map and friendly UI copy deployed"
   ],
   "mail": {
-    "localTLSAuthVerified": true,
-    "vmTLSAuthRecheck": "verified",
-    "productionDelivery": "invitation_link and OTP delivered on first attempt",
-    "recipientConfirmation": "both emails received; user supplied inbox screenshot",
-    "publicOTPCompletion": "verified through the supported public API with recipient-supplied code",
-    "freshRoleReadback": {
-      "role": "Waiter",
-      "login": 200,
-      "menu": 200,
-      "recommendations": 200,
-      "sse": 200,
-      "stock": 403
-    }
+    "configurationAndCredentialsRetained": true,
+    "registrationBegin": 200,
+    "acceptanceProbe": "occupied verified address, suppressed mail; no new account or test email",
+    "priorProductionDeliveryEvidence": "completion-stand-fin1-20261015.json"
   },
   "limits": [
-    "Initial VM connection probes were refused. Later VM SMTP TLS/authentication and real production delivery succeeded without any network configuration change. The cause of the initial refusal is undetermined. Exact amd64 registry images were delivered through pinned SSH; their actual platform digests were retained.",
-    "Historical C2/UA1 evidence remains separate. The FIN1 runtime acceptance uses the exact application image identities recorded here."
+    "Retained Auth challenges remain capped at4096. PostgreSQL/coordinated cleanup remains open in Auth issue7. Public registration is enabled on this stand by explicit user instruction; storage cleanup is not claimed complete."
   ],
-  "sse": {
-    "accessCheck": 200,
-    "contentType": "text/event-stream; charset=utf-8",
-    "frames": [
-      "retry",
-      "refresh-required",
-      "ping",
-      "change"
-    ],
-    "minuteFallbackVerified": true,
-    "fallbackTimingMs": [
-      60315,
-      60316,
-      60317
-    ]
-  },
   "publishedServiceMainCI": {
     "auth": {
-      "run": 38766820868,
-      "url": "https://github.com/JustIkra/umir-auth/actions/runs/38766820868",
+      "run": 38781339861,
+      "url": "https://github.com/JustIkra/umir-auth/actions/runs/38781339861",
+      "status": "success"
+    },
+    "gateway": {
+      "run": 38781341976,
+      "url": "https://github.com/JustIkra/umir-gateway/actions/runs/38781341976",
       "status": "success"
     },
     "warehouse": {
@@ -133,40 +128,29 @@
       "url": "https://github.com/JustIkra/umir-serving/actions/runs/38761821282",
       "status": "success"
     },
-    "gateway": {
-      "run": 38761824023,
-      "url": "https://github.com/JustIkra/umir-gateway/actions/runs/38761824023",
-      "status": "success"
-    },
     "frontend": {
-      "run": 38761833948,
-      "url": "https://github.com/JustIkra/umir-frontend/actions/runs/38761833948",
+      "run": 38785184208,
+      "url": "https://github.com/JustIkra/umir-frontend/actions/runs/38785184208",
       "status": "success"
     }
   },
   "recipeCI": {
-    "sourceSHA": "aae68fc286ae059f3be356508f372f637830e65e",
-    "run": 38763020001,
-    "url": "https://github.com/JustIkra/umir-factory/actions/runs/38763020001",
+    "sourceSHA": "b5ee47d0e92f9b74659eafae23335a6dc2de8d1c",
+    "run": 38785389361,
+    "url": "https://github.com/JustIkra/umir-factory/actions/runs/38785389361",
     "status": "success"
   },
-  "runtimeRecipe": "The deployed archive contains this exact recipe source. The separate digest env selects the Auth SSE correction; current scripts/completion/sources.json reproduces those five application sources.",
+  "runtimeRecipe": "Exact archived recipe source with verified amd64 digest overrides; only Auth/Gateway/Frontend updated. The registration policy was enabled with a separate matched backup; authority and other configuration retained.",
   "recipeFilesSHA256": {
     "compose.completion.yaml": "575221eb254809bfa34f761161f3d874fb03d7f260b4badee9da794ecc12ef9d",
-    "scripts/completion/prepare.mjs": "c0f8f109e3cd13bdb9816a6fd79b7e3bac33ee7a921afc03dac389fc0fa942b6",
-    "scripts/completion/auth-health.mjs": "5f8d6dcbc6c5d7cfc74ca2e21f37624f5d5d394c4b3e16a3030f0ad2044fd94d",
-    "tests/examples/completion/seed.mjs": "f31f359122aaf7a17ff510bce060a53d80bc851b1b44334bfa9843edfa86366a",
-    "tests/examples/completion/data.json": "ef9e4487018f0aefe8b0b863dd2eac079b46724b9520186ef72f9d968a9e8fe8"
-  },
-  "quality": {
-    "allServiceMainGates": "passed at the listed exact published revisions",
-    "factoryLocalFullGate": "passed for all three Go modules with the final Auth pin and restart regression correction",
-    "restartRegression": "10 focused race repeats; explicit cancellation after two readiness attempts; ownership and failed-restart assertions retained"
+    "scripts/completion/prepare.mjs": "e776ef2ac2787a40762add9fbf02ae01cc9e681c2d6c8a81a7a79d2641163ac1",
+    "scripts/completion/auth-health.mjs": "5f8d6dcbc6c5d7cfc74ca2e21f37624f5d5d394c4b3e16a3030f0ad2044fd94d"
   },
   "selectedProfile": {
-    "profile": "FIN1",
+    "profile": "REG1",
     "recipe": "compose.completion.yaml",
     "sourcePins": "scripts/completion/sources.json",
-    "previousProfile": "compose.yaml is retained as explicitly separate legacy compatibility profile"
+    "businessPolicy": "FIN1",
+    "previousProfile": "previous FIN1 and legacy C2/UA1 evidence remain separate"
   }
 }

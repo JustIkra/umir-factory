@@ -38,7 +38,7 @@ Auth upgrades valid schema v1/v2 state to v3 atomically before admission. The mi
 
 Every new client command ID is limited to 256 Unicode code points and cannot use the reserved `expiration/` prefix. Existing persisted command records retain their original identity. Login completion forbids `newPassword`; password reset requires it and forbids `rememberMe`.
 
-Challenge records currently accumulate up to 4096. Cleanup with matching mail/command records is deferred to the PostgreSQL migration (Auth issue 7). Keep public registration disabled until that storage work is accepted. Before upgrading a stand, stop Auth and back up its state with the matched owner secrets. Startup upgrades even when registration is disabled. Rollback requires restoring that matched backup; do not point an old image at v3 state.
+Challenge records currently accumulate up to 4096. Cleanup with matching mail/command records is deferred to the PostgreSQL migration (Auth issue 7). Registration enablement is an explicit operational decision while this cap remains. The current stand enables registration by user instruction; the deferred storage work is not complete. Before upgrading a stand, stop Auth and back up its state with the matched owner secrets. Startup upgrades even when registration is disabled. Rollback requires restoring that matched backup; do not point an old image at v3 state.
 
 ## Runtime acceptance
 
