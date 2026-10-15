@@ -18,16 +18,19 @@ vendors:
   go-redis: {in: "github.com/redis/go-redis/v9"}
 deps:
   postgres:
-    mayDependOn: [postgres]
+    mayDependOn: [postgres, itest]
     canUse: [pgx]
   rabbitmq:
-    mayDependOn: [rabbitmq]
+    mayDependOn: [rabbitmq, itest]
     canUse: [amqp091]
   redis:
-    mayDependOn: [redis]
+    mayDependOn: [redis, itest]
     canUse: [go-redis]
+  # relay production code defines its own interfaces and imports no sibling;
+  # its end-to-end integration tests wire the real adapters through itest.
   relay:
-    mayDependOn: [relay]
+    mayDependOn: [relay, postgres, rabbitmq, itest]
+    canUse: [pgx, amqp091]
   itest:
     mayDependOn: [itest]
     canUse: [pgx, amqp091, go-redis]
