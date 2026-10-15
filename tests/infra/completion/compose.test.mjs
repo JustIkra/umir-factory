@@ -125,3 +125,26 @@ test("every warehouse service sets WAREHOUSE_API_MODE explicitly", (t) => {
     "v2",
   );
 });
+
+const hostIP = (model, service) =>
+  model.services[service].ports.map((port) => port.host_ip);
+
+test("legacy Gateway stays on loopback unless the public overlay is added", () => {
+  const env = { UMIR_BIND: "0.0.0.0" };
+  const base = composeJSON(["compose.yaml"], { env });
+  assert.deepEqual(hostIP(base, "gateway"), ["127.0.0.1"]);
+  assert.deepEqual(hostIP(base, "frontend"), ["0.0.0.0"]);
+  assert.deepEqual(
+    hostIP(composeJSON(["compose.yaml"]), "gateway"),
+    ["127.0.0.1"],
+  );
+  const open = composeJSON(["compose.yaml", "compose.legacy-public.yaml"], {
+    env,
+  });
+  assert.deepEqual(hostIP(open, "gateway"), ["0.0.0.0"]);
+  assert.equal(open.services.gateway.ports.length, 1);
+  assert.equal(open.services.gateway.ports[0].target, 8080);
+  assert.equal(open.services.gateway.ports[0].published, "8081");
+  const defaults = composeJSON(["compose.yaml", "compose.legacy-public.yaml"]);
+  assert.deepEqual(hostIP(defaults, "gateway"), ["127.0.0.1"]);
+});

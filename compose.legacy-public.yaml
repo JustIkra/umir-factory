@@ -1,0 +1,8 @@
+# Explicit public publication of the legacy business API. The legacy assembly has no sign-in, so anyone who
+# can reach this port can read and change stock and orders. compose.yaml publishes the gateway on 127.0.0.1
+# only; add this file after it solely on an isolated network, and set UMIR_BIND to the trusted interface
+# address. The safe way to run a stand is compose.completion.yaml.
+services:
+  gateway:
+    ports: !override
+      - "${UMIR_BIND:-127.0.0.1}:${UMIR_API_PORT:-8081}:8080"

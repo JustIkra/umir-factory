@@ -23,7 +23,7 @@ services:
   gateway:
     image: ghcr.io/justikra/umir-gateway:sha-c7a5c02ee3a443f8a72120d64608b85049a18ad3
     ports:
-      - "${UMIR_BIND:-127.0.0.1}:${UMIR_API_PORT:-8081}:8080"
+      - "127.0.0.1:${UMIR_API_PORT:-8081}:8080"
     environment:
       TZ: Europe/Moscow
       SERVING_URL: http://serving:8080

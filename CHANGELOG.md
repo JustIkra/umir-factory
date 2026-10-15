@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- **BREAKING:** `compose.yaml` publishes the legacy gateway port only on `127.0.0.1`; `UMIR_BIND` now applies to the frontend alone. The legacy business API has no sign-in, so `UMIR_BIND=0.0.0.0` used to expose it to the network. Migration: if the gateway port must stay reachable on `UMIR_BIND`, add `-f compose.legacy-public.yaml` after `compose.yaml` on an isolated network only. README now points to `compose.completion.yaml` as the safe way to run a stand.
+
 - Add a reproducibility test for the composed UA1 contract profiles, matching the FIN1 and REG1 gates: it recomposes them in a temporary directory, compares the bytes with the committed files and checks that the inputs stay unchanged. `make check-contract` runs it.
 
 - Set `WAREHOUSE_API_MODE=legacy` explicitly for Warehouse in `compose.yaml` and `compose.dev.yaml`, so the legacy profiles keep starting once Warehouse refuses an empty mode. The completion profile already sets `v2`. A Compose test now checks every profile that runs Warehouse.
