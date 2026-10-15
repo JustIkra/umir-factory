@@ -11196,8 +11196,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "baseUnit": {
             "$ref": "#/components/schemas/BaseUnit"
@@ -11322,8 +11321,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "batchID": {
             "$ref": "#/components/schemas/ID"
@@ -11445,8 +11443,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "batchID": {
             "$ref": "#/components/schemas/ID"
@@ -11488,8 +11485,7 @@
           },
           "dishName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "score": {
             "$ref": "#/components/schemas/FINDecimal"
@@ -11894,7 +11890,7 @@
   "x-fin-source": {
     "ui-amendment-v1-composed-public.json": "f1be4d340fcc609ff6429bfe509836afbe0040337e5f7c22702b90bd46063298",
     "ui-amendment-v1-composed-private.json": "1b7e5d531e15b44f477a980f90abb72ed15b5b77168375569be1849121df7d05",
-    "completion-v1-public.json": "0d8b5f87953d374c2a6287c83e8de7e9740ee54bbeae080f1a65bb007d29533d",
+    "completion-v1-public.json": "c37c963fe03d91575261eb3646a9b182c9d7a8a3c21aa6a92c1d431c24fb3720",
     "completion-v1-private.json": "65b5d5500c858f69893efe71f8c661360f73c468decef84e0d591b0569559596"
   },
   "x-fin-policy-transition": {

@@ -77,6 +77,8 @@ The OpenAPI overlays and composed profiles define exact required fields and clos
 
 Keep the existing typed errors for invalid input, absent/removed scope, missing capability, runtime reset/not-ready, settings change, capacity/calculation failure and unavailable upstreams. A read failure is not a successful empty result. Cancelled or stale scope requests cannot install data into a later selected restaurant. Reads remain read-only.
 
+Warehouse input capacity returns `503 LimitExceeded`. For its recommendation-input read, Serving maps that refusal to public `503 CalculationUnavailable`. Existing unrelated `429 LimitExceeded` handling remains unchanged. Names retain the predecessor catalog contract without a new 256-character limit; the serialized response bound still applies.
+
 ## Acceptance and policy transition
 
 The [acceptance definitions](api/completion-v1-acceptance.json) assign `FIN-M6-01` through `FIN-M6-12` and `FIN-REC-01` through `FIN-REC-14`. Embedded fixture setups are normative inputs, not executed results. The [policy transition](api/completion-v1-transition.json) identifies affected predecessor predicates. Their fixtures and assertions cover:

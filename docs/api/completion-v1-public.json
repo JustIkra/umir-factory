@@ -131,8 +131,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "baseUnit": {
             "$ref": "#/components/schemas/BaseUnit"
@@ -257,8 +256,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "batchID": {
             "$ref": "#/components/schemas/ID"
@@ -380,8 +378,7 @@
           },
           "productName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "batchID": {
             "$ref": "#/components/schemas/ID"
@@ -423,8 +420,7 @@
           },
           "dishName": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "minLength": 1
           },
           "score": {
             "$ref": "#/components/schemas/FINDecimal"
