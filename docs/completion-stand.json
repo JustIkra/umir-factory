@@ -1,6 +1,6 @@
 {
   "profile": "FIN1",
-  "status": "deployed-core-and-mail-delivery-verified-otp-completion-pending",
+  "status": "runtime-accepted-deployed",
   "verifiedDate": "2026-10-15",
   "timeZone": "Europe/Moscow",
   "origin": "https://xn----ctbhsteek4c3c.empty-lab.ru",
@@ -79,18 +79,27 @@
     "explicit shortage reduction 2 to 1",
     "human writeoff 1 piece",
     "Auth-only source update preserved the same cookie, operator password, Warehouse epoch and seed order; real SSE refresh/change frames received",
-    "After the Auth SSE update, another order committed successfully; authoritative history retained one sale for the previously unknown command"
+    "After the Auth SSE update, another order committed successfully; authoritative history retained one sale for the previously unknown command",
+    "Real recipient OTP completed a new Waiter; fresh login/menu/recommendations/SSE succeeded and stock returned403"
   ],
   "mail": {
     "localTLSAuthVerified": true,
     "vmTLSAuthRecheck": "verified",
     "productionDelivery": "invitation_link and OTP delivered on first attempt",
     "recipientConfirmation": "both emails received; user supplied inbox screenshot",
-    "publicOTPCompletion": "awaiting recipient code"
+    "publicOTPCompletion": "verified through the supported public API with recipient-supplied code",
+    "freshRoleReadback": {
+      "role": "Waiter",
+      "login": 200,
+      "menu": 200,
+      "recommendations": 200,
+      "sse": 200,
+      "stock": 403
+    }
   },
   "limits": [
     "Initial VM connection probes were refused. Later VM SMTP TLS/authentication and real production delivery succeeded without any network configuration change. The cause of the initial refusal is undetermined. Exact amd64 registry images were delivered through pinned SSH; their actual platform digests were retained.",
-    "FIN-09 final acceptance and final selected-profile status await OTP completion and the fresh public user role check. Historical C2/UA1 evidence is unchanged."
+    "Historical C2/UA1 evidence remains separate. The FIN1 runtime acceptance uses the exact application image identities recorded here."
   ],
   "sse": {
     "accessCheck": 200,
@@ -153,5 +162,11 @@
     "allServiceMainGates": "passed at the listed exact published revisions",
     "factoryLocalFullGate": "passed for all three Go modules with the final Auth pin and restart regression correction",
     "restartRegression": "10 focused race repeats; explicit cancellation after two readiness attempts; ownership and failed-restart assertions retained"
+  },
+  "selectedProfile": {
+    "profile": "FIN1",
+    "recipe": "compose.completion.yaml",
+    "sourcePins": "scripts/completion/sources.json",
+    "previousProfile": "compose.yaml is retained as explicitly separate legacy compatibility profile"
   }
 }
