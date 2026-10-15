@@ -13,7 +13,8 @@ cat > "$test_dir/docker" <<'SH'
 #!/usr/bin/env bash
 # Shim: records the call, answers from SHIM_EXISTING (space separated names).
 set -euo pipefail
-printf '%s\n' "$*" >> "$SHIM_LOG"
+printf '%q ' "$@" | sed 's/ $//' >> "$SHIM_LOG"
+echo >> "$SHIM_LOG"
 args=("$@")
 verb="${args[0]}"
 [[ "$verb" != container ]] || { args=("${args[@]:1}"); verb="${args[0]}"; }
@@ -23,7 +24,7 @@ case "$verb" in
     name="${args[$((${#args[@]} - 1))]}"
     exists "$name" || exit 1
     case "$*" in
-      *State.Running*) echo true ;;
+      *State.Running*) if [[ " ${SHIM_STOPPED:-} " == *" $name "* ]]; then echo false; else echo true; fi ;;
       *Config.Env*)
         case "$name" in
           umir-prod-pg) printf 'POSTGRES_PASSWORD=%s\nPOSTGRES_DB=umir\nPOSTGRES_USER=umir\nPG_MAJOR=17\n' "$SHIM_PG_PASSWORD" ;;
@@ -56,6 +57,8 @@ export UMIR_DURABLE_WAIT_SECONDS=2
 script="$factory_dir/scripts/durable-test-infra.sh"
 
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+
+export SHIM_STOPPED=""
 
 # run_case <existing containers> <command...>: sets $out/$err files and clears the log.
 run_case() {
@@ -103,17 +106,29 @@ printf '%s\n' "$runs" | grep -q -- '--name umir-durable-redis-limiter' || fail "
 printf '%s\n' "$runs" | grep -q -- '--name umir-durable-redis-cache' || fail "cache not created"
 printf '%s\n' "$runs" | grep -q -- '127.0.0.1:56379:6379' || fail "limiter port"
 printf '%s\n' "$runs" | grep -q -- '127.0.0.1:56380:6379' || fail "cache port"
-printf '%s\n' "$runs" | grep -q -- '--maxmemory-policy noeviction' || fail "limiter policy"
-printf '%s\n' "$runs" | grep -q -- '--appendonly yes' || fail "limiter AOF"
-printf '%s\n' "$runs" | grep -q -- '--maxmemory-policy allkeys-lru' || fail "cache policy"
-printf '%s\n' "$runs" | grep -q -- '--appendonly no' || fail "cache persistence"
+limiter_run="$(printf '%s\n' "$runs" | grep -- '--name umir-durable-redis-limiter')"
+cache_run="$(printf '%s\n' "$runs" | grep -- '--name umir-durable-redis-cache')"
+case "$limiter_run" in *' --maxmemory-policy noeviction'*) ;; *) fail "limiter policy" ;; esac
+case "$limiter_run" in *' --appendonly yes'*) ;; *) fail "limiter AOF" ;; esac
+case "$limiter_run" in *' --appendfsync everysec'*) ;; *) fail "limiter appendfsync" ;; esac
+case "$cache_run" in *' --maxmemory-policy allkeys-lru'*) ;; *) fail "cache policy" ;; esac
+case "$cache_run" in *' --appendonly no'*) ;; *) fail "cache persistence" ;; esac
+case "$cache_run" in *" --save '' "*) ;; *) fail "cache must disable RDB snapshots (--save '')" ;; esac
+case "$cache_run" in *' --maxmemory 512mb'*) ;; *) fail "cache must set --maxmemory 512mb" ;; esac
+case "$limiter_run" in *' --maxmemory '*) fail "limiter must not set maxmemory" ;; esac
+for r in "$limiter_run" "$cache_run"; do
+  case "$r" in *' -e UMIR_DURABLE_REDIS_PASSWORD '*) ;; *) fail "password must be passed by name: -e UMIR_DURABLE_REDIS_PASSWORD" ;; esac
+  case "$r" in *UMIR_DURABLE_REDIS_PASSWORD=*) fail "password value in argv" ;; esac
+  case "$r" in *' --label umir.durable-test-infra=1 '*) ;; *) fail "container label missing" ;; esac
+done
 printf '%s\n' "$runs" | grep -qE -- '(^| )-p (127.0.0.1:)?(5432|6379):' && fail "forbidden host port"
 if mutating | grep -vE 'umir-durable-redis-' | grep -q .; then fail "up mutated a foreign container"; fi
 grep -q RUN_ENV_PASSWORD_PRESENT "$SHIM_LOG" || fail "password not passed through the environment"
 env_file="$UMIR_DURABLE_STATE_DIR/env"
 [[ -f "$env_file" ]] || fail "state file missing"
-[[ "$(stat -f '%Lp' "$env_file" 2>/dev/null || stat -c '%a' "$env_file")" == 600 ]] || fail "state file mode"
-[[ "$(stat -f '%Lp' "$UMIR_DURABLE_STATE_DIR" 2>/dev/null || stat -c '%a' "$UMIR_DURABLE_STATE_DIR")" == 700 ]] || fail "state dir mode"
+# GNU stat first: on GNU `stat -f` succeeds with filesystem data, on BSD `stat -c` fails.
+[[ "$(stat -c '%a' "$env_file" 2>/dev/null || stat -f '%Lp' "$env_file")" == 600 ]] || fail "state file mode"
+[[ "$(stat -c '%a' "$UMIR_DURABLE_STATE_DIR" 2>/dev/null || stat -f '%Lp' "$UMIR_DURABLE_STATE_DIR")" == 700 ]] || fail "state dir mode"
 redis_password="$(sed -n 's/^UMIR_DURABLE_REDIS_PASSWORD=//p' "$env_file")"
 [[ ${#redis_password} -ge 24 ]] || fail "redis password too short"
 ! grep -qF -- "$redis_password" "$SHIM_LOG" || fail "redis password appears in docker argv"
@@ -127,6 +142,13 @@ run_case "$prod umir-durable-redis-limiter" up || fail "partial up"
 [[ "$(grep -cE '^run ' "$SHIM_LOG")" == 1 ]] || fail "partial up must create only the cache"
 grep -E '^run ' "$SHIM_LOG" | grep -q -- '--name umir-durable-redis-cache' || fail "partial up created wrong container"
 printf 'PASS: up creates only missing durable containers\n'
+
+# (2b) a stopped durable container is started, never recreated.
+SHIM_STOPPED="umir-durable-redis-cache" run_case "$both" up || { cat "$test_dir/err" >&2; fail "up with a stopped container"; }
+grep -qx 'start umir-durable-redis-cache' "$SHIM_LOG" || fail "stopped container was not started: $(cat "$SHIM_LOG")"
+[[ -z "$(grep -E '^(run|rm) ' "$SHIM_LOG" || true)" ]] || fail "stopped container was recreated"
+[[ "$(grep -cE '^start ' "$SHIM_LOG")" == 1 ]] || fail "only the stopped container may be started"
+printf 'PASS: up starts a stopped container\n'
 
 # (3) env prints exports on stdout, nothing secret on stderr, no mutations.
 run_case "$both" env || { cat "$test_dir/err" >&2; fail "env"; }
@@ -149,12 +171,31 @@ run_case "umir-prod-pg" env && fail "env must fail without umir-prod-mq"
 assert_no_secret_in env-fail "$test_dir/out" "$test_dir/err"
 printf 'PASS: env prints exports only on stdout\n'
 
+# env refuses to guess the RabbitMQ password when the container has none.
+SHIM_MQ_PASSWORD="" run_case "$both" env && fail "env must fail without RABBITMQ_DEFAULT_PASS"
+[[ ! -s "$test_dir/out" ]] || fail "env printed exports without a RabbitMQ password"
+grep -q 'RABBITMQ_DEFAULT_PASS' "$test_dir/err" || fail "missing-password error must name the variable"
+printf 'PASS: env fails clearly without a RabbitMQ password\n'
+
+# env needs jq and says so up front.
+nojq="$test_dir/nojq"
+mkdir "$nojq"
+for tool in dirname sed head tr mkdir chmod cat grep; do ln -s "$(command -v "$tool")" "$nojq/$tool"; done
+cp "$test_dir/docker" "$nojq/docker"
+SHIM_EXISTING="$both"; export SHIM_EXISTING
+rc=0
+PATH="$nojq" "$(command -v bash)" "$script" env > "$test_dir/out" 2> "$test_dir/err" || rc=$?
+[[ "$rc" != 0 ]] || fail "env must fail without jq"
+grep -q 'jq' "$test_dir/err" || fail "missing jq must be reported"
+printf 'PASS: env requires jq\n'
+
 # (4) down removes only umir-durable-redis-* containers.
 run_case "$both umir-durable-redis-foo" down || { cat "$test_dir/err" >&2; fail "down"; }
 touched="$(mutating)"
 [[ -n "$touched" ]] || fail "down removed nothing"
 printf '%s\n' "$touched" | grep -qE 'umir-prod' && fail "down touched a prod container"
 printf '%s\n' "$touched" | grep -qE '^rm ' || fail "down did not rm"
+grep -E '^ps ' "$SHIM_LOG" | grep -q -- 'label=umir.durable-test-infra=1' || fail "down must filter by the umir.durable-test-infra label"
 while read -r l; do
   [[ -z "$l" ]] && continue
   for w in $l; do

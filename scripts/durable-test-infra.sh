@@ -4,7 +4,8 @@
 #   check  verify that umir-prod-pg and umir-prod-mq answer; changes nothing
 #   up     create the missing umir-durable-redis-* containers (never recreates)
 #   env    print an `export UMIR_TEST_*=...` line for `eval "$(... env)"`
-#   down   remove only containers named umir-durable-redis-*
+#   down   remove only containers named umir-durable-redis-* that carry the
+#          label umir.durable-test-infra=1
 #
 # Ports 5432 and 6379 belong to other projects and are never used.
 #
@@ -15,6 +16,9 @@
 # container a tiny `sh -c` wrapper writes `requirepass` to a 0600 config file
 # and execs `redis-server <file> ...`, so the password is not in the redis-server
 # argv either. `--requirepass` on the command line was deliberately avoided.
+# Because of that `sh -c` wrapper the containers run redis-server as root (the
+# image's entrypoint would drop to the redis user, but we bypass it); this is
+# acceptable for throw-away test containers bound to 127.0.0.1 only.
 # The container environment still holds the password (visible to `docker
 # inspect` on this machine), the same as the prod containers' credentials.
 #
@@ -53,9 +57,14 @@ host_port_open() {
 }
 
 # container_env <container> <VAR>: value from the container configuration.
+# Fails loudly: callers run under `set -e`, so a silent non-zero status would
+# abort the script without a message.
 container_env() {
   local envs
-  envs="$(docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2> /dev/null)" || return 1
+  envs="$(docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2> /dev/null)" || {
+    printf 'durable-test-infra: cannot read the environment of %s\n' "$1" >&2
+    return 1
+  }
   printf '%s\n' "$envs" | sed -n "s/^$2=//p" | head -n 1
 }
 
@@ -81,6 +90,21 @@ ensure_password() {
   chmod 600 "$state_file"
 }
 
+# mgmt_http_ok: the RabbitMQ management port answers HTTP, not just TCP. The
+# request is unauthenticated on purpose (no secret in argv or in this process);
+# any HTTP status, including 401, proves that the HTTP listener is alive.
+# Without curl only the TCP connection is checked.
+mgmt_http_ok() {
+  [[ -n "${UMIR_DURABLE_SKIP_HOST_PROBE:-}" ]] && return 0
+  if ! command -v curl > /dev/null 2>&1; then
+    host_port_open "$mq_mgmt_port"
+    return
+  fi
+  local code
+  code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://$host:$mq_mgmt_port/api/health/checks/alarms" 2> /dev/null || true)"
+  [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]
+}
+
 cmd_check() {
   local failed=0
   container_running "$pg_container" || { printf 'not running: %s\n' "$pg_container" >&2; failed=1; }
@@ -89,9 +113,10 @@ cmd_check() {
   docker exec "$pg_container" pg_isready -q > /dev/null 2>&1 || { printf 'postgres does not accept connections in %s\n' "$pg_container" >&2; failed=1; }
   docker exec "$mq_container" rabbitmq-diagnostics -q ping > /dev/null 2>&1 || { printf 'rabbitmq does not answer in %s\n' "$mq_container" >&2; failed=1; }
   local p
-  for p in "$pg_port" "$mq_port" "$mq_mgmt_port"; do
+  for p in "$pg_port" "$mq_port"; do
     host_port_open "$p" || { printf 'nothing listens on %s:%s\n' "$host" "$p" >&2; failed=1; }
   done
+  mgmt_http_ok || { printf 'management API does not answer HTTP on %s:%s\n' "$host" "$mq_mgmt_port" >&2; failed=1; }
   [[ $failed == 0 ]] || return 1
   printf 'ok: %s (%s:%s), %s (%s:%s, management %s)\n' "$pg_container" "$host" "$pg_port" "$mq_container" "$host" "$mq_port" "$mq_mgmt_port"
 }
@@ -134,7 +159,7 @@ wait_redis() {
 cmd_up() {
   ensure_password
   start_redis "$limiter_container" "$limiter_port" --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
-  start_redis "$cache_container" "$cache_port" --appendonly no --save '' --maxmemory-policy allkeys-lru
+  start_redis "$cache_container" "$cache_port" --appendonly no --save '' --maxmemory 512mb --maxmemory-policy allkeys-lru
   wait_redis "$limiter_container"
   wait_redis "$cache_container"
   printf 'ready: %s, %s\n' "$limiter_container" "$cache_container"
@@ -142,19 +167,22 @@ cmd_up() {
 
 cmd_env() {
   local pg_user pg_pass mq_user mq_pass rp
+  command -v jq > /dev/null 2>&1 || die 'jq is required (used to percent-encode credentials); install it and retry'
   container_running "$pg_container" || die "$pg_container is not running"
   container_running "$mq_container" || die "$mq_container is not running"
   rp="$(redis_password 2> /dev/null || true)"
   [[ -n "$rp" ]] || die 'no Redis password yet: run `durable-test-infra.sh up` first'
 
   # Credentials come from the container configuration (docker run -e ...).
-  pg_user="$(container_env "$pg_container" POSTGRES_USER)"
-  pg_pass="$(container_env "$pg_container" POSTGRES_PASSWORD)"
-  mq_user="$(container_env "$mq_container" RABBITMQ_DEFAULT_USER)"
-  mq_pass="$(container_env "$mq_container" RABBITMQ_DEFAULT_PASS)"
+  pg_user="$(container_env "$pg_container" POSTGRES_USER)" || exit 1
+  pg_pass="$(container_env "$pg_container" POSTGRES_PASSWORD)" || exit 1
+  mq_user="$(container_env "$mq_container" RABBITMQ_DEFAULT_USER)" || exit 1
+  mq_pass="$(container_env "$mq_container" RABBITMQ_DEFAULT_PASS)" || exit 1
   [[ -n "$pg_user" ]] || pg_user=postgres
   [[ -n "$mq_user" ]] || mq_user=guest
-  [[ -n "$mq_pass" ]] || mq_pass=guest
+  # No silent `guest` fallback: it would produce a URL that fails later with an
+  # opaque authentication error.
+  [[ -n "$mq_pass" ]] || die "RABBITMQ_DEFAULT_PASS is not set in the $mq_container configuration; cannot derive the AMQP credentials"
 
   local pg_auth mq_auth
   pg_auth="$(printf '%s' "$pg_user" | uri_encode)"
@@ -178,7 +206,7 @@ cmd_down() {
     [[ "$name" == "$redis_prefix"* ]] || continue
     docker rm -f -v "$name" > /dev/null
     printf 'removed: %s\n' "$name"
-  done < <(docker ps -a --filter "name=^$redis_prefix" --format '{{.Names}}')
+  done < <(docker ps -a --filter "name=^$redis_prefix" --filter 'label=umir.durable-test-infra=1' --format '{{.Names}}')
 }
 
 case "${1:-}" in

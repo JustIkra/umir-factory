@@ -16,7 +16,9 @@ type contractClaim struct{ field, role, got string }
 
 // contractCopy is one consumer's copy of the composed contract. Auth and
 // Frontend embed a composed file byte for byte; Gateway embeds a derived file
-// that records the hashes of both composed files.
+// that records the hashes of both composed files. For Gateway only those
+// recorded hashes are compared with the composed files: the check cannot tell
+// whether the derived operation table itself still matches its recorded source.
 type contractCopy struct {
 	consumer string
 	path     string
@@ -48,7 +50,8 @@ var contractCopies = []contractCopy{
 }
 
 // contractSync compares the composed contract of a profile with the consumer
-// copies under workspace and returns one line per drift.
+// copies under workspace and returns one line per drift. A non-nil error means
+// the composed files themselves could not be read.
 func contractSync(factoryDir, workspace, profile string) ([]string, error) {
 	want := map[string]string{}
 	for _, role := range []string{"public", "private"} {
@@ -76,11 +79,23 @@ func contractSync(factoryDir, workspace, profile string) ([]string, error) {
 		}
 		for _, claim := range claims {
 			if claim.got != want[claim.role] {
-				drift = append(drift, fmt.Sprintf("%s%s differs: want %s, got %q", prefix, claim.field, want[claim.role], claim.got))
+				drift = append(drift, fmt.Sprintf("%s%s differs: want %s, got %q", prefix, claim.field, want[claim.role], shortValue(claim.got)))
 			}
 		}
 	}
 	return drift, nil
+}
+
+// maxReportedValue bounds how much of a consumer-supplied value reaches the
+// report, so a malformed copy cannot flood the output.
+const maxReportedValue = 64
+
+func shortValue(value string) string {
+	runes := []rune(value)
+	if len(runes) <= maxReportedValue {
+		return value
+	}
+	return string(runes[:maxReportedValue])
 }
 
 func validateContractSyncOptions(options cliOptions) error {
@@ -106,8 +121,10 @@ func runContractSync(factoryDir, workspace, profile string, stdout, stderr io.Wr
 	}
 	drift, err := contractSync(factoryDir, workspace, profile)
 	if err != nil {
+		// The composed files of the profile are missing or unreadable: the
+		// environment is wrong, which is not drift (1).
 		writeFailure(stderr, "%v\n", err)
-		return 1
+		return 2
 	}
 	if len(drift) > 0 {
 		writeFailure(stderr, "%s\n", strings.Join(drift, "\n"))

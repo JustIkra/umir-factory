@@ -159,6 +159,14 @@ ADR 0001 предусматривал `server import-json`. Теперь дан�
 | Единственный производитель `umir.events` — Warehouse | C38 | п. 2.8 |
 | Строгое окно limiter, `strict_since` | C47 | п. 2.1 |
 | Auth без Redis | C51 | п. 2.1 |
+| Порядок слияния R3 (DUR1 → Gateway PR-1 → Auth → Gateway PR-2) | C7 | п. 2.3, [durable-api-amendment.md](../durable-api-amendment.md), раздел 2 |
+| Сервисные ключи и секреты файлами, новые секреты в списке factory | C14 | п. 2.9, [configuration.md](../durable/configuration.md) |
+| Коды допуска: 429 `RateLimited`, 503 `ServiceUnavailable`, нового кода нет | C16 | п. 2.1, [durable-api-amendment.md](../durable-api-amendment.md), раздел 7 |
+| Состояние попытки склада на проводе — `Interrupted` | C21 | [durable-api-amendment.md](../durable-api-amendment.md), раздел 4 |
+| `CommandConflict` во всех публичных и приватных ответах | C29 | [durable-api-amendment.md](../durable-api-amendment.md), раздел 6 |
+| Темы live: Gateway пока рассылает все пять | C39 | п. 2.8, [events.md](../durable/events.md) |
+| Каталог событий; `maxmemory 512mb` у Redis cache | C48 | п. 2.1, п. 2.8, [events.md](../durable/events.md) |
+| Граница гарантии повтора после 180-дневного надгробия; `LimitExceeded` по операции | C53 | п. 2.8, [durable-api-amendment.md](../durable-api-amendment.md), раздел 6 |
 
 ## Последствия
 

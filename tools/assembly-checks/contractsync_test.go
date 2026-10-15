@@ -106,6 +106,39 @@ func TestContractSyncReportsDrift(t *testing.T) {
 	}
 }
 
+func TestContractSyncGatewayPublicDrift(t *testing.T) {
+	factory, workspace := syncFixture(t, "durable")
+	writeTestFile(t, filepath.Join(workspace, gatewayCopyPath), gatewayCopy(sumHex("stale public"), sumHex("durable private")))
+	code, _, stderr := syncRun(t, factory, workspace)
+	if code != 1 {
+		t.Fatalf("code %d, want 1", code)
+	}
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "umir-gateway: "+gatewayCopyPath+": publicSHA256 differs: want "+sumHex("durable public")) {
+		t.Fatalf("stderr %q", stderr)
+	}
+}
+
+func TestContractSyncTruncatesObservedValue(t *testing.T) {
+	factory, workspace := syncFixture(t, "durable")
+	long := strings.Repeat("x", 500)
+	writeTestFile(t, filepath.Join(workspace, gatewayCopyPath), gatewayCopy(long, sumHex("durable private")))
+	code, _, stderr := syncRun(t, factory, workspace)
+	if code != 1 {
+		t.Fatalf("code %d, want 1", code)
+	}
+	if strings.Contains(stderr, strings.Repeat("x", 65)) || !strings.Contains(stderr, strings.Repeat("x", 64)) {
+		t.Fatalf("observed value must be cut to 64 characters: %q", stderr)
+	}
+	// A value of exactly 64 characters is printed whole.
+	if got := shortValue(strings.Repeat("y", 64)); got != strings.Repeat("y", 64) {
+		t.Fatalf("64-character value changed: %q", got)
+	}
+	if got := shortValue("é" + strings.Repeat("y", 70)); len([]rune(got)) != 64 || !strings.HasPrefix(got, "é") {
+		t.Fatalf("multibyte value mishandled: %q", got)
+	}
+}
+
 func TestContractSyncGatewayMalformedCopy(t *testing.T) {
 	factory, workspace := syncFixture(t, "registration")
 	writeTestFile(t, filepath.Join(workspace, gatewayCopyPath), `{"source":`)
@@ -120,8 +153,9 @@ func TestContractSyncProfilesAreDistinct(t *testing.T) {
 	if code, _, stderr := syncRun(t, factory, workspace, "--profile", "registration"); code != 0 {
 		t.Fatalf("registration code %d stderr %q", code, stderr)
 	}
-	// The durable composed files are absent from this factory.
-	if code, _, stderr := syncRun(t, factory, workspace, "--profile", "durable"); code != 1 || !strings.Contains(stderr, "durable-v1-composed-public.json") {
+	// The durable composed files are absent from this factory: an environment
+	// error (2), not drift (1).
+	if code, _, stderr := syncRun(t, factory, workspace, "--profile", "durable"); code != 2 || !strings.Contains(stderr, "durable-v1-composed-public.json") {
 		t.Fatalf("durable code %d stderr %q", code, stderr)
 	}
 	// Durable composed files that differ from the registration copies show drift.

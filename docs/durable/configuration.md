@@ -29,6 +29,7 @@
 | `REGISTRY_POLL_INTERVAL` (Serving) | запрещена: опрос реестра заменён событиями и чтением по ревизии |
 | `GATEWAY_METRICS_ADDR`, `SERVING_METRICS_ADDR` и любые `*_METRICS_ADDR(ESS)` | запрещены (C33) |
 | `FEEDBACK_RUNTIME_ROLE` | запрещена: имя роли среды выполнения зафиксировано в миграции (C8) |
+| `AUTH_RUNTIME_SERVICE_KEY_FILE`, `PRIVATE_LISTEN_HOST`, `PRIVATE_PORT` (Gateway) | удаляются в PR-2 Gateway (R3, C7): `stack.sh preflight` отвергает их в окружении Gateway после слияния PR-2; до него они необязательны и профилем не задаются |
 
 ## 2. Переменные по сервисам
 
@@ -115,9 +116,10 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 | `GATEWAY_LIMITER_GENERATION` | Gateway | да | значение из файла `config/limiter-generation`; не секрет; сравнивается с маркером `umir:limiter:generation` (C17, R7) | Factory (Compose из `config/limiter-generation`) |
 | `GATEWAY_ADMISSION_KEY_FILE` | Gateway | да | ключ HMAC субъектов допуска, один у всех реплик (C14, C17) | Factory (`secrets.sh`) |
 | `GATEWAY_LIVE_CURSOR_KEY_FILE` | Gateway | да | ключ шифрования курсора SSE, один у всех реплик (C14) | Factory (`secrets.sh`) |
-| `AUTH_SERVICE_KEY_FILE`, `AUTH_RUNTIME_SERVICE_KEY_FILE`, `WAREHOUSE_SERVICE_KEY_FILE`, `SERVING_SERVICE_KEY_FILE`, `FEEDBACK_SERVICE_KEY_FILE` | Gateway | да (`FEEDBACK_SERVICE_KEY_FILE` — при профиле `feedback`) | файлы сервисных ключей (W1.11, C14) | Factory (`secrets.sh`) |
+| `AUTH_SERVICE_KEY_FILE`, `WAREHOUSE_SERVICE_KEY_FILE`, `SERVING_SERVICE_KEY_FILE`, `FEEDBACK_SERVICE_KEY_FILE` | Gateway | да (`FEEDBACK_SERVICE_KEY_FILE` — при профиле `feedback`) | файлы сервисных ключей (W1.11, C14) | Factory (`secrets.sh`) |
+| `AUTH_RUNTIME_SERVICE_KEY_FILE`, `PRIVATE_LISTEN_HOST`, `PRIVATE_PORT` | Gateway | нет | не задаются durable-профилем: относятся к приватным маршрутам `runtime` и `registry` и JWKS-проверке для Auth, которые удаляет PR-2 Gateway (R3, C7); до его слияния при необходимости остаются значения FIN1 | снимаются в PR-2 Gateway |
 | `GATEWAY_TRUSTED_PROXY_CIDRS` | Gateway | да | подсеть `front` (`UMIR_FRONT_SUBNET`); без неё ключ допуска по клиенту не включается (C34, R11) | Factory (Compose) |
-| `AUTH_URL`, `SERVING_URL`, `WAREHOUSE_URL`, `FEEDBACK_URL`, `OPERATOR_PUBLIC_ORIGIN`, `OPERATOR_COOKIE_MODE`, `LISTEN_HOST`, `PRIVATE_LISTEN_HOST`, `PRIVATE_PORT`, `SSL_CERT_FILE` | Gateway | да | как во FIN1 (`compose.completion.yaml`) | Factory (Compose) |
+| `AUTH_URL`, `SERVING_URL`, `WAREHOUSE_URL`, `FEEDBACK_URL`, `OPERATOR_PUBLIC_ORIGIN`, `OPERATOR_COOKIE_MODE`, `LISTEN_HOST`, `SSL_CERT_FILE` | Gateway | да | как во FIN1 (`compose.completion.yaml`) | Factory (Compose) |
 | `GATEWAY_REDIS_TIMEOUT`, `GATEWAY_BUDGET_*`, `GATEWAY_LIVE_*`, `GATEWAY_SUMMARY_*`, `GATEWAY_EXPIRATION_*`, `GATEWAY_REGISTRY_SYNC_INTERVAL` | Gateway | нет | значения по умолчанию в коде; бюджеты — по таблице [admission.md](admission.md) | группа Gateway |
 
 ### 2.6 Frontend
@@ -140,7 +142,7 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 | `COMPLETION_NPM_ADDR`, `UMIR_FRONT_SUBNET` | Сборка | да | адрес NPM и явная подсеть сети `front`, не пересекающаяся с ZeroTier и docker0 | пользователь стенда |
 | `config/limiter-generation` | Сборка | да | файл со значением limiter generation; источник `GATEWAY_LIMITER_GENERATION` и маркера `redis-init` | Factory (`secrets.sh`) |
 | `UMIR_BACKUP_DIR` | Сборка | да для `backup` | каталог вне томов Docker | пользователь стенда |
-| `UMIR_TEST_DATABASE_URL`, `UMIR_TEST_AMQP_URL`, `UMIR_TEST_REDIS_LIMITER_URL`, `UMIR_TEST_REDIS_CACHE_URL` | Сборка | только интеграционные тесты | вывод `scripts/durable-test-infra.sh env`; без них тесты падают, пропусков нет | разработчик, CI |
+| `UMIR_TEST_DATABASE_URL`, `UMIR_TEST_AMQP_URL`, `UMIR_TEST_AMQP_MANAGEMENT_URL`, `UMIR_TEST_REDIS_LIMITER_URL`, `UMIR_TEST_REDIS_CACHE_URL` | Сборка | только интеграционные тесты | вывод `scripts/durable-test-infra.sh env`; без них тесты падают, пропусков нет | разработчик, CI |
 
 Список секретов для хранения и бэкапа (`umir-secrets`, `auth-owner-secrets`): DSN обеих ролей каждой базы, URL брокера и обоих Redis, сервисные ключи (11 имён пар «кто → кого»), `FEEDBACK_DIGEST_KEY`, `GATEWAY_ADMISSION_KEY`, `GATEWAY_LIVE_CURSOR_KEY`, limiter generation, `owner.json` v2, пароль первого администратора, SMTP-логин и SMTP-пароль, CA и ключи TLS.
 

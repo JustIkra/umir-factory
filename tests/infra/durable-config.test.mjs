@@ -7,17 +7,6 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const docPath = resolve(root, "docs/durable/configuration.md");
 
-// Documents written by other W0 tasks. Their existence is checked only after
-// the final assembly (DURABLE_DOCS_COMPLETE=1); every other local link must
-// resolve immediately.
-const siblingDocs = new Set([
-  "docs/durable/events.md",
-  "docs/durable/retention.md",
-  "docs/durable/admission.md",
-  "docs/durable-api-amendment.md",
-  "docs/adr/0002-postgres-rabbitmq-redis.md",
-]);
-
 const services = ["Auth", "Gateway", "Warehouse", "Serving", "Feedback", "Frontend"];
 
 function readDoc() {
@@ -130,6 +119,7 @@ test("every contract variable is named", () => {
     "UMIR_SMTP_PASSWORD_FILE",
     "FEEDBACK_REGISTRY_RECONCILE_INTERVAL",
     "owner.json",
+    "UMIR_TEST_AMQP_MANAGEMENT_URL",
   ];
   for (const name of names) {
     assert.ok(text.includes(name), `variable or token ${name} is missing`);
@@ -137,6 +127,31 @@ test("every contract variable is named", () => {
   const variables = section(text, "Переменные по сервисам");
   for (const service of services) {
     assert.ok(variables.includes(`### 2.`) && variables.includes(service), `${service} missing in variables`);
+  }
+});
+
+test("Gateway R3 leftovers are optional and listed as removed in PR-2 (R3, C7)", () => {
+  const text = readDoc();
+  const removed = ["AUTH_RUNTIME_SERVICE_KEY_FILE", "PRIVATE_PORT", "PRIVATE_LISTEN_HOST"];
+  const gateway = text.split(/^### /m).find((block) => block.startsWith("2.5 Gateway"));
+  assert.ok(gateway, "Gateway subsection is missing");
+  const rows = tableRows(gateway);
+  for (const name of removed) {
+    const own = rows.filter((row) => row[1] === "Gateway" && row[0].includes(`\`${name}\``));
+    assert.ok(own.length > 0, `Gateway table lacks ${name}`);
+    for (const row of own) {
+      assert.equal(row[2].split(/\s/)[0], "нет", `${name} must not be required for Gateway: ${row[2]}`);
+      assert.match(row.join(" "), /PR-2/, `${name} row must name Gateway PR-2`);
+      assert.match(row.join(" "), /C7/, `${name} row must cite C7`);
+    }
+    // A row that still lists a removed variable next to required ones is an error.
+    for (const row of rows.filter((r) => r[1] === "Gateway" && r[0].includes(`\`${name}\``))) {
+      assert.ok(!row[0].includes("`GATEWAY_TRUSTED_PROXY_CIDRS`") && !row[0].includes("`AUTH_URL`"), `${name} shares a row with required variables`);
+    }
+  }
+  const dropped = section(text, "Общие правила");
+  for (const name of removed) {
+    assert.ok(dropped.includes(name), `removed-variable table lacks ${name}`);
   }
 });
 
@@ -298,13 +313,8 @@ test("CR section records the known mismatches", () => {
 
 test("local links resolve", () => {
   const text = readDoc();
-  const complete = process.env.DURABLE_DOCS_COMPLETE === "1";
   for (const target of localLinks(text)) {
     const absolute = resolve(dirname(docPath), target);
-    const relative = absolute.slice(root.length + 1);
-    if (siblingDocs.has(relative) && !complete) {
-      continue;
-    }
     assert.ok(existsSync(absolute), `link target ${target} does not exist`);
   }
 });

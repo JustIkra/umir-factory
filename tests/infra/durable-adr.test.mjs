@@ -7,8 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const adrPath = resolve(root, "docs/adr/0002-postgres-rabbitmq-redis.md");
 
-// Documents written by other W0 tasks. Their existence is checked only after
-// the final assembly (DURABLE_DOCS_COMPLETE=1); the links must still be exact.
+// Documents the ADR must link by exact path; all of them must exist.
 const expectedDocs = [
   "docs/durable/events.md",
   "docs/durable/configuration.md",
@@ -75,6 +74,7 @@ test("ADR 0002 decision table covers every U and R item and the main C items", (
     ...Array.from({ length: 8 }, (_, index) => `U${index + 1}`),
     ...Array.from({ length: 20 }, (_, index) => `R${index + 1}`),
     "C1", "C2", "C3", "C4", "C5", "C8", "C9", "C17", "C38", "C47",
+    "C7", "C14", "C16", "C21", "C29", "C39", "C48", "C53",
   ];
   const missing = required.filter((id) => !ids.has(id));
   assert.deepEqual(missing, [], `table rows are missing: ${missing.join(", ")}`);
@@ -90,15 +90,11 @@ test("ADR 0002 keeps the sections the decision needs", () => {
   }
 });
 
-test("ADR 0002 local links resolve, except documents written by other tasks", () => {
+test("ADR 0002 local links resolve", () => {
   const text = readAdr();
-  const expected = new Set(expectedDocs.map((doc) => resolve(root, doc)));
   const broken = [];
   for (const target of localLinks(text)) {
     const absolute = resolve(dirname(adrPath), target);
-    if (expected.has(absolute)) {
-      continue;
-    }
     if (!existsSync(absolute)) {
       broken.push(target);
     }
@@ -114,16 +110,7 @@ test("ADR 0002 links every expected durable document by its exact path", () => {
   }
 });
 
-const docsComplete = process.env.DURABLE_DOCS_COMPLETE === "1";
-test(
-  "ADR 0002 linked durable documents exist (final assembly only)",
-  {
-    skip: docsComplete
-      ? false
-      : "skipped: set DURABLE_DOCS_COMPLETE=1 after the other W0 tasks have written docs/durable/*.md and docs/durable-api-amendment.md",
-  },
-  () => {
-    const missing = expectedDocs.filter((doc) => !existsSync(resolve(root, doc)));
-    assert.deepEqual(missing, []);
-  },
-);
+test("ADR 0002 linked durable documents exist", () => {
+  const missing = expectedDocs.filter((doc) => !existsSync(resolve(root, doc)));
+  assert.deepEqual(missing, []);
+});
