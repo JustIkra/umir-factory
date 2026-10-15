@@ -274,6 +274,17 @@ export function prepare({
     settings.smtp.Port > 65535
   )
     throw new Error("incomplete private operational inputs");
+  const registrationLimits = { mailLimitPer10Minutes: 60, organizationsPerUser: 100, organizationCreationsPerHour: 100, wrongCodesPerAddressPerHour: 100 };
+  if (settings.registration !== undefined &&
+      (settings.registration === null || Array.isArray(settings.registration) || typeof settings.registration !== "object" ||
+       Object.keys(settings.registration).some((key) => key !== "enabled" && !Object.hasOwn(registrationLimits,key)) ||
+       typeof settings.registration.enabled !== "boolean"))
+    throw new Error("registration.enabled must be an explicit boolean");
+  for (const [name, maximum] of Object.entries(registrationLimits)) {
+    const value = settings.registration?.[name];
+    if (value !== undefined && (!Number.isInteger(value) || value < 1 || value > maximum))
+      throw new Error(`registration.${name} must be an integer from 1 to ${maximum}`);
+  }
   const username = privateFile(settings.smtpUsernameFile);
   const password = privateFile(settings.smtpPasswordFile);
   const smtpCA =
@@ -440,6 +451,7 @@ export function prepare({
     tlsKeyFile: authPath("server.key"),
     smtp: settings.smtp,
     registrationMail: settings.registrationMail,
+    registration: settings.registration ?? { enabled: false },
     invitationMail: {
       frontendOrigin: origin,
       allowLoopbackHTTP: cookieMode === "loopback-development",

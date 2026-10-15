@@ -14,6 +14,7 @@
   },
   "smtpUsernameFile": "/absolute/private/smtp-username",
   "smtpPasswordFile": "/absolute/private/smtp-password",
+  "registration": { "enabled": false, "mailLimitPer10Minutes": 30, "organizationsPerUser": 3, "organizationCreationsPerHour": 2, "wrongCodesPerAddressPerHour": 10 },
   "registrationMail": {
     "OperatorName": "Replace with the operator name",
     "OperatorAddress": "Replace with the operator address",

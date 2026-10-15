@@ -2,6 +2,12 @@
 
 ## Не выпущено
 
+- Address REG1 review issue #16: command ID bound, distinct completion schemas, explicit 403/429/lockout/remember-me semantics and unique example IDs. Document default abuse limits, neutral resets, disabled code login and storage/rollback constraints; validate configurable preparation limits.
+
+- Document the existing private runtime input directory and owner-specific handling; keep the root Docker context exclusion.
+
+- Add the REG1 public email registration supplement, strict overlays, composed profiles, examples and reproducible contract gate. Pass an explicit boolean registration policy through completion preparation; keep it disabled by default. Add the Nginx/Gateway/Auth and STARTTLS SMTP acceptance client.
+
 - Make the restart polling regression cancel on its second readiness attempt with the existing bounded scenario guard. Preserve ownership-drift and unsuccessful-restart assertions; a one-second setup race no longer prevents reaching the tested polling path.
 
 - Publish the exact FIN1 service images after main CI and deploy the pinned profile to the existing HTTPS stand. Record digest identities, secure-cookie login, seed/repeat, FEFO/order recovery, explicit shortage and human writeoff. Verify real production invitation/OTP delivery, recipient code completion and fresh Waiter login/menu/recommendations/SSE with stock 403. Select the explicit FIN1 runtime profile. Preserve legacy profile evidence.

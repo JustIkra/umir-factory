@@ -1,0 +1,147 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Umir REG1 public registration supplement",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "x-schema-replacements": {
+    "EmailChallengeBegin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandID",
+        "email",
+        "purpose"
+      ],
+      "properties": {
+        "commandID": {
+          "$ref": "#/components/schemas/ClientCommandID"
+        },
+        "email": {
+          "$ref": "#/components/schemas/Email"
+        },
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "login",
+            "password_reset",
+            "registration"
+          ]
+        }
+      }
+    },
+    "EmailChallengeComplete": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commandID",
+            "challengeID",
+            "proof",
+            "purpose"
+          ],
+          "properties": {
+            "commandID": {
+              "$ref": "#/components/schemas/ClientCommandID"
+            },
+            "challengeID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "proof": {
+              "type": "string",
+              "minLength": 1
+            },
+            "purpose": {
+              "const": "login"
+            },
+            "rememberMe": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commandID",
+            "challengeID",
+            "proof",
+            "purpose",
+            "newPassword"
+          ],
+          "properties": {
+            "commandID": {
+              "$ref": "#/components/schemas/ClientCommandID"
+            },
+            "challengeID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "proof": {
+              "type": "string",
+              "minLength": 1
+            },
+            "purpose": {
+              "const": "password_reset"
+            },
+            "newPassword": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 32
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commandID",
+            "challengeID",
+            "proof",
+            "purpose",
+            "displayName",
+            "password"
+          ],
+          "properties": {
+            "commandID": {
+              "$ref": "#/components/schemas/ClientCommandID"
+            },
+            "challengeID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "proof": {
+              "type": "string",
+              "minLength": 1
+            },
+            "purpose": {
+              "const": "registration"
+            },
+            "displayName": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 80
+            },
+            "password": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 32
+            },
+            "rememberMe": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "ClientCommandID": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "^expiration/"
+      },
+      "description": "Caller-generated command identity. Preserve the same value and identical input on retry. The expiration/ namespace belongs to warehouse.",
+      "maxLength": 256
+    }
+  }
+}
