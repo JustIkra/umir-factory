@@ -160,7 +160,7 @@ services:
 
   feedback:
     profiles: [feedback]
-    image: ${COMPLETION_FEEDBACK_IMAGE:?prepare image identities}
+    image: ${COMPLETION_FEEDBACK_IMAGE:-}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/feedback.env
         format: raw

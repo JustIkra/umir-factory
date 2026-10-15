@@ -337,6 +337,31 @@ test("the optional Feedback pin lives in sources.json and reaches the Compose en
   assert.equal(image({}), `ghcr.io/justikra/umir-feedback:sha-${pin}`);
   const reviewed = "ghcr.io/justikra/umir-feedback:sha-" + "c".repeat(40);
   assert.equal(image({ COMPLETION_FEEDBACK_IMAGE: reviewed }), reviewed);
+  // A bundle prepared before the pin moved has no Feedback variables: it still
+  // resolves while the profile is off.
+  const old = readFileSync(join(result.directory, "compose.env"), "utf8")
+    .split("\n")
+    .filter((line) => !line.startsWith("COMPLETION_FEEDBACK_"))
+    .join("\n");
+  const oldEnv = join(result.directory, "old-compose.env");
+  writeFileSync(oldEnv, old, { mode: 0o600 });
+  const legacy = JSON.parse(
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "--env-file",
+        oldEnv,
+        "-f",
+        new URL("../../../compose.completion.yaml", import.meta.url).pathname,
+        "config",
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8", timeout: 20000 },
+    ),
+  );
+  assert.ok(!("feedback" in legacy.services));
 });
 
 test("an exact clean Feedback checkout is required only when one exists", async (t) => {

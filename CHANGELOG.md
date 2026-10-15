@@ -2,7 +2,7 @@
 
 ## Не выпущено
 
-- Move the optional Feedback image pin of `compose.completion.yaml` into `scripts/completion/sources.json` (`optionalServices.feedback`, unchanged `136a88a`). Preparation writes `COMPLETION_FEEDBACK_SHA` and `COMPLETION_FEEDBACK_IMAGE` to the bundle, and a Feedback checkout under `--sources` is verified only when its directory exists. Compose now requires `COMPLETION_FEEDBACK_IMAGE` instead of repeating the pin. Migration: run `prepare.mjs --update-images` once on a bundle prepared earlier. Document that the two Feedback profiles use different storage files and volumes.
+- Move the optional Feedback image pin of `compose.completion.yaml` into `scripts/completion/sources.json` (`optionalServices.feedback`, unchanged `136a88a`). Preparation writes `COMPLETION_FEEDBACK_SHA` and `COMPLETION_FEEDBACK_IMAGE` to the bundle, and a Feedback checkout under `--sources` is verified only when its directory exists. Compose reads `COMPLETION_FEEDBACK_IMAGE` instead of repeating the pin; a bundle prepared earlier keeps working with Feedback off and needs one `prepare.mjs --update-images` run before the `feedback` profile is enabled. The README also states that the two Feedback profiles use different storage files and volumes.
 
 - **BREAKING:** `compose.yaml` publishes the legacy gateway port only on `127.0.0.1`; `UMIR_BIND` now applies to the frontend alone. The legacy business API has no sign-in, so `UMIR_BIND=0.0.0.0` used to expose it to the network. Migration: if the gateway port must stay reachable on `UMIR_BIND`, add `-f compose.legacy-public.yaml` after `compose.yaml` on an isolated network only. README now points to `compose.completion.yaml` as the safe way to run a stand.
 
