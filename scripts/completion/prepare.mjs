@@ -190,6 +190,11 @@ function validateOrigin(origin, cookieMode) {
   )
     throw new Error("loopback cookies require a loopback HTTP origin");
 }
+// Required services plus optional ones (Feedback): one place for every image pin.
+const pins = (manifest) => ({
+  ...manifest.services,
+  ...manifest.optionalServices,
+});
 function composeEnvironment(
   { directory, project, origin, cookieMode, sources },
   manifest,
@@ -202,13 +207,13 @@ function composeEnvironment(
     COMPLETION_WEB_PORT:
       new URL(origin).port || (cookieMode === "secure" ? "8080" : "80"),
     ...Object.fromEntries(
-      Object.entries(manifest.services).map(([service, revision]) => [
+      Object.entries(pins(manifest)).map(([service, revision]) => [
         `COMPLETION_${service.toUpperCase()}_IMAGE`,
         `ghcr.io/justikra/umir-${service}:sha-${revision}`,
       ]),
     ),
     ...Object.fromEntries(
-      Object.entries(manifest.services).map(([service, revision]) => [
+      Object.entries(pins(manifest)).map(([service, revision]) => [
         `COMPLETION_${service.toUpperCase()}_SHA`,
         revision,
       ]),
@@ -311,7 +316,13 @@ export function prepare({
   if (sources !== undefined) {
     sources = realpathSync(resolve(sources));
     if (!noControls(sources)) throw new Error("invalid source directory");
-    for (const [service, revision] of Object.entries(manifest.services)) {
+    for (const [service, revision] of Object.entries(pins(manifest))) {
+      // An optional service is verified only when its checkout is present.
+      if (
+        manifest.optionalServices?.[service] !== undefined &&
+        !existsSync(join(sources, service))
+      )
+        continue;
       let head, status;
       try {
         head = execFileSync("git", ["rev-parse", "HEAD"], {

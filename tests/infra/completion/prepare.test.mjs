@@ -8,6 +8,7 @@ import {
   readFileSync,
   rmSync,
   lstatSync,
+  mkdirSync,
   symlinkSync,
   realpathSync,
 } from "node:fs";
@@ -287,4 +288,102 @@ test("registration limits are bounded integers and retained in private config", 
  for (const bad of [{enabled:false,mailLimitPer10Minutes:61},{enabled:true,organizationsPerUser:0},{enabled:true,wrongCodesPerAddressPerHour:1.5},{enabled:true,unknown:1}]) {
   inputs.registration=bad;writeFileSync(options.inputs,JSON.stringify(inputs));assert.throws(()=>prepare(options),/registration/i);
  }
+});
+
+const feedbackSHA = /^[a-f0-9]{40}$/;
+const sourcesURL = new URL("../../../scripts/completion/sources.json", import.meta.url);
+
+test("the optional Feedback pin lives in sources.json and reaches the Compose environment", (t) => {
+  const manifest = JSON.parse(readFileSync(sourcesURL, "utf8"));
+  const pin = manifest.optionalServices?.feedback;
+  assert.match(pin, feedbackSHA);
+  assert.ok(!("feedback" in manifest.services));
+  const { options } = fixture(t);
+  const result = prepare(options);
+  const env = readFileSync(join(result.directory, "compose.env"), "utf8");
+  assert.ok(env.includes(`COMPLETION_FEEDBACK_SHA=${pin}\n`));
+  assert.ok(
+    env.includes(
+      `COMPLETION_FEEDBACK_IMAGE=ghcr.io/justikra/umir-feedback:sha-${pin}\n`,
+    ),
+  );
+  const compose = readFileSync(
+    new URL("../../../compose.completion.yaml", import.meta.url),
+    "utf8",
+  );
+  assert.ok(!compose.includes(pin), "the Feedback pin must not be repeated in Compose");
+  assert.ok(!/umir-feedback:sha-[a-f0-9]{40}/.test(compose));
+  const args = (extra) => [
+    "compose",
+    "--profile",
+    "feedback",
+    "--env-file",
+    join(result.directory, "compose.env"),
+    "-f",
+    new URL("../../../compose.completion.yaml", import.meta.url).pathname,
+    "config",
+    "--format",
+    "json",
+    ...extra,
+  ];
+  const image = (env) =>
+    JSON.parse(
+      execFileSync("docker", args([]), {
+        encoding: "utf8",
+        timeout: 20000,
+        env: { ...process.env, ...env },
+      }),
+    ).services.feedback.image;
+  assert.equal(image({}), `ghcr.io/justikra/umir-feedback:sha-${pin}`);
+  const reviewed = "ghcr.io/justikra/umir-feedback:sha-" + "c".repeat(40);
+  assert.equal(image({ COMPLETION_FEEDBACK_IMAGE: reviewed }), reviewed);
+});
+
+test("an exact clean Feedback checkout is required only when one exists", async (t) => {
+  const { options, root } = fixture(t);
+  const git = (cwd, ...args) =>
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Synthetic",
+        "-c",
+        "user.email=synthetic@invalid",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd, encoding: "utf8" },
+    ).trim();
+  const checkout = (directory) => {
+    mkdirSync(directory, { recursive: true });
+    git(directory, "init", "-q");
+    writeFileSync(join(directory, "README"), directory);
+    git(directory, "add", "README");
+    git(directory, "commit", "-q", "-m", "synthetic");
+    return git(directory, "rev-parse", "HEAD");
+  };
+  const sources = join(root, "checkouts");
+  const manifest = JSON.parse(readFileSync(sourcesURL, "utf8"));
+  for (const service of Object.keys(manifest.services))
+    manifest.services[service] = checkout(join(sources, service));
+  manifest.optionalServices = { feedback: "d".repeat(40) };
+  const run = join(root, "run");
+  mkdirSync(run);
+  writeFileSync(
+    join(run, "prepare.mjs"),
+    readFileSync(new URL("../../../scripts/completion/prepare.mjs", import.meta.url)),
+  );
+  writeFileSync(join(run, "sources.json"), JSON.stringify(manifest));
+  const runtime = await import(pathToFileURL(join(run, "prepare.mjs")).href);
+  const at = (name) => ({ ...options, directory: join(root, name), sources });
+  runtime.prepare(at("without"));
+  const head = checkout(join(sources, "feedback"));
+  assert.notEqual(head, manifest.optionalServices.feedback);
+  assert.throws(() => runtime.prepare(at("stale")), /feedback/i);
+  manifest.optionalServices = { feedback: head };
+  writeFileSync(join(run, "sources.json"), JSON.stringify(manifest));
+  runtime.prepare(at("exact"));
+  writeFileSync(join(sources, "feedback", "dirty"), "x");
+  assert.throws(() => runtime.prepare(at("dirty")), /feedback/i);
 });

@@ -160,7 +160,7 @@ services:
 
   feedback:
     profiles: [feedback]
-    image: ${COMPLETION_FEEDBACK_IMAGE:-ghcr.io/justikra/umir-feedback:sha-136a88a96a80eee3b5553cecf5b305bcd8d0e851}
+    image: ${COMPLETION_FEEDBACK_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/feedback.env
         format: raw

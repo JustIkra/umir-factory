@@ -6,5 +6,8 @@
     "serving": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
     "gateway": "1c8604dc72bb2aefee22e82e7586943770e7ffdc",
     "frontend": "4a6452f56850c02dad83981e1b26770a35d0bd44"
+  },
+  "optionalServices": {
+    "feedback": "136a88a96a80eee3b5553cecf5b305bcd8d0e851"
   }
 }
