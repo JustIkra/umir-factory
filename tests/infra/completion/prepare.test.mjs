@@ -412,3 +412,33 @@ test("an exact clean Feedback checkout is required only when one exists", async 
   writeFileSync(join(sources, "feedback", "dirty"), "x");
   assert.throws(() => runtime.prepare(at("dirty")), /feedback/i);
 });
+
+const day = 86400000;
+function certDates(path) {
+  const out = execFileSync(
+    "openssl",
+    ["x509", "-noout", "-startdate", "-enddate", "-serial", "-in", path],
+    { encoding: "utf8" },
+  );
+  const field = (name) => new RegExp(`^${name}=(.+)$`, "m").exec(out)[1].trim();
+  return {
+    days: (Date.parse(field("notAfter")) - Date.parse(field("notBefore"))) / day,
+    serial: BigInt("0x" + field("serial")),
+  };
+}
+
+test("the CA is issued for ten years and the leaf for one year with random serial numbers", (t) => {
+  const serials = [];
+  for (let i = 0; i < 2; i++) {
+    const { directory } = prepare(fixture(t).options);
+    const ca = certDates(join(directory, "tls/ca.crt"));
+    const leaf = certDates(join(directory, "tls/server.crt"));
+    assert.ok(Math.abs(ca.days - 3650) < 1.1);
+    assert.ok(Math.abs(leaf.days - 365) < 1.1);
+    for (const { serial } of [ca, leaf]) {
+      assert.ok(serial > 1n && serial < 2n ** 127n);
+      serials.push(serial);
+    }
+  }
+  assert.equal(new Set(serials).size, 4);
+});

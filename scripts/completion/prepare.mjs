@@ -61,8 +61,28 @@ function write(directory, path, value) {
   mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
   writeFileSync(destination, value, { mode: 0o600, flag: "wx" });
 }
-function tls(directory) {
-  const args = [
+const CA_DAYS = 3650;
+const LEAF_DAYS = 365;
+const SERVER_EXT =
+  "subjectAltName=DNS:auth,DNS:transport\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n";
+function openssl(args, cwd) {
+  try {
+    execFileSync("openssl", args, { cwd, stdio: "ignore", timeout: 10000 });
+  } catch {
+    throw new Error("private TLS certificate generation failed");
+  }
+}
+// Random positive serial number of 127 bits, never 0 or 1.
+function serial() {
+  for (;;) {
+    const bytes = randomBytes(16);
+    bytes[0] &= 0x7f;
+    const hex = bytes.toString("hex");
+    if (BigInt("0x" + hex) > 1n) return "0x" + hex;
+  }
+}
+function createCA(cwd, key, certificate, subject) {
+  openssl(
     [
       "req",
       "-x509",
@@ -73,14 +93,22 @@ function tls(directory) {
       "-nodes",
       "-sha256",
       "-days",
-      "365",
+      String(CA_DAYS),
+      "-set_serial",
+      serial(),
       "-subj",
-      "/CN=Umir completion private CA",
+      subject,
       "-keyout",
-      "ca.key",
+      key,
       "-out",
-      "ca.crt",
+      certificate,
     ],
+    cwd,
+  );
+}
+// Needs ca.crt, ca.key and server.ext in cwd; writes server.key/.csr/.crt.
+function createLeaf(cwd) {
+  openssl(
     [
       "req",
       "-newkey",
@@ -96,12 +124,15 @@ function tls(directory) {
       "-out",
       "server.csr",
     ],
+    cwd,
+  );
+  openssl(
     [
       "x509",
       "-req",
       "-sha256",
       "-days",
-      "365",
+      String(LEAF_DAYS),
       "-in",
       "server.csr",
       "-CA",
@@ -109,32 +140,22 @@ function tls(directory) {
       "-CAkey",
       "ca.key",
       "-set_serial",
-      "1",
+      serial(),
       "-extfile",
       "server.ext",
       "-out",
       "server.crt",
     ],
-  ];
-  mkdirSync(join(directory, "tls"), { mode: 0o700 });
-  write(
-    directory,
-    "tls/server.ext",
-    "subjectAltName=DNS:auth,DNS:transport\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth\n",
+    cwd,
   );
-  for (const command of args) {
-    try {
-      execFileSync("openssl", command, {
-        cwd: join(directory, "tls"),
-        stdio: "ignore",
-        timeout: 10000,
-      });
-    } catch {
-      throw new Error("private TLS certificate generation failed");
-    }
-  }
-  for (const name of readdirSync(join(directory, "tls")))
-    chmodSync(join(directory, "tls", name), 0o600);
+}
+function tls(directory) {
+  const cwd = join(directory, "tls");
+  mkdirSync(cwd, { mode: 0o700 });
+  write(directory, "tls/server.ext", SERVER_EXT);
+  createCA(cwd, "ca.key", "ca.crt", "/CN=Umir completion private CA");
+  createLeaf(cwd);
+  for (const name of readdirSync(cwd)) chmodSync(join(cwd, name), 0o600);
 }
 function transportConfig() {
   return [
