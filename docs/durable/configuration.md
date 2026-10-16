@@ -11,12 +11,12 @@
 1. Секреты задаются только файлами. Для каждого секрета есть переменная `<ИМЯ>_FILE` с путём к файлу; значение читается целиком, завершающий перевод строки отбрасывается. К секретам относятся: DSN Postgres (содержит пароль), URL RabbitMQ и Redis (содержат пароль), сервисные ключи, ключи HMAC и шифрования, пароль первого администратора, SMTP-логин и SMTP-пароль, токены провайдеров. Файлы создаёт `scripts/durable/secrets.sh` с режимом `0600` и владельцем `65532:65532`; в окружение контейнера значения секретов не попадают (Compose-тест проверяет это).
 2. Файл и переменная вместе — ошибка запуска. Чтение работает как `LoadDSN(getenv, prefix)` эталона `reference/durable`: если заданы и `<P>_DATABASE_URL`, и `<P>_DATABASE_URL_FILE`, сервис не стартует; победителя нет. То же правило действует для сервисных ключей и URL брокера и Redis. Незашифрованные имена (`<P>_DATABASE_URL`, `AUTH_SERVICE_KEY` без `_FILE`) остаются только для локальной отладки и legacy-профилей (C28); durable-профиль их не задаёт.
 3. Значения секретов никогда не показываются: ни в тексте ошибок (ошибка называет переменную и причину, но не значение и не URL целиком), ни в логах, ни в теле `/readyz`, ни в выводе `stack.sh`. Группы проверяют это тестом с «канарейкой».
-4. Режима `memory` в боевых бинарниках нет, переключателя хранилища `<SVC>_STORAGE` нет, переменных `*ALLOW_MEMORY` нет (R20, C10). Бинарник без DSN не стартует; это проверяет тест сборки каждой группы. Compose-профиль не задаёт ни одной такой переменной, а `stack.sh preflight` и тест Compose запрещают их наличие в окружении (W2.3, W3.1). Memory-адаптеры живут только в тестовом коде и в тестовых инструментах (фикстуры RPC1.1.0 Feedback, `tests/http/cmd/feedback-fixture`; C46).
+4. `maxmemory` у `redis-cache`. Решено (C62): 512mb (C48), слоты и захваты делят один пул `allkeys-lru`; замер R13 это учитывает.
 5. Два DSN на сервис с базой (C8): `<SVC>_DATABASE_URL_FILE` — роль среды выполнения `umir_<svc>`; `<SVC>_MIGRATE_DATABASE_URL_FILE` — роль-владелец `umir_<svc>_owner`, видна только заданиям `migrate-<svc>` и `generation rotate` и никогда не передаётся в `serve`. Сам себя ни один сервис не мигрирует; при старте каждый сервис вызывает `AssertRuntimeRole` и `VerifySchema` эталона.
 6. Идентификатор экземпляра — `<SVC>_INSTANCE_ID` (у Auth — поле `instanceId`), уникальный на каждую реплику (C19). Он виден в `/readyz` и логах, входит в имена очередей и держателя аренды и не попадает в бизнес-ответы. Подробности — раздел 5.
 7. Эндпоинта метрик нет (C33): переменных `*_METRICS_ADDR` и `*_METRICS_ADDRESS` нет. Состояние читается из `/readyz`, логов, SQL владельца, management API RabbitMQ и `INFO` Redis.
 8. Prod-подключения к Postgres, RabbitMQ и Redis идут по TLS с проверкой имени (`verify-full`) и общим частным CA; тестовая инфраструктура — без TLS (раздел 7).
-9. Все контейнеры работают в зоне `Europe/Moscow` (`TZ`), если контракт не требует другого.
+9. Секреты Feedback не всегда файлами. Решено (C63): `FEEDBACK_SMTP_USERNAME`, `FEEDBACK_TELEGRAM_BOT_TOKEN`, `FEEDBACK_TELEGRAM_PROXY_USERNAME`, `FEEDBACK_TELEGRAM_PROXY_PASSWORD`, `FEEDBACK_GATEWAY_KEY` и `FEEDBACK_AUTH_DISCOVERY_KEY` получают варианты `_FILE` в волне 2 Feedback (волна 1 опубликована без них). До этого тест «нет секретов в окружении» для Feedback не включается.
 
 Снятые и запрещённые переменные. Durable-профиль не задаёт ни одной из них, а `stack.sh preflight` отвергает их в окружении:
 
@@ -98,8 +98,8 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 | `FEEDBACK_INSTANCE_ID` | Feedback | да | уникальный на реплику, сейчас `feedback` | Factory (Compose) |
 | `FEEDBACK_REGISTRY_RECONCILE_INTERVAL` | Feedback | нет | по умолчанию 10 минут (C50) | группа Feedback |
 | `FEEDBACK_AUTH_URL` | Feedback | да | адрес Auth | Factory (Compose) |
-| `FEEDBACK_AUTH_DISCOVERY_KEY` | Feedback | да | сервисный ключ Feedback для Auth (`serviceKeyFiles.feedback`); им же читается приватный реестр (C50); `_FILE`-вариант не определён, см. раздел 8 | Factory (`secrets.sh`) |
-| `FEEDBACK_GATEWAY_KEY` | Feedback | да | ключ, которым Gateway обращается к Feedback; `_FILE`-вариант не определён, см. раздел 8 | Factory (`secrets.sh`) |
+| `FEEDBACK_AUTH_DISCOVERY_KEY` | Feedback | да | сервисный ключ Feedback для Auth (`serviceKeyFiles.feedback`); им же читается приватный реестр (C50); `_FILE`-вариант вводит Feedback в волне 2 (C63), см. раздел 8 | Factory (`secrets.sh`) |
+| `FEEDBACK_GATEWAY_KEY` | Feedback | да | ключ, которым Gateway обращается к Feedback; `_FILE`-вариант вводит Feedback в волне 2 (C63), см. раздел 8 | Factory (`secrets.sh`) |
 | `FEEDBACK_DB_MAX_CONNS`, `FEEDBACK_LEASE_DURATION`, `FEEDBACK_AUTH_KEYS_MAX_STALE`, `FEEDBACK_WORKER_POLL_INTERVAL`, `FEEDBACK_RETRY_*` | Feedback | нет | значения по умолчанию в коде | группа Feedback |
 | `FEEDBACK_RETENTION_ANONYMOUS_DAYS`, `FEEDBACK_RETENTION_RESTAURANT_DAYS`, `FEEDBACK_RETENTION_DELETED_SCOPE_DAYS`, `FEEDBACK_TOMBSTONE_DAYS`, `FEEDBACK_QUOTA_ANONYMOUS_ROWS`, `FEEDBACK_QUOTA_RESTAURANT_ROWS` | Feedback | да, без умолчаний до G1 | числа утверждает G1 ([retention.md](retention.md)) | Factory (Compose), после G1 |
 | `FEEDBACK_SMTP_*`, `FEEDBACK_TELEGRAM_*`, `FEEDBACK_MAIL_*` | Feedback | по каналам | провайдеры доставки; секретные значения должны идти файлами, см. раздел 8 | Factory (`secrets.sh`) |
@@ -182,7 +182,7 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 | Serving | `serving` | `umir_serving_owner` | `umir_serving` |
 | Feedback | `feedback` | `umir_feedback_owner` | `umir_feedback` |
 
-Роль среды выполнения не суперпользователь, не владелец таблиц, `NOBYPASSRLS`, без `CREATE` в схеме. Роль-владелец используют только `migrate` (C8) и `generation rotate` (C9); административные роли для `pg_dump` и `pg-roles` — вне сервисов. Порядок восстановления в `stack.sh restore`: остановить реплики, `pg_restore`, `generation rotate` у Auth, Warehouse, Serving, Feedback, затем `redis-init` и запуск (маркер limiter при этом отсутствует, включается строгий режим R7).
+Роль среды выполнения не суперпользователь, не владелец таблиц, `NOBYPASSRLS`, без `CREATE` в схеме. Роль-владелец используют только `migrate` (C8) и `generation rotate` (C9); административные роли для `pg_dump` и `pg-roles` — вне сервисов. Порядок восстановления в `stack.sh restore`: остановить реплики, `pg_restore`, `generation rotate` у Auth, Warehouse, Serving, Feedback, затем `redis-init` (пишет маркер limiter, как при каждом `up`) и запуск. Сам `restore` строгий режим R7 не включает: он включается только когда маркер пропал во время работы или не равен настроенному значению (раздел 6).
 
 ## 4. Здоровье и готовность
 
@@ -194,7 +194,7 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 
 | Сервис | Обязательные для 200 | Все возможности | Тело `/readyz` | Healthcheck Compose |
 | --- | --- | --- | --- | --- |
-| Auth | `authorize` | `jwks` (только ключ подписи, без БД), `authorize`, `admission`, `registry`, `mail`, `reconcile` | `{instance, generation, capabilities}` | `/readyz` без сервисного ключа (C52); способ вызова — вопрос 11 раздела 8 |
+| Auth | `authorize` | `jwks` (только ключ подписи, без БД), `authorize`, `admission`, `registry`, `mail`, `reconcile` | `{instance, generation, capabilities}` | `/server healthcheck` по `/readyz` на приватном TLS-листенере `8085` без сервисного ключа (C52, C63) |
 | Gateway | `http`, `limiter` | `http`, `auth`, `events`, `limiter`, `scheduler` | `{instance, capabilities}` | `/server healthcheck` по `/readyz` |
 | Warehouse | `journal` | `journal`, `outbox`, `captures` | `{instance, generation, capabilities}` | `/server healthcheck` по `/readyz` |
 | Serving | `postgres`, `schema` | `postgres`, `schema`, `auth_jwks`, `events` | `{instance, generation, capabilities}` | `/server healthcheck` по `/readyz` |
@@ -258,10 +258,12 @@ Redis не источник истины и в бэкап не входит. Д�
 
 | Ключ | Владелец | Экземпляр | Содержимое |
 | --- | --- | --- | --- |
-| `umir:gw:adm:<правило>:<измерение>:<HMAC(субъект)>` | `gw` | `redis-limiter` | ZSET отпечатков допуска, TTL окна; HMAC от `GATEWAY_ADMISSION_KEY_FILE` |
-| `umir:gw:sse:s:<HMAC(сессия)>`, `umir:gw:sse:o:<организация>`, `umir:gw:sse:cell` | `gw` | `redis-limiter` | ZSET аренд SSE (квоты) |
+| `umir:gw:adm:<измерение>` | `gw` | `redis-limiter` | счётчик фиксированного окна одного измерения допуска (ключ измерения содержит HMAC субъекта от `GATEWAY_ADMISSION_KEY_FILE`), TTL окна |
+| `umir:gw:admid:<политика>:<sha256(ID)>` | `gw` | `redis-limiter` | запись допуска: хранит sha256 отпечатка, повтор с тем же `ID` не списывает дважды; TTL окна политики |
+| `umir:gw:sse:s:<HMAC(сессия)>`, `umir:gw:sse:o:<организация>`, `umir:gw:sse:cell` (и `:u` у ключей с объёмом) | `gw` | `redis-limiter` | ZSET аренд SSE (квоты) |
 | `umir:gw:expiry:lease`, `umir:gw:expiry:fence` | `gw` | `redis-limiter` | аренда планировщика просрочки и счётчик fence |
 | `umir:wh:cap:{generation}:{restaurantID}:{captureID}` | `wh` | `redis-cache` | сжатый отчёт захвата страниц, TTL 5 мин, значение до 16 MiB |
+| `umir:wh:capslots:<generation>:<restaurantID>`, `umir:wh:capbytes:<generation>:<restaurantID>` (и `:u`) | `wh` | `redis-cache` | слоты захватов: число и объём (`Slots` эталона); покрыты шаблоном `umir:wh:*` |
 | `umir:limiter:generation` | общий | `redis-limiter` | маркер непрерывности limiter |
 | `umir:limiter:strict_since` | общий | `redis-limiter` | момент начала строгого окна |
 
@@ -272,11 +274,11 @@ Redis не источник истины и в бэкап не входит. Д�
 3. Когда окно (самое длинное окно политики, не больше 1 ч) прошло, любой сервис восстанавливает `SET umir:limiter:generation <настроенное значение> NX` и удаляет `strict_since`. Сторожа нет.
 4. Любая ошибка Redis или сомнение в непрерывности — это отказ допуска (503 до отправки), а не «разрешено».
 
-ACL (W2.1). Пользователь получает только свои ключи и только нужные команды: допуск, аренды, кеш, скрипты своих ключей (`+eval`, `+evalsha`, `+script|load`). Запрещены `FLUSHALL`, `FLUSHDB`, `CONFIG`, `KEYS`, `DEBUG`, `SHUTDOWN`; в тестах `FLUSH*` тоже запрещены.
+ACL (W2.1). Пользователь получает только свои ключи и только нужные команды: допуск, аренды, кеш, скрипты через `+evalsha` и `+script|load` (`+eval` не выдаётся: эталон его не вызывает, C61). Команды подключения go-redis (`HELLO`, `CLIENT`, `PING`) разрешены без ключей. Внутри скриптов эталон использует `GET`, `SET`, `DEL`, `INCR`, `EXISTS`, `PTTL`, `PEXPIRE`, `TIME`, `ZADD`, `ZREM`, `ZRANGEBYSCORE`, `ZSCORE`, `ZCARD`, `HSET`, `HGET`, `HVALS`, `HDEL` только на ключах пользователя. Запрещены `FLUSHALL`, `FLUSHDB`, `CONFIG`, `KEYS`, `DEBUG`, `SHUTDOWN`; в тестах `FLUSH*` тоже запрещены.
 
 | Пользователь | Экземпляр | Шаблоны ключей | Особенность |
 | --- | --- | --- | --- |
-| Gateway | `redis-limiter` | `umir:gw:*`, плюс `umir:limiter:generation` и `umir:limiter:strict_since` | запись маркеров нужна для C47, см. раздел 8 |
+| Gateway | `redis-limiter` | `umir:gw:*`, плюс ровно два ключа `umir:limiter:generation` и `umir:limiter:strict_since` | исключение к C17 (C61): на этих двух ключах только `GET`, `SET` (с `NX`) и `DEL`; запись маркеров нужна для C47 |
 | Warehouse | `redis-cache` | `umir:wh:*` | Redis limiter ему не выдаётся |
 | `redis-init` | `redis-limiter` | `umir:limiter:generation`, `umir:limiter:strict_since` | только маркеры |
 | проверка здоровья | оба | нет ключей | `PING` с учётными данными из файла |
@@ -303,10 +305,10 @@ ACL (W2.1). Пользователь получает только свои кл
 8. Идентификаторы экземпляров Auth. auth.md пишет `auth-a`, `auth-b`, а Compose factory.md W3.1 называет сервисы `auth` и `auth-b`. Контракт: идентификатор равен имени сервиса Compose (`auth`, `auth-b`); группа Auth принимает или Factory переименует сервис. Формат идентификатора никто не задал; предложение: непустая строка из строчных латинских букв, цифр и `-`, до 63 символов (он входит в имена очередей RabbitMQ), уникальная в ячейке.
 9. Секреты Feedback не всегда файлами. В коде и в feedback.md только `FEEDBACK_SMTP_PASSWORD_FILE` существует как файл; `FEEDBACK_SMTP_USERNAME`, `FEEDBACK_TELEGRAM_BOT_TOKEN`, `FEEDBACK_TELEGRAM_PROXY_USERNAME`, `FEEDBACK_TELEGRAM_PROXY_PASSWORD`, `FEEDBACK_GATEWAY_KEY`, `FEEDBACK_AUTH_DISCOVERY_KEY` читаются из окружения, а feedback.md говорит «без изменений». Это нарушает правило раздела 1 и тест Compose «нет секретов в окружении» (W3.1). Нужен CR Feedback: добавить варианты `_FILE` для каждого.
 10. Ключ чтения реестра Auth для Feedback (C50). Новое имя не определено. Контракт предполагает существующий сервисный ключ Feedback (`FEEDBACK_AUTH_DISCOVERY_KEY`, на стороне Auth `serviceKeyFiles.feedback`); Auth добавляет Feedback в читатели реестра в волне 2.
-11. Healthcheck Auth. В auth.md нет подкоманды `healthcheck`, а образ Auth не определяет `HEALTHCHECK`; FIN1 использовал отдельное задание `auth-ready`. Остаётся решить, как Compose вызывает `/readyz` Auth (подкоманда `healthcheck`, как у остальных, или `wget` из образа Alpine) и на каком listener (приватный TLS-порт `8085` или иной) он отвечает без ключа (C52). До решения строка таблицы раздела 4 неполная.
+11. Healthcheck Auth. Решено (C63): подкоманда `/server healthcheck` ходит на `/readyz` приватного TLS-листенера `8085`, который отвечает на `/healthz` и `/readyz` без сервисного ключа (C52). Auth добавляет подкоманду в волне 2.
 12. `healthcheck` в коде проверяет `/healthz`. В ветках волны 1 подкоманды `healthcheck` Warehouse, Serving и Feedback ходят на `/healthz`, образ Frontend — тоже; `healthcheck` Gateway уже выбирает `/readyz` в режиме с Auth и `/healthz` в legacy-режиме. По C32 Compose должен смотреть `/readyz`; группы переключают это в волне 2, и тест Compose Factory проверяет итог.
 13. Обязательные возможности. C32 говорит об одной «основной возможности», но Serving требует две (`postgres`, `schema`), а Gateway две (`http`, `limiter`, C49). Контракт называет колонку «обязательные для 200». Стиль имён тоже разный (`auth_jwks` у Serving, `delivery.smtp` у Feedback); контракт принимает оба как есть. Состояние `limiter` в строгом режиме R7 (`ok` или `degraded`, и отвечает ли `/readyz` Gateway 200 в окне строгости) в gateway.md не определено.
-14. ACL маркеров limiter. gateway.md (раздел о передаче работы Factory) разрешает Gateway только «чтение `umir:limiter:generation`», но C47 требует от сервиса `SET … NX` маркера и `strict_since` и `DEL strict_since`. Контракт даёт Gateway запись только на эти два ключа сверх `umir:gw:*`.
+14. ACL маркеров limiter. Решено (C61): исключение к C17. Gateway получает `GET`, `SET` (с `NX`) и `DEL` ровно на `umir:limiter:generation` и `umir:limiter:strict_since`; скрипты через `+evalsha` и `+script|load`, `+eval` не выдаётся. Тест ACL проверяет отказ на чужих ключах и на `FLUSH*`, `CONFIG`, `KEYS`, `DEBUG`, `SHUTDOWN`.
 15. `GATEWAY_LIMITER_GENERATION` не секрет. C14 включает limiter generation в список секретов бэкапа, а gateway.md определяет `GATEWAY_LIMITER_GENERATION` обычной переменной (не `_FILE`). Контракт: переменная несекретная, значение берётся из `config/limiter-generation`; тест Compose не считает её секретом.
 16. Обязательность необязательных URL. warehouse.md допускает работу без Redis cache, serving.md — без брокера (деградация). Контракт: в durable-профиле Factory задаёт `WAREHOUSE_REDIS_CACHE_URL_FILE` и `SERVING_AMQP_URL_FILE` всегда.
 17. CA для `amqps://` и `rediss://`. Только Auth имеет поле для CA брокера. Для остальных сервисов способ не определён; предложение: `SSL_CERT_FILE` на общий CA, как во FIN1, и `sslrootcert` в DSN Postgres.

@@ -72,8 +72,9 @@
 //     and HDEL.
 //
 // Key access: each service gets umir:<owner>:* for its own owner. The Gateway
-// also needs umir:limiter:* (read and write), because Continuity keeps the
-// marker and strict_since there; the Warehouse does not use it. The commands
+// also needs exactly two more keys, umir:limiter:generation and
+// umir:limiter:strict_since (GET, SET with NX, DEL; C61), because Continuity
+// keeps the marker there; the Warehouse does not use them. The commands
 // run by the scripts are checked against the user's ACL like direct ones, so
 // the user needs them and the key patterns together. Use the categories
 // -@all +@connection... only as a base; do not grant EVAL, KEYS, FLUSHALL, CONFIG
