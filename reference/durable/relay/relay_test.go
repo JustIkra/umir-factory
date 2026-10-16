@@ -465,6 +465,50 @@ func TestClaimErrorIsCountedAndRetriedAfterAWait(t *testing.T) {
 	}
 }
 
+// After Nacked or Unknown the relay waits before it claims again, with a pause
+// that grows up to 5 s, so a dead broker costs no claim storm and later events
+// of an aggregate do not overtake the held-back one. A confirmed batch resets it.
+func TestBrokerFailuresBackOffUpToFiveSeconds(t *testing.T) {
+	for _, out := range []relay.Outcome{relay.Nacked, relay.Unknown} {
+		t.Run(out.String(), func(t *testing.T) {
+			store := newFakeStore(eventRow(1))
+			var healthy atomic.Bool
+			pub := &fakePub{script: func(int, context.Context, relay.Message) (relay.Outcome, error) {
+				if healthy.Load() {
+					return relay.Confirmed, nil
+				}
+				return out, errors.New("broker down")
+			}}
+			r := newRelay(store, pub)
+			var waits []time.Duration
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			r.Sleep = func(ctx context.Context, d time.Duration) error { // fake clock: no real wait
+				waits = append(waits, d)
+				switch len(waits) {
+				case 9:
+					healthy.Store(true)
+				case 12:
+					cancel()
+				}
+				return ctx.Err()
+			}
+			if err := r.Run(ctx); !errors.Is(err, context.Canceled) {
+				t.Fatalf("Run = %v", err)
+			}
+			want := []time.Duration{200 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond,
+				1600 * time.Millisecond, 3200 * time.Millisecond, 5 * time.Second, 5 * time.Second, 5 * time.Second}
+			if len(waits) < 12 || !slices.Equal(waits[:len(want)], want) {
+				t.Fatalf("waits = %v, want the start %v", waits, want)
+			}
+			// After the broker came back, the next waits are the plain poll again.
+			if last := waits[len(waits)-1]; last != r.Poll && last != relay.DefaultPoll {
+				t.Fatalf("pause after recovery = %v, want the poll", last)
+			}
+		})
+	}
+}
+
 func TestStatsMergeBacklogAndCounters(t *testing.T) {
 	store := newFakeStore()
 	store.backlog = relay.Backlog{Pending: 7, OldestAge: 3 * time.Second}

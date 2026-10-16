@@ -21,6 +21,8 @@ const (
 	DefaultStoreTimeout   = 5 * time.Second
 	defaultPublishTimeout = 10 * time.Second
 	maxBackoffShift       = 20
+	// maxBrokerPause caps the shared pause after Nacked or Unknown.
+	maxBrokerPause = 5 * time.Second
 )
 
 var (
@@ -195,6 +197,11 @@ type Relay struct {
 	leaseLost, leaseExpiring, storeErrors        atomic.Int64
 }
 
+// errBroker ends a cycle after Nacked or Unknown: Run then waits with a growing
+// pause instead of claiming the next rows at once, so a dead broker costs no
+// claim storm and later events of an aggregate do not overtake the held-back one.
+var errBroker = errors.New("relay: the broker did not confirm a message")
+
 func (r *Relay) batchSize() int {
 	if r.Batch > 0 {
 		return r.Batch
@@ -353,9 +360,13 @@ func (r *Relay) Run(ctx context.Context) error {
 		switch {
 		case err != nil:
 			failures++
-			delay = min(delay<<min(failures-1, maxBackoffShift), r.retryMax())
+			limit := r.retryMax()
+			if errors.Is(err, errBroker) {
+				limit = min(limit, maxBrokerPause)
+			}
+			delay = min(delay<<min(failures-1, maxBackoffShift), limit)
 			if delay <= 0 {
-				delay = r.retryMax()
+				delay = limit
 			}
 			r.log().Warn("relay cycle failed", "error", err.Error(), "retry_in", delay)
 		case drained:
@@ -378,7 +389,7 @@ func (r *Relay) storeCtx(ctx context.Context) (context.Context, context.CancelFu
 
 // cycle claims one batch and works through it. drained reports that the batch
 // was full and fully done, so more rows may be waiting. A non-nil error is a
-// store failure after which Run waits longer, or the error of ctx.
+// store failure or errBroker, after which Run waits longer, or the error of ctx.
 func (r *Relay) cycle(ctx context.Context) (drained bool, err error) {
 	rows, fence, err := r.Store.Claim(ctx, r.Owner, r.batchSize(), r.lease())
 	if err != nil {
@@ -457,7 +468,7 @@ func (r *Relay) cycle(ctx context.Context) (drained bool, err error) {
 			}
 			r.log().Warn("relay publish failed; the batch stops and is retried", attrs...)
 			r.release(ctx, fence, rest, r.backoff(row.Attempts))
-			return false, nil
+			return false, errBroker
 		}
 	}
 	return len(rows) >= r.batchSize(), nil

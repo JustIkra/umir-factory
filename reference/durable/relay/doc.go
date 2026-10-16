@@ -33,7 +33,8 @@
 //     delay, and the relay carries on with the next row.
 //   - Nacked and Unknown are broker or connection failures: the relay stops the
 //     batch, returns the failed row and every row behind it with a backoff that
-//     grows with the attempt number, and polls again. Nothing is published
+//     grows with the attempt number, and waits before the next claim with a pause
+//     that doubles from the poll interval up to 5 s (a confirmed batch resets it). Nothing is published
 //     behind a failed row, so a later event of an aggregate never overtakes it
 //     within a batch.
 //   - A lost lease (ErrLeaseLost) stops the batch at once: the rows belong to
