@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Add wave 0 of the durable-stack transition: DUR1 contract profile `2.0.0-DUR.1` (overlays, examples, composed profiles, reproducibility tests, amendment), ADR 0002, event catalog, configuration contract and proposed retention and admission tables in `docs/durable`, the `reference/durable` adapter module (PostgreSQL, RabbitMQ, Redis, outbox relay) with integration tests and its quality gates, `scripts/durable-test-infra.sh` and `umir-checks contract-sync`. The durable Compose profile and deployment are not part of this change.
+
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
 
 - Select reviewed REG1 Auth/Gateway and the merged map/friendly-copy Frontend for the authorized stand update. Retain Warehouse/Serving revisions, original accounts and private inputs. Document matched Auth migration backups and a targeted update that preserves business processes.
