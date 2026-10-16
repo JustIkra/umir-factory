@@ -1,0 +1,46 @@
+{
+  "version": "presentation-20261016-1",
+  "origin": "https://xn----ctbhsteek4c3c.empty-lab.ru",
+  "restaurantID": "88ffd8a4-3cf7-4f5d-beda-387735b83748",
+  "warehouseEpoch": "5f5da131-d19c-4232-8cfc-564952008646",
+  "servingEpoch": "501adc1b-2962-44d1-a278-e995d0077056",
+  "capturedAt": "2026-10-16T09:17:30.362291544+03:00",
+  "products": 15,
+  "dishes": 9,
+  "deliveries": 4,
+  "confirmedOrders": 7,
+  "confirmedWriteoffs": 3,
+  "supplyRows": 8,
+  "riskRows": 12,
+  "pendingBatches": 4,
+  "stopListDishes": 3,
+  "historyComplete": false,
+  "preservedBaseline": {
+    "productCount": 0,
+    "productIDs": []
+  },
+  "warehouseStateVersion": "45",
+  "synthetic": true,
+  "namespace": "PRES26",
+  "allStockAndMovementQuantitiesVerified": true,
+  "repeatBusinessCommands": 0,
+  "browser": {
+    "desktop1440": true,
+    "mobile390": true,
+    "documentOverflow": false,
+    "riskShowAll12": true,
+    "tableRows": {
+      "supply": 8,
+      "risk": 12,
+      "movements": 13
+    },
+    "consoleErrors": 0
+  },
+  "limitations": [
+    "Events are recorded at real execution times. No fictional historical event times were inserted.",
+    "The live owners retain in-memory business state. Preserve their processes for the presentation.",
+    "History coverage is incomplete and the UI explicitly reports it."
+  ],
+  "confirmedOrderIdentitiesAudited": 7,
+  "repeatWarehouseStateVersion": "45"
+}

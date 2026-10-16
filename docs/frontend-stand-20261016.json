@@ -1,0 +1,122 @@
+{
+  "profile": "REG1-frontend-pr15-pr16",
+  "status": "runtime-accepted-deployed",
+  "verifiedAt": "2026-10-16T09:18:10.995936+03:00",
+  "timeZone": "Europe/Moscow",
+  "origin": "https://xn----ctbhsteek4c3c.empty-lab.ru",
+  "pullRequests": [
+    15,
+    16
+  ],
+  "excludedDraftPullRequests": [
+    17
+  ],
+  "frontend": {
+    "sourceSHA": "0d865ce02a67bd91281c03d7caebc95e2654b135",
+    "ref": "ghcr.io/justikra/umir-frontend@sha256:b9ac13ae7aad048080e3699d9a6becbf5ceba5580993830420f641586dea8556",
+    "indexDigest": "sha256:cddd82d0da6d3d4c98beeca406324bd77e03f26caf379738931361bf1d23c522",
+    "platformDigest": "sha256:b9ac13ae7aad048080e3699d9a6becbf5ceba5580993830420f641586dea8556",
+    "configDigest": "sha256:0273430c52a5567d48949c653740480e37682f9ba8b7f518bcc12066fb579250",
+    "source": "https://github.com/JustIkra/umir-frontend",
+    "revision": "0d865ce02a67bd91281c03d7caebc95e2654b135"
+  },
+  "sourceCI": {
+    "conclusion": "success",
+    "headSha": "0d865ce02a67bd91281c03d7caebc95e2654b135",
+    "status": "completed",
+    "url": "https://github.com/JustIkra/umir-frontend/actions/runs/38859145837"
+  },
+  "baseRecipeSourceSHA": "b5ee47d0e92f9b74659eafae23335a6dc2de8d1c",
+  "baseStandReceipt": "completion-stand.json",
+  "composeFiles": [
+    "/opt/umir/releases/factory-b5ee47d0e92f9b74659eafae23335a6dc2de8d1c/compose.completion.yaml",
+    "/opt/umir/releases/feedback-fbfc7d02a3d9f9e819e80cc7835dfc37cb30e8b8/compose.feedback.yaml"
+  ],
+  "envFiles": [
+    "/opt/umir/private/fin1/compose.env",
+    "/opt/umir/releases/factory-b5ee47d0e92f9b74659eafae23335a6dc2de8d1c/delivery-runtime.env",
+    "/opt/umir/releases/factory-b5ee47d0e92f9b74659eafae23335a6dc2de8d1c/delivery-images.env",
+    "/opt/umir/private/feedback/runtime.env",
+    "/opt/umir/releases/frontend-0d865ce02a67bd91281c03d7caebc95e2654b135/frontend-images.env"
+  ],
+  "releaseDirectory": "/opt/umir/releases/frontend-0d865ce02a67bd91281c03d7caebc95e2654b135",
+  "rollbackScript": "/opt/umir/releases/frontend-0d865ce02a67bd91281c03d7caebc95e2654b135/rollback.sh",
+  "registryDelivery": "Verified published amd64 platform/config blobs in named Docker archive over host-key-pinned SSH; no rebuild. Target GHCR connection refused.",
+  "archive": {
+    "file": "frontend-amd64.tar",
+    "sha256": "4d0eabe49bea60584d9345d6afc6570c5a4ffb63af3744de2b9fe107d92f8a01",
+    "bytes": 26518528,
+    "sourceSHA": "0d865ce02a67bd91281c03d7caebc95e2654b135",
+    "platformAndConfigBlobsVerified": true,
+    "namedReference": "ghcr.io/justikra/umir-frontend:sha-0d865ce02a67bd91281c03d7caebc95e2654b135"
+  },
+  "checks": {
+    "exactMainCI": true,
+    "tests": 960,
+    "nginxProxyTests": true,
+    "publishedOCIIdentity": true,
+    "onlyFrontendImageChangedInEffectiveCompose": true,
+    "onlyFrontendContainerRecreated": true,
+    "privateInputsUnchanged": true,
+    "httpsRoot": 200,
+    "httpsHealthz": 200,
+    "authenticatedSessionSurvived": true,
+    "analyticsDesktop1440": true,
+    "analyticsMobile390": true,
+    "deliveryFormMobile390": true,
+    "deliveryTable1367": true,
+    "invalidTypedTimePreserved": true,
+    "quantityMask": true,
+    "mobileCalendarFitsViewport": true,
+    "populatedAnalyticsDesktop1440": true,
+    "populatedAnalyticsMobile390": true
+  },
+  "retainedServices": {
+    "gateway": {
+      "containerID": "59ddac5c0f6d04154ddea7ecaf193c4dd4bbd68dbaa10e43d831af7630f35d6c",
+      "image": "umir-gateway:sha-2b8b3628a671c0dd43e45f07742ae2f5fb0f1ef4",
+      "sourceSHA": "2b8b3628a671c0dd43e45f07742ae2f5fb0f1ef4"
+    },
+    "feedback": {
+      "containerID": "df655125a9c5618e7fc2cc9d026a4ce92e7f1bda925a892bd6ed187c25890f63",
+      "image": "umir-feedback:sha-fbfc7d02a3d9f9e819e80cc7835dfc37cb30e8b8",
+      "sourceSHA": "fbfc7d02a3d9f9e819e80cc7835dfc37cb30e8b8"
+    },
+    "telegram-vpn": {
+      "containerID": "a8c0f730849da0fef912df8e55136c6a67700633ce77d5cdabf1c59e49a21d9a",
+      "image": "umir-telegram-vpn:sha-fbfc7d02a3d9f9e819e80cc7835dfc37cb30e8b8",
+      "sourceSHA": "fbfc7d02a3d9f9e819e80cc7835dfc37cb30e8b8"
+    },
+    "auth": {
+      "containerID": "096e65c371c54d661f7ae1a00d08acecef9128c0a65828010a3f2fc24593ede6",
+      "image": "ghcr.io/justikra/umir-auth@sha256:0a1d6b4ded50daa05b97b1167fb8b65ee460d0e4ea44e15f7563be15ffff7247",
+      "sourceSHA": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b"
+    },
+    "serving": {
+      "containerID": "a95c753010fe60e0fcaa0d5b507ac933fdca3420b7ff22219c91a351b6ddb4fa",
+      "image": "ghcr.io/justikra/umir-serving@sha256:ee1e5a55ad4b03482341d0abaeede37dcb9f61805985e05767cf2ff957bfe015",
+      "sourceSHA": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5"
+    },
+    "warehouse": {
+      "containerID": "db76f24ae9b1762bcf485742486bb1dce65c2b65a4b45b7340dd7d9a21a44a7f",
+      "image": "ghcr.io/justikra/umir-warehouse@sha256:deb6dcd51869c0cd73892f60092e128d03a3c55301b8bf35dfe315ff993cb0d6",
+      "sourceSHA": "52aae498e0d5501323849910013ac1a076cd159d"
+    },
+    "auth-ready": {
+      "containerID": "1975eb817fdf8d624a1e2e022ce5e996d83b23d4d740148cb10526f543a032a6",
+      "image": "node:24.21.0-alpine",
+      "sourceSHA": null
+    },
+    "transport": {
+      "containerID": "773165a29805e64eeb60b24c915ae13b45f8b168f7b48fe0b2f4ba6749bc9710",
+      "image": "nginxinc/nginx-unprivileged:1.30.5-alpine",
+      "sourceSHA": "588b4cbc88065a313909f47a02510639e01cc508"
+    }
+  },
+  "verificationLimits": [
+    "Deployment preservation compares the captured rollout interval. Later user-authorized synthetic presentation data is a separate additive operation.",
+    "Production catalogue was empty at the first rollout browser check. Populated analytics verification is recorded separately after requested synthetic data generation.",
+    "Real iOS and Android device input was not tested."
+  ],
+  "presentationDataReceipt": "presentation-data-20261016.json"
+}

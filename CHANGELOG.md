@@ -2,6 +2,10 @@
 
 ## Не выпущено
 
+- Record the user-requested additive PRES26 synthetic analytics dataset and its exact production readback.
+
+- Select the reviewed Frontend PR15/PR16 source and record its frontend-only production rollout. Retain the active Gateway and Feedback overlays and the existing backend processes.
+
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
 
 - Select reviewed REG1 Auth/Gateway and the merged map/friendly-copy Frontend for the authorized stand update. Retain Warehouse/Serving revisions, original accounts and private inputs. Document matched Auth migration backups and a targeted update that preserves business processes.

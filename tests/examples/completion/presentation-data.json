@@ -1,0 +1,33 @@
+{
+  "version": "presentation-20261016-1",
+  "namespace": "PRES26",
+  "restaurantID": "88ffd8a4-3cf7-4f5d-beda-387735b83748",
+  "products": [
+    {"code":"SALMON","name":"Лосось","unit":"g","consumed":3600,"safe":0,"soon":120,"pending":250,"writeoff":0},
+    {"code":"CHICKEN","name":"Куриное филе","unit":"g","consumed":4800,"safe":1100,"soon":500,"pending":400,"writeoff":200},
+    {"code":"CREAM","name":"Сливки 20%","unit":"ml","consumed":3300,"safe":0,"soon":200,"pending":0,"writeoff":300},
+    {"code":"MILK","name":"Молоко","unit":"ml","consumed":7000,"safe":700,"soon":300,"pending":0,"writeoff":2000},
+    {"code":"TOMATO","name":"Томаты","unit":"g","consumed":5400,"safe":900,"soon":1100,"pending":350,"writeoff":0},
+    {"code":"MUSHROOM","name":"Шампиньоны","unit":"g","consumed":6600,"safe":0,"soon":0,"pending":500,"writeoff":0},
+    {"code":"ARUGULA","name":"Руккола","unit":"g","consumed":900,"safe":150,"soon":450,"pending":0,"writeoff":0},
+    {"code":"ROMAINE","name":"Салат ромэн","unit":"g","consumed":2100,"safe":0,"soon":300,"pending":0,"writeoff":0},
+    {"code":"RICE","name":"Рис жасмин","unit":"g","consumed":1600,"safe":20000,"soon":0,"pending":0,"writeoff":0},
+    {"code":"PASTA","name":"Паста феттучине","unit":"g","consumed":2500,"safe":8000,"soon":0,"pending":0,"writeoff":0},
+    {"code":"POTATO","name":"Картофель","unit":"g","consumed":6000,"safe":2100,"soon":900,"pending":0,"writeoff":0},
+    {"code":"PARMESAN","name":"Пармезан","unit":"g","consumed":975,"safe":50,"soon":100,"pending":0,"writeoff":0},
+    {"code":"COFFEE","name":"Кофе в зёрнах","unit":"g","consumed":720,"safe":4000,"soon":0,"pending":0,"writeoff":0},
+    {"code":"CUCUMBER","name":"Огурцы","unit":"g","consumed":0,"safe":600,"soon":200,"pending":0,"writeoff":0},
+    {"code":"SOURCREAM","name":"Сметана 20%","unit":"g","consumed":0,"safe":500,"soon":100,"pending":0,"writeoff":0}
+  ],
+  "dishes": [
+    {"code":"SALMON-RICE","name":"Лосось с рисом","portions":20,"ingredients":{"SALMON":180,"RICE":80,"CREAM":40}},
+    {"code":"CAESAR","name":"Цезарь с курицей","portions":30,"ingredients":{"CHICKEN":160,"ROMAINE":70,"TOMATO":60,"PARMESAN":20}},
+    {"code":"MUSHROOM-PASTA","name":"Паста с грибами","portions":25,"ingredients":{"PASTA":100,"MUSHROOM":120,"CREAM":100,"PARMESAN":15}},
+    {"code":"VEGETABLE-SALAD","name":"Салат с томатами и рукколой","portions":30,"ingredients":{"TOMATO":120,"ARUGULA":30}},
+    {"code":"MUSHROOM-SOUP","name":"Грибной крем-суп","portions":20,"ingredients":{"MUSHROOM":180,"MILK":150,"POTATO":100}},
+    {"code":"POTATO-SIDE","name":"Картофель на гарнир","portions":20,"ingredients":{"POTATO":200}},
+    {"code":"LATTE","name":"Латте","portions":40,"ingredients":{"COFFEE":18,"MILK":100}},
+    {"code":"CUCUMBER-SALAD","name":"Огуречный салат со сметаной","portions":0,"ingredients":{"CUCUMBER":100,"SOURCREAM":40}},
+    {"code":"RICE-SIDE","name":"Рис на гарнир","portions":0,"ingredients":{"RICE":120}}
+  ]
+}
