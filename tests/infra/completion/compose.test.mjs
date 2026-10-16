@@ -300,3 +300,12 @@ test("the transport has a TLS health check that Auth waits for, and the front ne
   // The frontend is not on `default`, where Warehouse's internal listener is.
   assert.ok(!networks("frontend").includes("default"));
 });
+
+test("private-init prepares the Feedback state directory that Feedback demands to be 0700", (t) => {
+  const model = composeJSON(["compose.completion.yaml"], { envFile: completionEnv(t) });
+  const init = model.services["private-init"];
+  assert.ok(init.volumes.some((v) => v.source === "feedback-state" && v.target === "/state/feedback" && !v.read_only));
+  const script = init.command[2];
+  assert.match(script, /chown 65532:65532 \/state\/feedback/);
+  assert.match(script, /chmod 700 \/state\/feedback/);
+});

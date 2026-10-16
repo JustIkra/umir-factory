@@ -31,6 +31,7 @@ services:
       - trust-config:/targets/trust
       - health-config:/targets/health
       - keys-config:/targets/keys
+      - feedback-state:/state/feedback
     command:
       - sh
       - -ec
@@ -69,6 +70,12 @@ services:
           RT=$$(sed -n 's/^tree-sha256=\([0-9a-f]\{64\}\)$$/\1/p' "$$1")
           [ -n "$$RG" ] && [ -n "$$RT" ] && printf 'completion-private-v2 generation=%s\ntree-sha256=%s\n' "$$RG" "$$RT" | cmp -s - "$$1"
         }
+
+        # Feedback refuses a state directory that is not 0700 and owned by its user.
+        if [ -d /state/feedback ]; then
+          chown 65532:65532 /state/feedback
+          chmod 700 /state/feedback
+        fi
 
         for t in auth transport trust health keys; do
           src=$$B/$$t
