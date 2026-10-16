@@ -118,6 +118,8 @@ export const pemCount = (path) =>
   (readFileSync(path, "utf8").match(/-----BEGIN CERTIFICATE-----/g) ?? [])
     .length;
 
+/** Service directories private-init keeps at the top of a target volume. */
+export const serviceDirectory = /^\.(previous(\.tmp)?|next-[^/]*)(\/|$)/;
 function files(root, prefix = "") {
   return readdirSync(join(root, prefix)).flatMap((name) => {
     const path = prefix === "" ? name : `${prefix}/${name}`;
@@ -129,11 +131,12 @@ function files(root, prefix = "") {
 /**
  * Independent implementation of the documented tree digest (see prepare.mjs):
  * sha256 over the lines "<sha256 of file>  <path>\n" of every file below the
- * target except the top-level .ready, in byte order of the path.
+ * target except the top-level .ready and the service directories of a volume
+ * (.previous, .previous.tmp, .next-*), in byte order of the path.
  */
 export function treeSha(target) {
   const listing = files(target)
-    .filter((path) => path !== ".ready")
+    .filter((path) => path !== ".ready" && !serviceDirectory.test(path))
     .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))
     .map(
       (path) =>
@@ -147,7 +150,7 @@ export function treeSha(target) {
     .join("");
   return createHash("sha256").update(listing).digest("hex");
 }
-export const targets = ["auth", "transport", "trust", "health"];
+export const targets = ["auth", "transport", "trust", "health", "keys"];
 export function readReady(target) {
   const m =
     /^completion-private-v2 generation=(\d+)\ntree-sha256=([a-f0-9]{64})\n$/.exec(

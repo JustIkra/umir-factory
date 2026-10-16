@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   readFileSync,
@@ -192,4 +192,51 @@ test("every completion image carries a digest, except an unpublished optional on
   ]);
   for (const [name, service] of Object.entries(model.services))
     assert.ok(locked.has(service.image), `${name}: ${service.image} is not in the lock`);
+});
+
+// Services whose pinned images cannot read their keys from files yet (the
+// groups of Warehouse, Serving and Gateway add *_FILE in their wave 1). Shrink
+// this list when the profile is re-pinned to images that support it.
+const keysStillInEnvironment = ["warehouse", "serving", "gateway"];
+
+test("Feedback gets its service keys as read-only files, never in the environment", (t) => {
+  const model = composeJSON(["compose.completion.yaml"], {
+    envFile: completionEnv(t),
+    profiles: ["feedback"],
+  });
+  const feedback = model.services.feedback;
+  const environment = feedback.environment;
+  assert.equal(environment.FEEDBACK_GATEWAY_KEY, undefined);
+  assert.equal(environment.FEEDBACK_AUTH_DISCOVERY_KEY, undefined);
+  assert.equal(environment.FEEDBACK_GATEWAY_KEY_FILE, "/run/umir-keys/gateway-feedback");
+  assert.equal(environment.FEEDBACK_AUTH_DISCOVERY_KEY_FILE, "/run/umir-keys/feedback-auth");
+  assert.deepEqual(
+    feedback.volumes.filter((v) => v.target === "/run/umir-keys").map((v) => v.read_only),
+    [true],
+  );
+  // No value that looks like a key (64 hex digits) in the environment, and no env_file with keys.
+  for (const [name, value] of Object.entries(environment))
+    assert.ok(!/^[a-f0-9]{64}$/.test(value), name);
+  assert.ok(!JSON.stringify(feedback).includes("env/feedback.env"));
+  for (const service of Object.keys(model.services))
+    if (!keysStillInEnvironment.includes(service) && service !== "feedback")
+      assert.equal(model.services[service].env_file, undefined, service);
+});
+
+test("compose.sh runs Compose for a bundle and refuses `config` without --quiet", (t) => {
+  const envFile = completionEnv(t);
+  const bundle = envFile.slice(0, -"/compose.env".length);
+  const script = new URL("../../../scripts/completion/compose.sh", import.meta.url).pathname;
+  const run = (...args) => spawnSync("sh", [script, "--bundle", bundle, ...args], { encoding: "utf8", timeout: 20000 });
+  const quiet = run("config", "--quiet");
+  assert.equal(quiet.status, 0, quiet.stderr);
+  assert.equal(quiet.stdout, "");
+  for (const args of [["config"], ["config", "--format", "json"], ["--profile", "feedback", "config"]]) {
+    const refused = run(...args);
+    assert.equal(refused.status, 2, args.join(" "));
+    assert.equal(refused.stdout, "");
+    assert.match(refused.stderr, /--quiet/);
+  }
+  assert.equal(spawnSync("sh", [script], { encoding: "utf8" }).status, 2);
+  assert.equal(run("config", "--quiet").stdout.includes("key"), false);
 });

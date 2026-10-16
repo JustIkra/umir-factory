@@ -77,7 +77,29 @@ function write(directory, path, value) {
 const CA_DAYS = 3650;
 const LEAF_DAYS = 365;
 const KEEP_GENERATIONS = 5;
-const TARGETS = ["auth", "transport", "trust", "health"];
+const TARGETS = ["auth", "transport", "trust", "health", "keys"];
+// A bundle made before the "keys" target existed has no such directory.
+const presentTargets = (directory) =>
+  TARGETS.filter((target) => existsSync(join(directory, target)));
+// Keys of the service Feedback, delivered as files (name -> bundle key name).
+const FEEDBACK_KEY_FILES = {
+  FEEDBACK_GATEWAY_KEY: "gateway-feedback",
+  FEEDBACK_AUTH_DISCOVERY_KEY: "feedback-auth",
+};
+// The keys of a bundle that still has them in env/feedback.env.
+function legacyKeyFiles(directory) {
+  const path = join(directory, "env", "feedback.env");
+  if (!existsSync(path)) return [];
+  const values = Object.fromEntries(
+    readFileSync(path, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]),
+  );
+  return Object.entries(FEEDBACK_KEY_FILES)
+    .filter(([variable]) => values[variable] !== undefined)
+    .map(([variable, name]) => [`keys/${name}`, Buffer.from(values[variable])]);
+}
 const CA_PHASES = ["trust", "serve", "retire"];
 const LEGACY_READY = "completion-private-v1\n";
 const SERVER_EXT =
@@ -403,15 +425,19 @@ const targetEntries = (files) =>
 const treeShaOf = (directory) => treeDigest(targetEntries(readTree(directory)));
 const currentTrees = (directory) =>
   Object.fromEntries(
-    TARGETS.map((target) => [target, treeShaOf(join(directory, target))]),
+    presentTargets(directory).map((target) => [target, treeShaOf(join(directory, target))]),
   );
 // The mutable content of a generation: "<target>/<path>" -> bytes without
 // ".ready", the tls directory by file name, and a new compose.env (or null).
 function loadPlan(directory) {
   const targets = new Map();
-  for (const target of TARGETS)
+  for (const target of presentTargets(directory))
     for (const [path, body] of readTree(join(directory, target)))
       if (path !== ".ready") targets.set(`${target}/${path}`, body);
+  // First change of a bundle from before the key files: they move out of
+  // env/feedback.env into the "keys" target, with the same values.
+  if (!existsSync(join(directory, "keys")))
+    for (const [path, body] of legacyKeyFiles(directory)) targets.set(path, body);
   return {
     targets,
     tls: readTree(join(directory, "tls")),
@@ -454,7 +480,7 @@ function archive(directory, generation, current) {
   mkdirSync(root, { recursive: true, mode: 0o700 });
   const base = join(root, String(generation));
   rmSync(base, { recursive: true, force: true });
-  for (const target of [...TARGETS, "tls"])
+  for (const target of [...presentTargets(directory), "tls"])
     for (const [path, body] of readTree(join(directory, target)))
       write(base, `${target}/${path}`, body);
   write(
@@ -513,6 +539,7 @@ function commitGeneration(
       const entries = [...plan.targets]
         .filter(([path]) => path.startsWith(`${target}/`))
         .map(([path, body]) => [path.slice(target.length + 1), body]);
+      if (entries.length === 0) continue;
       for (const [path, body] of entries) write(next, `${target}/${path}`, body);
       write(
         next,
@@ -666,6 +693,14 @@ function rollbackBundle({ directory, project, timestamp, afterStep }) {
   if (!existsSync(base)) throw new Error("previous generation is missing");
   const plan = { targets: new Map(), tls: new Map(), composeEnv: null };
   for (const target of TARGETS) {
+    if (!existsSync(join(base, target))) {
+      // Service keys never change, so a generation from before the "keys"
+      // target keeps the keys of the current one.
+      if (target === "keys" && existsSync(join(directory, "keys")))
+        for (const [path, body] of readTree(join(directory, "keys")))
+          if (path !== ".ready") plan.targets.set(`keys/${path}`, body);
+      continue;
+    }
     const files = readTree(join(base, target));
     if (treeDigest(targetEntries(files)) !== previous.trees?.[target])
       throw new Error("previous generation integrity changed");
@@ -1055,11 +1090,10 @@ export function prepare({
       SERVING_SERVICE_KEY: keys["gateway-serving"],
       FEEDBACK_SERVICE_KEY: keys["gateway-feedback"],
     },
-    feedback: {
-      FEEDBACK_GATEWAY_KEY: keys["gateway-feedback"],
-      FEEDBACK_AUTH_DISCOVERY_KEY: keys["feedback-auth"],
-    },
   };
+  // Feedback reads its keys from files (FEEDBACK_*_KEY_FILE), not from the environment.
+  for (const name of Object.values(FEEDBACK_KEY_FILES))
+    write(directory, `keys/${name}`, keys[name]);
   for (const [service, values] of Object.entries(env))
     write(
       directory,

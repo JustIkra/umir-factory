@@ -905,3 +905,59 @@ test("compose.env pins every locked service by digest and refuses a service miss
   assert.throws(() => runtime.prepare(other), /gateway.*lock|lock.*gateway/i);
   assert.equal(existsSync(other.directory), false, "nothing is created when the lock is incomplete");
 });
+
+test("Feedback service keys are separate 0600 files of the keys target, not environment lines", (t) => {
+  const { options } = fixture(t);
+  const { directory } = prepare(options);
+  const gateway = at(directory, "keys/gateway-feedback");
+  const discovery = at(directory, "keys/feedback-auth");
+  for (const path of [gateway, discovery]) {
+    assert.equal(lstatSync(path).mode & 0o777, 0o600);
+    assert.match(readFileSync(path, "utf8"), /^[a-f0-9]{64}$/);
+  }
+  // The same values the other side of each pair holds.
+  assert.equal(
+    readFileSync(discovery, "utf8"),
+    readFileSync(at(directory, "auth/secrets/feedback-auth"), "utf8"),
+  );
+  const env = at(directory, "env/feedback.env");
+  assert.ok(!existsSync(env) || !/KEY/.test(readFileSync(env, "utf8")));
+  assert.deepEqual(readReady(at(directory, "keys")).generation, 1);
+});
+
+test("a bundle from before the keys target gets the same key files at its first change", (t) => {
+  const { options } = fixture(t);
+  const { directory } = prepare(options);
+  const gateway = readFileSync(at(directory, "keys/gateway-feedback"), "utf8");
+  const discovery = readFileSync(at(directory, "keys/feedback-auth"), "utf8");
+  // Rebuild the earlier layout: keys in env/feedback.env, no keys target.
+  rmSync(at(directory, "keys"), { recursive: true });
+  writeFileSync(
+    at(directory, "env/feedback.env"),
+    `FEEDBACK_GATEWAY_KEY=${gateway}\nFEEDBACK_AUTH_DISCOVERY_KEY=${discovery}\n`,
+    { mode: 0o600 },
+  );
+  const walk = (prefix = "") =>
+    readdirSync(join(directory, prefix))
+      .sort()
+      .flatMap((name) => {
+        const path = prefix === "" ? name : join(prefix, name);
+        if (prefix === "" && [".generations", ".next", "bundle.json"].includes(name)) return [];
+        return lstatSync(join(directory, path)).isDirectory()
+          ? walk(path)
+          : [{ path, sha256: digest(join(directory, path)) }];
+      });
+  const legacy = bundle(directory);
+  legacy.files = walk();
+  writeFileSync(at(directory, "bundle.json"), JSON.stringify(legacy, null, 2) + "\n");
+  assert.equal(prepare(options).reused, true);
+  const rotated = prepare({ ...options, rotateLeaf: true });
+  assert.equal(rotated.generation, 2);
+  assert.equal(readFileSync(at(directory, "keys/gateway-feedback"), "utf8"), gateway);
+  assert.equal(readFileSync(at(directory, "keys/feedback-auth"), "utf8"), discovery);
+  assert.equal(readReady(at(directory, "keys")).generation, 2);
+  // Going back to the generation without the target keeps the keys.
+  const back = prepare({ ...options, rollback: true });
+  assert.equal(back.generation, 3);
+  assert.equal(readFileSync(at(directory, "keys/gateway-feedback"), "utf8"), gateway);
+});

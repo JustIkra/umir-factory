@@ -11,20 +11,134 @@ services:
       - transport-config:/targets/transport
       - trust-config:/targets/trust
       - health-config:/targets/health
+      - keys-config:/targets/keys
     command:
       - sh
       - -ec
       - |
-        for name in auth transport trust health; do
-          if [ -e "/targets/$$name/.ready" ]; then
-            diff -rq "/bootstrap/$$name" "/targets/$$name" >/dev/null || exit 1
-          else
-            [ -z "$$(ls -A "/targets/$$name")" ] || exit 1
-            cp -R "/bootstrap/$$name/." "/targets/$$name/"
-            chown -R 65532:65532 "/targets/$$name"
-            find "/targets/$$name" -type d -exec chmod 700 {} +
-            find "/targets/$$name" -type f -exec chmod 600 {} +
+        set -u
+        B=/bootstrap
+        T=/targets
+
+        die() { echo "private-init: $$*" >&2; exit 1; }
+
+        # Files and directories of a target, relative to it, without the service
+        # directories (.previous, .previous.tmp, .next-*) that private-init keeps there.
+        list_files() {
+          ( cd "$$1" && find . \( -path ./.previous -o -path ./.previous.tmp -o -path './.next-*' \) -prune -o -type f -print | sed 's|^\./||' )
+        }
+        list_dirs() {
+          ( cd "$$1" && find . \( -path ./.previous -o -path ./.previous.tmp -o -path './.next-*' \) -prune -o -type d ! -path . -print | sed 's|^\./||' )
+        }
+
+        # SHA-256 of the listing "<sha256 of file>  <path>" over all files except the
+        # top-level .ready, sorted by path (the tree-sha256 of the .ready marker).
+        tree_sha() {
+          ( list_files "$$1" | grep -v '^[.]ready$$' | LC_ALL=C sort | { cd "$$1" && while read -r f; do sha256sum "$$f"; done; } | sha256sum | cut -d' ' -f1 )
+        }
+
+        # Reads a marker into RG (generation) and RT (tree digest, empty for the old
+        # one-line marker, which counts as generation 0). Fails on anything else.
+        read_ready() {
+          RG=
+          RT=
+          if printf 'completion-private-v1\n' | cmp -s - "$$1"; then
+            RG=0
+            return 0
           fi
+          RG=$$(sed -n 's/^completion-private-v2 generation=\([0-9]\{1,9\}\)$$/\1/p' "$$1")
+          RT=$$(sed -n 's/^tree-sha256=\([0-9a-f]\{64\}\)$$/\1/p' "$$1")
+          [ -n "$$RG" ] && [ -n "$$RT" ] && printf 'completion-private-v2 generation=%s\ntree-sha256=%s\n' "$$RG" "$$RT" | cmp -s - "$$1"
+        }
+
+        for t in auth transport trust health keys; do
+          src=$$B/$$t
+          dst=$$T/$$t
+          # A bundle from before the service key files has no keys directory; it
+          # gets one with its first change (see the README), Feedback needs it.
+          if [ "$$t" = keys ] && [ ! -d "$$src" ]; then
+            echo "private-init: keys: not in the bundle, skipped"
+            continue
+          fi
+          [ -d "$$src" ] || die "$$t: no such directory in the bundle"
+          [ -d "$$dst" ] || die "$$t: no such volume"
+          [ -f "$$src/.ready" ] || die "$$t: the bundle is not complete"
+          read_ready "$$src/.ready" || die "$$t: unknown marker in the bundle"
+          bg=$$RG
+          bt=$$RT
+          actual=$$(tree_sha "$$src")
+          [ -n "$$bt" ] || bt=$$actual
+          [ "$$bt" = "$$actual" ] || die "$$t: the bundle does not match its marker"
+
+          keep=0
+          if [ -f "$$dst/.ready" ]; then
+            read_ready "$$dst/.ready" || die "$$t: unknown marker in the volume"
+            vg=$$RG
+            vt=$$RT
+            [ -n "$$vt" ] || vt=$$(tree_sha "$$dst")
+            [ "$$bg" -ge "$$vg" ] || die "$$t: the bundle generation $$bg is older than the volume generation $$vg"
+            if [ "$$bg" -eq "$$vg" ]; then
+              [ "$$bt" = "$$vt" ] || die "$$t: generation $$bg with different content in the bundle and in the volume"
+              [ "$$(tree_sha "$$dst")" = "$$vt" ] || die "$$t: the volume differs from its marker"
+              for d in "$$dst"/.next-* "$$dst/.previous.tmp"; do
+                if [ -e "$$d" ]; then rm -rf "$$d"; fi
+              done
+              echo "private-init: $$t generation $$bg is current"
+              continue
+            fi
+            keep=1
+          fi
+
+          # Stage the whole new generation inside the volume (same file system).
+          stage=$$dst/.next-$$bg
+          for d in "$$dst"/.next-* "$$dst/.previous.tmp"; do
+            if [ -e "$$d" ]; then rm -rf "$$d"; fi
+          done
+          mkdir "$$stage"
+          cp -R "$$src/." "$$stage/"
+          chown -R 65532:65532 "$$stage"
+          find "$$stage" -type d -exec chmod 700 {} +
+          find "$$stage" -type f -exec chmod 600 {} +
+          [ "$$(tree_sha "$$stage")" = "$$bt" ] || die "$$t: the staged copy does not match the bundle"
+
+          # Keep the generation being replaced for a rollback. Without a marker the
+          # volume is half-built and .previous (if any) is already the real one.
+          if [ "$$keep" = 1 ]; then
+            prev=$$dst/.previous.tmp
+            mkdir "$$prev"
+            list_dirs "$$dst" | LC_ALL=C sort | while read -r d; do mkdir "$$prev/$$d"; done
+            list_files "$$dst" | while read -r f; do cp -p "$$dst/$$f" "$$prev/$$f"; done
+            chown -R 65532:65532 "$$prev"
+            find "$$prev" -type d -exec chmod 700 {} +
+            rm -rf "$$dst/.previous"
+            mv "$$prev" "$$dst/.previous"
+          fi
+
+          # From here the volume has no marker until every file of the new generation is
+          # in place; a run that finds it this way builds it again from the bundle.
+          rm -f "$$dst/.ready"
+          chown 65532:65532 "$$dst"
+          chmod 700 "$$dst"
+          ( cd "$$stage" && find . -type d ! -path . -print | sed 's|^\./||' ) | LC_ALL=C sort | while read -r d; do
+            mkdir -p "$$dst/$$d"
+            chown 65532:65532 "$$dst/$$d"
+            chmod 700 "$$dst/$$d"
+          done
+          ( cd "$$stage" && find . -type f ! -path ./.ready -print | sed 's|^\./||' ) | LC_ALL=C sort | while read -r f; do
+            mv "$$stage/$$f" "$$dst/$$f"
+          done
+          # Drop what the new generation does not have.
+          list_files "$$dst" | while read -r f; do
+            if [ ! -f "$$src/$$f" ]; then rm -f "$$dst/$$f"; fi
+          done
+          list_dirs "$$dst" | LC_ALL=C sort -r | while read -r d; do
+            if [ ! -d "$$src/$$d" ]; then rmdir "$$dst/$$d" 2>/dev/null || true; fi
+          done
+          [ "$$(tree_sha "$$dst")" = "$$bt" ] || die "$$t: the volume does not match the bundle after copying"
+          sync
+          mv "$$stage/.ready" "$$dst/.ready"
+          rm -rf "$$stage"
+          echo "private-init: $$t generation $$bg applied"
         done
 
   transport:
@@ -162,19 +276,20 @@ services:
     profiles: [feedback]
     image: ${COMPLETION_FEEDBACK_IMAGE:-}
     env_file:
-      - path: ${COMPLETION_PRIVATE_DIR}/env/feedback.env
-        format: raw
       - path: ${COMPLETION_FEEDBACK_ENV_FILE:-.completion-feedback.env}
         required: false
         format: raw
     environment:
       TZ: Europe/Moscow
       FEEDBACK_AUTH_URL: https://auth:8085
+      FEEDBACK_GATEWAY_KEY_FILE: /run/umir-keys/gateway-feedback
+      FEEDBACK_AUTH_DISCOVERY_KEY_FILE: /run/umir-keys/feedback-auth
       SSL_CERT_FILE: /run/trust/ca.crt
       FEEDBACK_LISTEN_ADDRESS: 0.0.0.0:8084
       FEEDBACK_STORE_PATH: /var/lib/umir-feedback/feedback.json
     volumes:
       - trust-config:/run/trust:ro
+      - keys-config:/run/umir-keys:ro
       - feedback-state:/var/lib/umir-feedback
     networks: [default, mail]
     depends_on:
@@ -193,5 +308,6 @@ volumes:
   transport-config:
   trust-config:
   health-config:
+  keys-config:
   auth-state:
   feedback-state:
