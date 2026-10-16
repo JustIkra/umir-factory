@@ -2,6 +2,10 @@
 
 ## Не выпущено
 
+- Wait for the second ownership qualification before measuring concurrent public HTTP probes. Preserve the existing 250 ms overlap window and two-second request guard; the test no longer mistakes qualification work for serialized responses.
+
+- Check the types of the G1 policy status fields in contract tests, so the full pinned lint gate accepts them. Correct the README status to the approved G1 decisions.
+
 - Add wave 0 of the durable-stack transition: DUR1 contract profile `2.0.0-DUR.1` (overlays, examples, composed profiles, reproducibility tests, amendment), ADR 0002, event catalog, configuration contract and proposed retention and admission tables in `docs/durable`, the `reference/durable` adapter module (PostgreSQL, RabbitMQ, Redis, outbox relay) with integration tests and its quality gates, `scripts/durable-test-infra.sh` and `umir-checks contract-sync`. The durable Compose profile and deployment are not part of this change.
 
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
