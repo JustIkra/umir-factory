@@ -1,0 +1,8 @@
+**/.env
+**/.env.*
+**/*.key
+**/*.crt
+**/*.acl
+**/*.json
+**/*.salt
+**/.git

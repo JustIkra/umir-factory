@@ -1,0 +1,284 @@
+name: ${DURABLE_PROJECT:-umir-durable-local}
+
+x-umir-durable-profile: DUR1
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  postgres:
+    image: ${DURABLE_POSTGRES_IMAGE:-docker.io/library/postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826}
+    user: "999:999"
+    mem_limit: 2g
+    restart: unless-stopped
+    <<: *hardening
+    environment:
+      POSTGRES_USER: umir_bootstrap
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /var/lib/postgresql/data/runtime/bootstrap-password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_key_file=/var/lib/postgresql/data/runtime/postgres.key
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/data/runtime/postgres.crt
+      - -c
+      - ssl_ca_file=/var/lib/postgresql/data/runtime/ca.crt
+      - -c
+      - hba_file=/var/lib/postgresql/data/runtime/pg_hba.conf
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - log_statement=none
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - idle_in_transaction_session_timeout=60000
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks: [default, data]
+    tmpfs:
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m,uid=999,gid=999
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U umir_bootstrap -d postgres]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  rabbitmq:
+    image: ${DURABLE_RABBITMQ_IMAGE:-docker.io/library/rabbitmq:4.3.6-management@sha256:8d0592c8f13b9ca76d844aa269f54461503223f36d0bf955859608d78baaf8fb}
+    hostname: rabbitmq
+    user: "999:999"
+    mem_limit: 768m
+    restart: unless-stopped
+    <<: *hardening
+    environment:
+      RABBITMQ_CONFIG_FILE: /var/lib/rabbitmq/runtime/rabbitmq
+      RABBITMQ_ENABLED_PLUGINS_FILE: /etc/rabbitmq/enabled_plugins
+    volumes:
+      - mq-data:/var/lib/rabbitmq
+      - ./scripts/durable/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    networks: [default, data]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis-limiter:
+    image: ${DURABLE_REDIS_IMAGE:-docker.io/library/redis:7.4.7-bookworm@sha256:976ab0f0939b78c06d802bcd3bea44c5142ea9a756a57b861e08819817f768c8}
+    user: "999:999"
+    mem_limit: 256m
+    restart: unless-stopped
+    <<: *hardening
+    command:
+      - redis-server
+      - --port
+      - "0"
+      - --tls-port
+      - "6379"
+      - --tls-cert-file
+      - /run/redis-runtime/redis.crt
+      - --tls-key-file
+      - /run/redis-runtime/redis.key
+      - --tls-ca-cert-file
+      - /run/redis-runtime/ca.crt
+      - --tls-auth-clients
+      - "no"
+      - --aclfile
+      - /run/redis-runtime/users.acl
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-limiter-data:/data
+      - type: volume
+        source: umir-secrets
+        target: /run/redis-runtime
+        read_only: true
+        volume:
+          subpath: redis-limiter/runtime
+    networks: [default, data]
+    healthcheck:
+      test: [CMD-SHELL, "REDISCLI_AUTH=$$(cat /run/redis-runtime/health-password) redis-cli --tls --cacert /run/redis-runtime/ca.crt --user health ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis-cache:
+    image: ${DURABLE_REDIS_IMAGE:-docker.io/library/redis:7.4.7-bookworm@sha256:976ab0f0939b78c06d802bcd3bea44c5142ea9a756a57b861e08819817f768c8}
+    user: "999:999"
+    mem_limit: 768m
+    restart: unless-stopped
+    <<: *hardening
+    command:
+      - redis-server
+      - --port
+      - "0"
+      - --tls-port
+      - "6379"
+      - --tls-cert-file
+      - /run/redis-runtime/redis.crt
+      - --tls-key-file
+      - /run/redis-runtime/redis.key
+      - --tls-ca-cert-file
+      - /run/redis-runtime/ca.crt
+      - --tls-auth-clients
+      - "no"
+      - --aclfile
+      - /run/redis-runtime/users.acl
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - type: volume
+        source: umir-secrets
+        target: /run/redis-runtime
+        read_only: true
+        volume:
+          subpath: redis-cache/runtime
+    networks: [default, data]
+    tmpfs:
+      - /data:rw,noexec,nosuid,size=768m,uid=999,gid=999
+    healthcheck:
+      test: [CMD-SHELL, "REDISCLI_AUTH=$$(cat /run/redis-runtime/health-password) redis-cli --tls --cacert /run/redis-runtime/ca.crt --user health ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  secrets-init:
+    image: ${DURABLE_TOOLS_IMAGE:-umir-durable-tools:local}
+    build:
+      context: ./scripts/durable
+      dockerfile: Dockerfile
+    entrypoint: ["/usr/local/bin/secrets.sh", "ensure"]
+    restart: "no"
+    network_mode: none
+    volumes:
+      - umir-secrets:/run/umir-secrets
+      - auth-owner-secrets:/run/auth-owner-secrets
+      - pg-data:/run/pg-data
+      - mq-data:/run/mq-data
+      - redis-limiter-data:/run/redis-limiter-data
+
+  pg-roles:
+    image: ${DURABLE_TOOLS_IMAGE:-umir-durable-tools:local}
+    user: "65532:65532"
+    entrypoint: ["/usr/local/bin/pg-roles.sh"]
+    restart: "no"
+    <<: *hardening
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: umir_bootstrap
+      PGDATABASE: postgres
+      PGPASSFILE: /run/pg-data/runtime/pgpass
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /run/pg-data/runtime/ca.crt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - umir-secrets:/run/umir-secrets:ro
+      - pg-data:/run/pg-data:ro
+    networks: [data]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+
+  mq-init:
+    image: ${DURABLE_RABBITMQ_IMAGE:-docker.io/library/rabbitmq:4.3.6-management@sha256:8d0592c8f13b9ca76d844aa269f54461503223f36d0bf955859608d78baaf8fb}
+    user: "999:999"
+    entrypoint: ["/bin/sh", "/scripts/mq-init.sh"]
+    command: ["/var/lib/rabbitmq/runtime/definitions.json"]
+    restart: "no"
+    <<: *hardening
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - mq-data:/var/lib/rabbitmq:ro
+      - ./scripts/durable/mq-init.sh:/scripts/mq-init.sh:ro
+    networks: [data]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+
+  redis-init:
+    image: ${DURABLE_TOOLS_IMAGE:-umir-durable-tools:local}
+    user: "65532:65532"
+    entrypoint: ["/usr/local/bin/redis-init.sh"]
+    restart: "no"
+    <<: *hardening
+    depends_on:
+      redis-limiter:
+        condition: service_healthy
+    volumes:
+      - type: volume
+        source: umir-secrets
+        target: /run/umir-secrets
+        read_only: true
+        volume:
+          subpath: redis-init/runtime
+    networks: [data]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+
+volumes:
+  pg-data:
+  mq-data:
+  redis-limiter-data:
+  umir-secrets:
+  auth-owner-secrets:
+
+networks:
+  default:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DURABLE_DEFAULT_SUBNET:-10.250.0.0/24}
+  data:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DURABLE_DATA_SUBNET:-10.250.1.0/24}
+  front:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DURABLE_FRONT_SUBNET:-10.250.2.0/24}
+  mail:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DURABLE_MAIL_SUBNET:-10.250.3.0/24}
+  edge:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${DURABLE_EDGE_SUBNET:-10.250.4.0/24}

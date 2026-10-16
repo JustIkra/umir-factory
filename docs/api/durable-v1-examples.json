@@ -1,0 +1,613 @@
+{
+  "profile": "DUR1",
+  "examples": [
+    {
+      "name": "epoch-storage-generation",
+      "schema": "Epoch",
+      "value": "44444444-4444-4444-8444-444444444444"
+    },
+    {
+      "name": "runtime-status-warehouse",
+      "schema": "RuntimeStatus",
+      "value": {
+        "service": "warehouse",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "ready": true,
+        "tzdataVersion": "2026a"
+      }
+    },
+    {
+      "name": "runtime-readiness-serving",
+      "schema": "RuntimeReadiness",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "service": "serving",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "state": "ready",
+        "lifecycleVersion": "2"
+      }
+    },
+    {
+      "name": "readiness-ack-warehouse",
+      "schema": "ReadinessAck",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "service": "warehouse",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "state": "closed",
+        "lifecycleVersion": "3"
+      }
+    },
+    {
+      "name": "id-opaque",
+      "schema": "ID",
+      "value": "product-ё-1"
+    },
+    {
+      "name": "prepare-order-positions",
+      "schema": "PrepareOrderRequest",
+      "value": {
+        "positions": [
+          {
+            "dishID": "dish-1",
+            "portions": "2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "attempt-pending",
+      "schema": "WOrderAttempt",
+      "value": {
+        "state": "Pending"
+      }
+    },
+    {
+      "name": "attempt-interrupted",
+      "schema": "WOrderAttempt",
+      "value": {
+        "state": "Interrupted"
+      }
+    },
+    {
+      "name": "registry-first-page",
+      "schema": "Registry",
+      "value": {
+        "registryRevision": "42",
+        "complete": false,
+        "nextAfter": "cursor-1",
+        "entries": [
+          {
+            "restaurant": {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "orgID": "22222222-2222-4222-8222-222222222222",
+              "name": "Cafe",
+              "lifecycle": "ready",
+              "lifecycleVersion": "2"
+            },
+            "settings": {
+              "timeZone": "Europe/Moscow",
+              "settingsVersion": "1"
+            },
+            "services": [
+              {
+                "restaurantID": "33333333-3333-4333-8333-333333333333",
+                "service": "warehouse",
+                "epoch": "44444444-4444-4444-8444-444444444444",
+                "state": "ready",
+                "lifecycleVersion": "2"
+              },
+              {
+                "restaurantID": "33333333-3333-4333-8333-333333333333",
+                "service": "serving",
+                "epoch": "44444444-4444-4444-8444-444444444444",
+                "state": "ready",
+                "lifecycleVersion": "2"
+              }
+            ]
+          }
+        ],
+        "tombstones": []
+      }
+    },
+    {
+      "name": "registry-since-last-page",
+      "schema": "Registry",
+      "value": {
+        "registryRevision": "44",
+        "complete": true,
+        "entries": [],
+        "tombstones": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "lifecycleVersion": "3"
+          }
+        ]
+      }
+    },
+    {
+      "name": "registry-tombstone",
+      "schema": "RegistryTombstone",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "lifecycleVersion": "3"
+      }
+    },
+    {
+      "name": "registry-point-live",
+      "schema": "RegistryPoint",
+      "value": {
+        "registryRevision": "42",
+        "state": "live",
+        "entry": {
+          "restaurant": {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "orgID": "22222222-2222-4222-8222-222222222222",
+            "name": "Cafe",
+            "lifecycle": "ready",
+            "lifecycleVersion": "2"
+          },
+          "settings": {
+            "timeZone": "Europe/Moscow",
+            "settingsVersion": "1"
+          },
+          "services": [
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "warehouse",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "ready",
+              "lifecycleVersion": "2"
+            },
+            {
+              "restaurantID": "33333333-3333-4333-8333-333333333333",
+              "service": "serving",
+              "epoch": "44444444-4444-4444-8444-444444444444",
+              "state": "ready",
+              "lifecycleVersion": "2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "registry-point-tombstone",
+      "schema": "RegistryPoint",
+      "value": {
+        "registryRevision": "44",
+        "state": "tombstone",
+        "tombstone": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "lifecycleVersion": "3"
+        }
+      }
+    },
+    {
+      "name": "expiry-due-restaurant",
+      "schema": "ExpiryDueRestaurant",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "nextDueAt": "2026-10-15T09:30:00+03:00"
+      }
+    },
+    {
+      "name": "expiry-due-page",
+      "schema": "ExpiryDueList",
+      "value": {
+        "runtimeEpoch": "44444444-4444-4444-8444-444444444444",
+        "asOf": "2026-10-15T10:00:00+03:00",
+        "items": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "nextDueAt": "2026-10-15T09:30:00+03:00"
+          }
+        ],
+        "nextAfter": "cursor-2"
+      }
+    },
+    {
+      "name": "expiry-run-next-due",
+      "schema": "DueExpiryResult",
+      "value": {
+        "transitionedBatchIDs": [
+          "batch-1"
+        ],
+        "finalWriteoffs": 0,
+        "committedVersion": "12",
+        "invalidationRequired": true,
+        "nextDueAt": "2026-10-16T09:30:00+03:00"
+      }
+    },
+    {
+      "name": "service-token-request-cell",
+      "schema": "ServiceAuthorizationRequest",
+      "value": {
+        "operation": "expiry.due"
+      }
+    },
+    {
+      "name": "service-token-request-restaurant",
+      "schema": "ServiceAuthorizationRequest",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "expiry.due",
+        "epoch": "44444444-4444-4444-8444-444444444444"
+      }
+    },
+    {
+      "name": "service-token-request-order-resolve",
+      "schema": "ServiceAuthorizationRequest",
+      "value": {
+        "restaurantID": "33333333-3333-4333-8333-333333333333",
+        "operation": "order.resolve",
+        "epoch": "44444444-4444-4444-8444-444444444444"
+      }
+    },
+    {
+      "name": "service-claims-cell-expiry-due",
+      "schema": "ServiceClaims",
+      "value": {
+        "iss": "urn:umir:auth",
+        "iat": 1760522400,
+        "nbf": 1760522400,
+        "exp": 1760522700,
+        "jti": "55555555-5555-4555-8555-555555555555",
+        "kind": "service",
+        "aud": [
+          "umir-warehouse"
+        ],
+        "operation": "expiry.due",
+        "permissions": [
+          "expiry.due"
+        ],
+        "sub": "service:gateway",
+        "azp": "umir-gateway"
+      }
+    },
+    {
+      "name": "service-claims-order-resolve",
+      "schema": "ServiceClaims",
+      "value": {
+        "iss": "urn:umir:auth",
+        "iat": 1760522400,
+        "nbf": 1760522400,
+        "exp": 1760522700,
+        "jti": "55555555-5555-4555-8555-555555555555",
+        "kind": "service",
+        "aud": [
+          "umir-warehouse"
+        ],
+        "operation": "order.resolve",
+        "permissions": [
+          "consumer.order.resolve"
+        ],
+        "sub": "service:serving",
+        "azp": "umir-serving",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "runtime_epoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycle_version": "2"
+      }
+    },
+    {
+      "name": "durable-result-revision",
+      "schema": "DurableResult",
+      "value": {
+        "commandID": "create-once",
+        "outcome": "committed",
+        "aggregateRevision": "1048577",
+        "resourceID": "33333333-3333-4333-8333-333333333333",
+        "mailJobs": []
+      }
+    },
+    {
+      "name": "auth-page-identity",
+      "schema": "AuthPageIdentity",
+      "value": {
+        "orgID": "22222222-2222-4222-8222-222222222222",
+        "readerEpoch": "44444444-4444-4444-8444-444444444444",
+        "aggregateRevision": "1048577",
+        "evaluatedAt": "2026-10-15T10:00:00+03:00"
+      }
+    },
+    {
+      "name": "live-event-change",
+      "schema": "LiveEvent",
+      "value": {
+        "type": "change",
+        "tenantID": "33333333-3333-4333-8333-333333333333",
+        "epoch": "44444444-4444-4444-8444-444444444444",
+        "sequence": "7",
+        "topics": [
+          "stock"
+        ]
+      }
+    },
+    {
+      "name": "health-storage-service",
+      "schema": "HealthReadiness",
+      "value": {
+        "instance": "warehouse",
+        "generation": "44444444-4444-4444-8444-444444444444",
+        "capabilities": {
+          "journal": "ok",
+          "outbox": "degraded",
+          "captures": "ok"
+        }
+      }
+    },
+    {
+      "name": "health-feedback",
+      "schema": "HealthReadiness",
+      "value": {
+        "instance": "feedback",
+        "generation": "55555555-5555-4555-8555-555555555555",
+        "capabilities": {
+          "intake": "ok",
+          "delivery.smtp": "ok",
+          "delivery.telegram": "degraded",
+          "outbox": "ok"
+        }
+      }
+    },
+    {
+      "name": "health-gateway",
+      "schema": "HealthReadiness",
+      "value": {
+        "instance": "gateway-a",
+        "capabilities": {
+          "http": "ok",
+          "limiter": "ok",
+          "events": "degraded"
+        }
+      }
+    },
+    {
+      "name": "health-frontend",
+      "schema": "HealthReadiness",
+      "value": {
+        "capabilities": {
+          "static": "ok"
+        }
+      }
+    },
+    {
+      "name": "error-command-conflict-post",
+      "schema": "Error",
+      "value": {
+        "code": "CommandConflict",
+        "outcome": "not_committed",
+        "message": "the command identity was already used with different input; nothing was changed",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-command-conflict-get",
+      "schema": "Error",
+      "value": {
+        "code": "CommandConflict",
+        "outcome": "unavailable",
+        "message": "the command identity was already used with different input; the original result is not shown",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-not-found-registry-point",
+      "schema": "Error",
+      "value": {
+        "code": "NotFound",
+        "outcome": "unavailable",
+        "message": "the restaurant never existed",
+        "retryable": false
+      },
+      "status": 404
+    },
+    {
+      "name": "error-upstream-timeout-after-dispatch",
+      "schema": "Error",
+      "value": {
+        "code": "UpstreamTimeout",
+        "outcome": "unknown",
+        "message": "the service did not answer in time after the command was dispatched",
+        "retryable": true
+      },
+      "status": 504
+    },
+    {
+      "name": "service-claims-restaurant-register",
+      "schema": "ServiceClaims",
+      "value": {
+        "iss": "urn:umir:auth",
+        "iat": 1760522400,
+        "nbf": 1760522400,
+        "exp": 1760522700,
+        "jti": "55555555-5555-4555-8555-555555555555",
+        "kind": "service",
+        "aud": [
+          "umir-warehouse"
+        ],
+        "operation": "runtime.register",
+        "permissions": [
+          "runtime.register"
+        ],
+        "sub": "service:auth",
+        "azp": "umir-auth",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "runtime_epoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycle_version": "2"
+      }
+    },
+    {
+      "name": "registry-entry",
+      "schema": "RegistryEntry",
+      "value": {
+        "restaurant": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "name": "Cafe",
+          "lifecycle": "ready",
+          "lifecycleVersion": "2"
+        },
+        "settings": {
+          "timeZone": "Europe/Moscow",
+          "settingsVersion": "1"
+        },
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "ready",
+            "lifecycleVersion": "2"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "ready",
+            "lifecycleVersion": "2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "error-command-conflict",
+      "schema": "Error",
+      "value": {
+        "code": "CommandConflict",
+        "outcome": "unknown",
+        "message": "the command result is no longer retained; the command identity cannot be replayed",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-limit-exceeded-restaurants",
+      "schema": "Error",
+      "value": {
+        "code": "LimitExceeded",
+        "outcome": "not_committed",
+        "message": "the cell already has 10000 active restaurants",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-limit-exceeded-proposals",
+      "schema": "Error",
+      "value": {
+        "code": "LimitExceeded",
+        "outcome": "not_committed",
+        "message": "the restaurant already has 2000 active proposals",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-limit-exceeded-page-read",
+      "schema": "Error",
+      "value": {
+        "code": "LimitExceeded",
+        "outcome": "unavailable",
+        "message": "no page capture slot is available; repeat the read",
+        "retryable": true
+      },
+      "status": 503
+    },
+    {
+      "name": "error-invalid-argument-positions",
+      "schema": "Error",
+      "value": {
+        "code": "InvalidArgument",
+        "outcome": "not_committed",
+        "message": "positions: at most 200 items",
+        "retryable": false
+      },
+      "status": 400
+    },
+    {
+      "name": "error-invalid-argument-identifier",
+      "schema": "Error",
+      "value": {
+        "code": "InvalidArgument",
+        "outcome": "not_committed",
+        "message": "identifier is longer than 256 characters",
+        "retryable": false
+      },
+      "status": 400
+    },
+    {
+      "name": "error-rate-limited",
+      "schema": "Error",
+      "value": {
+        "code": "RateLimited",
+        "outcome": "not_committed",
+        "message": "too many requests",
+        "retryable": true,
+        "details": {
+          "retryAfterSeconds": 7
+        }
+      },
+      "status": 429,
+      "headers": {
+        "Retry-After": "7"
+      }
+    },
+    {
+      "name": "error-rate-limited-sse",
+      "schema": "Error",
+      "value": {
+        "code": "RateLimited",
+        "outcome": "not_committed",
+        "message": "too many open streams",
+        "retryable": true,
+        "details": {
+          "retryAfterSeconds": 1
+        }
+      },
+      "status": 429,
+      "headers": {
+        "Retry-After": "1"
+      }
+    },
+    {
+      "name": "error-service-unavailable-write",
+      "schema": "Error",
+      "value": {
+        "code": "ServiceUnavailable",
+        "outcome": "not_committed",
+        "message": "admission store is unavailable; the command was not dispatched",
+        "retryable": true
+      },
+      "status": 503
+    },
+    {
+      "name": "error-service-unavailable-read",
+      "schema": "Error",
+      "value": {
+        "code": "ServiceUnavailable",
+        "outcome": "unavailable",
+        "message": "admission store is unavailable; no result was read",
+        "retryable": true
+      },
+      "status": 503
+    },
+    {
+      "name": "error-service-unavailable-after-dispatch",
+      "schema": "Error",
+      "value": {
+        "code": "ServiceUnavailable",
+        "outcome": "unknown",
+        "message": "the service did not answer after the command was dispatched",
+        "retryable": true
+      },
+      "status": 503
+    }
+  ]
+}

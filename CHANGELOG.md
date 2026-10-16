@@ -2,6 +2,14 @@
 
 ## Не выпущено
 
+- Add the infrastructure-only W2 durable Compose base: PostgreSQL 17 with TLS and separate owner/runtime roles, RabbitMQ 4 with TLS and `mq-init` topology, and separate Redis limiter/cache services with TLS and ACLs. Add secure file-secret preparation, the continuity-marker init job, pinned registry identities, and isolated infrastructure checks. Owner services, stack control, encrypted backup/restore and W3 acceptance remain incomplete.
+
+- Limit Redis service `CLIENT` permissions to the go-redis `SETINFO` and `SETNAME` setup subcommands; runtime checks deny `CLIENT KILL` and `CONFIG`.
+
+- Wait for the second ownership qualification before measuring concurrent public HTTP probes. Preserve the existing 250 ms overlap window and two-second request guard; the test no longer mistakes qualification work for serialized responses.
+
+- Check the types of the G1 policy status fields in contract tests, so the full pinned lint gate accepts them. Correct the README status to the approved G1 decisions.
+
 - Add `umir-checks completion-acceptance` and a CI job `completion-stand` that runs the deployed profile `compose.completion.yaml` on disposable projects: prepare, `up --wait`, demo seed, a transport `/healthz` check, a leaf-certificate rotation without removing any volume (the volumes `auth-state` and `auth-config` keep their identity and the earlier session still works), a reconfiguration that turns on registration (the registration scenario then passes), a rollback, an encrypted backup, removal of the source project and restore of its Auth state and package into a distinct `umir-completion-ci-<random>-restore` project. Acceptance signs in and reads access data in the restored project, verifies that the source package stayed unchanged, and writes JSON evidence without secrets. A second matrix entry also starts Feedback, built from the checkout at the reviewed pin. Cleanup removes volumes only from both random projects under the `umir-completion-ci-` prefix, also after a failure at any step. The `check` job now verifies the image lock, requires a digest on every completion image, validates the completion Compose, and runs all completion Node tests and the backup test.
 
 - Fix the Feedback state volume of `compose.completion.yaml`: Feedback refuses a state directory that is not mode 0700, so with the profile `feedback` it stopped with `RuntimeUnavailable`; `private-init` now sets owner and mode of the volume.
@@ -31,6 +39,7 @@
 - Add a reproducibility test for the composed UA1 contract profiles, matching the FIN1 and REG1 gates: it recomposes them in a temporary directory, compares the bytes with the committed files and checks that the inputs stay unchanged. `make check-contract` runs it.
 
 - Set `WAREHOUSE_API_MODE=legacy` explicitly for Warehouse in `compose.yaml` and `compose.dev.yaml`, so the legacy profiles keep starting once Warehouse refuses an empty mode. The completion profile already sets `v2`. A Compose test now checks every profile that runs Warehouse.
+- Add wave 0 of the durable-stack transition: DUR1 contract profile `2.0.0-DUR.1` (overlays, examples, composed profiles, reproducibility tests, amendment), ADR 0002, event catalog, configuration contract and proposed retention and admission tables in `docs/durable`, the `reference/durable` adapter module (PostgreSQL, RabbitMQ, Redis, outbox relay) with integration tests and its quality gates, `scripts/durable-test-infra.sh` and `umir-checks contract-sync`. The durable Compose profile and deployment are not part of this change.
 
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
 

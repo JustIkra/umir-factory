@@ -1,0 +1,1424 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Umir DUR1 public durable-stack supplement",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ExpiryDueList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtimeEpoch",
+          "asOf",
+          "items"
+        ],
+        "properties": {
+          "runtimeEpoch": {
+            "$ref": "#/components/schemas/Epoch",
+            "description": "Storage generation of Warehouse that produced the page."
+          },
+          "asOf": {
+            "$ref": "#/components/schemas/Instant"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpiryDueRestaurant"
+            },
+            "minItems": 0,
+            "maxItems": 1000
+          },
+          "nextAfter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Opaque cursor for the next page; absent on the last page."
+          }
+        },
+        "description": "Restaurants whose nextDueAt is at or before asOf, in a stable order, page by page. It requires the cell-level expiry.due service token and reveals no business data."
+      },
+      "ExpiryDueRestaurant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "restaurantID",
+          "nextDueAt"
+        ],
+        "properties": {
+          "restaurantID": {
+            "$ref": "#/components/schemas/EntityID"
+          },
+          "nextDueAt": {
+            "$ref": "#/components/schemas/Instant",
+            "description": "Earliest instant with an expiry transition due for this restaurant."
+          }
+        }
+      },
+      "HealthReadiness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capabilities"
+        ],
+        "properties": {
+          "instance": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Replica identifier (INSTANCE_ID). Absent at the frontend."
+          },
+          "generation": {
+            "$ref": "#/components/schemas/Epoch",
+            "description": "Storage generation. Absent at services without storage: Gateway (C49) and the frontend (C42)."
+          },
+          "capabilities": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 16,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+              "maxLength": 64
+            },
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "degraded",
+                "down"
+              ]
+            },
+            "description": "State of each capability. The names are fixed per service in docs/durable/configuration.md."
+          }
+        },
+        "description": "Body of GET /readyz (C32). The frontend answers {\"capabilities\":{\"static\":\"ok\"}} without instance and generation."
+      },
+      "RegistryPoint": {
+        "description": "Point read of one restaurant. registryRevision is the global registry revision at the moment of the read, as in the list, and is the ETag value: 304 means the registry has not changed since that revision, so the record is unchanged too; a changed registry may answer 200 with the same record. A restaurant that never existed is 404 NotFound.",
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "registryRevision",
+              "state",
+              "entry"
+            ],
+            "properties": {
+              "registryRevision": {
+                "$ref": "#/components/schemas/Version",
+                "description": "Global registry revision at the moment of the read, the same counter as in the list, not a per-restaurant version."
+              },
+              "state": {
+                "const": "live"
+              },
+              "entry": {
+                "$ref": "#/components/schemas/RegistryEntry"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "registryRevision",
+              "state",
+              "tombstone"
+            ],
+            "properties": {
+              "registryRevision": {
+                "$ref": "#/components/schemas/Version",
+                "description": "Global registry revision at the moment of the read, the same counter as in the list, not a per-restaurant version."
+              },
+              "state": {
+                "const": "tombstone"
+              },
+              "tombstone": {
+                "$ref": "#/components/schemas/RegistryTombstone"
+              }
+            }
+          }
+        ]
+      },
+      "RegistryTombstone": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "restaurantID",
+          "orgID",
+          "lifecycleVersion"
+        ],
+        "properties": {
+          "restaurantID": {
+            "$ref": "#/components/schemas/EntityID"
+          },
+          "orgID": {
+            "$ref": "#/components/schemas/EntityID"
+          },
+          "lifecycleVersion": {
+            "$ref": "#/components/schemas/Version"
+          }
+        },
+        "description": "A deleted restaurant. Tombstones are kept without time limit and carry no personal data."
+      }
+    }
+  },
+  "x-schema-replacements": {
+    "AuthPageIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orgID",
+        "readerEpoch",
+        "aggregateRevision",
+        "evaluatedAt"
+      ],
+      "properties": {
+        "orgID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "readerEpoch": {
+          "$ref": "#/components/schemas/Epoch",
+          "description": "Storage generation of Auth that produced the first page."
+        },
+        "aggregateRevision": {
+          "$ref": "#/components/schemas/Version",
+          "description": "Monotonic database sequence value at the first page. Not consecutive (C30)."
+        },
+        "evaluatedAt": {
+          "$ref": "#/components/schemas/Instant"
+        }
+      }
+    },
+    "DueExpiryResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transitionedBatchIDs",
+        "finalWriteoffs",
+        "committedVersion",
+        "invalidationRequired"
+      ],
+      "properties": {
+        "transitionedBatchIDs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ID"
+          },
+          "minItems": 0,
+          "maxItems": 100000
+        },
+        "finalWriteoffs": {
+          "type": "integer",
+          "const": 0
+        },
+        "committedVersion": {
+          "$ref": "#/components/schemas/NonNegativeInt64"
+        },
+        "invalidationRequired": {
+          "type": "boolean"
+        },
+        "nextDueAt": {
+          "$ref": "#/components/schemas/Instant",
+          "description": "Next instant at which this restaurant has an expiry transition due, after the run. Absent when nothing is scheduled. A hint for the scheduler: the authoritative list is GET /internal/warehouse/v2/expiry-due (C22)."
+        }
+      }
+    },
+    "DurableResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandID",
+        "outcome",
+        "aggregateRevision",
+        "resourceID",
+        "mailJobs"
+      ],
+      "properties": {
+        "commandID": {
+          "$ref": "#/components/schemas/ClientCommandID"
+        },
+        "outcome": {
+          "type": "string",
+          "const": "committed"
+        },
+        "aggregateRevision": {
+          "$ref": "#/components/schemas/Version",
+          "description": "Monotonic database sequence value of the aggregate at commit. Values are not consecutive; consumers must not infer missing events from gaps (C30). Continuity is guaranteed only for warehouse.* events."
+        },
+        "resourceID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "mailJobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MailJob"
+          },
+          "minItems": 0,
+          "maxItems": 500
+        }
+      }
+    },
+    "Epoch": {
+      "$ref": "#/components/schemas/EntityID",
+      "description": "Storage generation (R2, C9). A UUID that the owning service creates in its first migration and stores with its data (storage_meta). It changes only when the storage is reset or restored to an earlier history (generation rotate by the owner under the owner role), never on a process restart, redeploy or replica change. Warehouse, Serving and Auth each have their own generation. runtimeEpoch, readerEpoch, expectedEpoch, currentEpoch and X-Umir-Runtime-Epoch carry it; the UUID format is unchanged. The replica identifier (INSTANCE_ID) is not an epoch and is not on the wire: it appears only in /readyz and logs. The SSE epoch and the stream cursor of the edge service carry a random boot nonce that is independent of INSTANCE_ID (C19). RuntimeReset is returned only after a confirmed generation reset."
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "outcome",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "InvalidArgument",
+            "Unauthenticated",
+            "InvalidOrigin",
+            "InvalidCsrfToken",
+            "Forbidden",
+            "AuthUnavailable",
+            "AuthStorageUnavailable",
+            "AuthUpdateOutcomeUnknown",
+            "CommandConflict",
+            "LastAdmin",
+            "ScopeDeleted",
+            "RuntimeNotReady",
+            "RuntimeReset",
+            "SettingsChanged",
+            "UnknownTimeZone",
+            "TimeZoneDataUnavailable",
+            "AmbiguousLocalTime",
+            "NonexistentLocalTime",
+            "SkippedDate",
+            "RefreshRequired",
+            "UnknownEventSchema",
+            "CalculationUnavailable",
+            "ProductConflict",
+            "DishConflict",
+            "BatchNotFound",
+            "NotPendingWriteoff",
+            "AlreadyWrittenOff",
+            "InvitationExpired",
+            "InvitationRevoked",
+            "RateLimited",
+            "ChallengeLocked",
+            "InvalidProof",
+            "DeliveryUnavailable",
+            "UpstreamUnavailable",
+            "InvalidRequest",
+            "InvalidCredentials",
+            "CurrentPasswordIncorrect",
+            "NotFound",
+            "MethodNotAllowed",
+            "PayloadTooLarge",
+            "UnsupportedMediaType",
+            "InvalidDisplayName",
+            "PasswordRejected",
+            "LoginRateLimited",
+            "PasswordChangeRateLimited",
+            "FeedbackRateLimited",
+            "SessionStorageUnavailable",
+            "SessionUpdateOutcomeUnknown",
+            "AccountStorageUnavailable",
+            "AccountUpdateOutcomeUnknown",
+            "ProposalNotFound",
+            "InventoryUnavailable",
+            "TechnicalError",
+            "UpstreamTimeout",
+            "ServiceUnavailable",
+            "InvalidToken",
+            "LimitExceeded"
+          ]
+        },
+        "outcome": {
+          "$ref": "#/components/schemas/Outcome"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "expectedEpoch": {
+              "$ref": "#/components/schemas/Epoch"
+            },
+            "currentEpoch": {
+              "$ref": "#/components/schemas/Epoch"
+            },
+            "currentSettings": {
+              "$ref": "#/components/schemas/Settings"
+            },
+            "refreshRequired": {
+              "type": "boolean"
+            },
+            "retryAfterSeconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "scopeID": {
+              "$ref": "#/components/schemas/EntityID"
+            }
+          }
+        },
+        "fieldErrors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "login": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "currentPassword": {
+              "type": "string"
+            },
+            "newPassword": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "sessionRevoked": {
+          "type": "boolean"
+        }
+      },
+      "description": "Typed failure. CommandConflict (409) is the only code for a command identity that is reused with a different fingerprint while its record is retained: outcome not_committed for a POST and unavailable for a passive GET lookup, and the original result is never exposed. CommandConflict with outcome unknown means only that Auth has already cleared the stored result of an old command (results 30 days, fingerprint tombstone 180 days, C29, C53); after the tombstone a repeat runs as a new command. CommandIdentityConflict does not exist. RateLimited (429) carries the Retry-After header and details.retryAfterSeconds and always has outcome not_committed; every RateLimited answer, including those defined before DUR1, must carry both. ServiceUnavailable (503) from the admission store before the request was dispatched is not_committed for a write and unavailable for a read; there is no AdmissionUnavailable code. A failure after dispatch keeps its earlier code (ServiceUnavailable or UpstreamTimeout) with outcome unknown. LimitExceeded is 409 for quotas and 503 for existing page reads (C53).",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RateLimited"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "required": [
+              "details"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "not_committed"
+              },
+              "details": {
+                "required": [
+                  "retryAfterSeconds"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ID": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque identifier of at most 256 code points. Unicode and reserved characters are allowed. Percent-encode query values; do not require UUID syntax. Owners check the length before any write; a longer value is 400 InvalidArgument with outcome not_committed (C43).",
+      "maxLength": 256
+    },
+    "IdempotencyResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "commandID",
+            "operationID",
+            "httpStatus",
+            "response",
+            "aggregateRevision",
+            "requiresSessionRestore"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "completed"
+            },
+            "commandID": {
+              "$ref": "#/components/schemas/ClientCommandID"
+            },
+            "operationID": {
+              "type": "string",
+              "minLength": 1
+            },
+            "httpStatus": {
+              "type": "integer",
+              "enum": [
+                200,
+                201,
+                202,
+                204
+              ]
+            },
+            "response": {
+              "$ref": "#/components/schemas/AuthStoredResponse"
+            },
+            "aggregateRevision": {
+              "$ref": "#/components/schemas/Version",
+              "description": "Monotonic database sequence value of the aggregate at commit. Values are not consecutive; consumers must not infer missing events from gaps (C30). Continuity is guaranteed only for warehouse.* events."
+            },
+            "requiresSessionRestore": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "unseen"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "unknown"
+            }
+          }
+        }
+      ]
+    },
+    "LiveEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "tenantID",
+            "epoch",
+            "sequence",
+            "topics"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "change"
+            },
+            "tenantID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "epoch": {
+              "$ref": "#/components/schemas/Epoch",
+              "description": "Stream identity of the edge service: a random boot nonce chosen by the process, independent of INSTANCE_ID and of any storage generation (C19). The client treats a change as a reason to read again."
+            },
+            "sequence": {
+              "$ref": "#/components/schemas/PositiveInt64"
+            },
+            "topics": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "catalog",
+                  "stock",
+                  "menu",
+                  "orders",
+                  "analytics"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 5,
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "tenantID",
+            "reason"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "access-ended"
+            },
+            "tenantID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "revoked",
+                "deleted",
+                "session-expired",
+                "auth-unavailable"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "tenantID",
+            "epoch"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "refresh-required"
+            },
+            "tenantID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "epoch": {
+              "$ref": "#/components/schemas/Epoch",
+              "description": "Stream identity of the edge service: a random boot nonce chosen by the process, independent of INSTANCE_ID and of any storage generation (C19). The client treats a change as a reason to read again."
+            }
+          }
+        }
+      ]
+    },
+    "PrepareOrderRequest": {
+      "type": "object",
+      "description": "Process positions in source order. An empty list produces an empty proposal. Do not send lineNo or an accepted composition. At most 200 positions; more is 400 InvalidArgument with outcome not_committed (C15). At most 2000 active proposals exist per restaurant; creating one more is 409 LimitExceeded with outcome not_committed. The numbers were approved at G1 on 2026-10-16 (G1-5).",
+      "additionalProperties": false,
+      "required": [
+        "positions"
+      ],
+      "properties": {
+        "positions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RequestedPosition"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        }
+      }
+    },
+    "ReadinessAck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "epoch",
+        "restaurantID",
+        "lifecycleVersion",
+        "state"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": [
+            "warehouse",
+            "serving"
+          ]
+        },
+        "epoch": {
+          "$ref": "#/components/schemas/Epoch"
+        },
+        "restaurantID": {
+          "$ref": "#/components/schemas/EntityID"
+        },
+        "lifecycleVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "closed"
+          ]
+        }
+      }
+    },
+    "Registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registryRevision",
+        "complete",
+        "entries",
+        "tombstones"
+      ],
+      "properties": {
+        "registryRevision": {
+          "$ref": "#/components/schemas/Version",
+          "description": "Registry revision at which this page was read. It is also the ETag value."
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "True on the last page of the walk."
+        },
+        "nextAfter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Opaque cursor for the next page; present exactly when complete is false."
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RegistryEntry"
+          },
+          "minItems": 0,
+          "maxItems": 1000
+        },
+        "tombstones": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RegistryTombstone"
+          },
+          "minItems": 0,
+          "maxItems": 1000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "complete": {
+                "const": false
+              }
+            },
+            "required": [
+              "complete"
+            ]
+          },
+          "then": {
+            "required": [
+              "nextAfter"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "nextAfter"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "One page of the registry. Without since it lists live restaurants only and tombstones is empty. With since it lists records changed after that revision, including tombstones. A page holds at most limit records (entries plus tombstones), at most 1000. Each record reflects the readiness confirmed by acknowledgement; no live peer status is read (C13). A walk that follows nextAfter takes the registryRevision of its first page as R0 and ends with ?since=R0 to catch up with changes made during the walk. The cell has at most 10000 active restaurants. The revision is a positive counter that starts at 1; since=0 lists everything."
+    },
+    "RegistryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restaurant",
+        "settings",
+        "services"
+      ],
+      "properties": {
+        "restaurant": {
+          "$ref": "#/components/schemas/Restaurant"
+        },
+        "settings": {
+          "$ref": "#/components/schemas/Settings"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RuntimeReadiness"
+          },
+          "minItems": 0,
+          "maxItems": 2,
+          "description": "Readiness confirmed by acknowledgement for warehouse and serving, at most one entry each. No live peer status is read."
+        }
+      }
+    },
+    "RuntimeReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restaurantID",
+        "service",
+        "epoch",
+        "state",
+        "lifecycleVersion"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": [
+            "warehouse",
+            "serving"
+          ]
+        },
+        "epoch": {
+          "$ref": "#/components/schemas/Epoch"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "ready",
+            "closed"
+          ]
+        },
+        "lifecycleVersion": {
+          "$ref": "#/components/schemas/Version"
+        },
+        "restaurantID": {
+          "$ref": "#/components/schemas/EntityID"
+        }
+      },
+      "description": "Readiness for one explicit restaurant and service, bound to lifecycleVersion and exact peer epoch. Registry envelope restaurantID and runtime route restaurantID must agree with this value."
+    },
+    "RuntimeStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "epoch",
+        "ready",
+        "tzdataVersion"
+      ],
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": [
+            "warehouse",
+            "serving"
+          ]
+        },
+        "epoch": {
+          "$ref": "#/components/schemas/Epoch"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "tzdataVersion": {
+          "type": "string"
+        }
+      },
+      "description": "Runtime status of a stateful peer. The service is warehouse or serving; no other service publishes runtime status. epoch is the storage generation."
+    },
+    "ServiceAuthorizationRequest": {
+      "description": "Request for a service token. Restaurant tokens name a restaurant and the exact peer epoch (storage generation): expiry.due, runtime.register, runtime.close, and order.resolve (Serving to Warehouse: one restaurant, the storage generation of Warehouse, only the passive order-attempts and commands reads; Warehouse checks the operation claim against the route and refuses the orders route). The cell-level expiry.due token names neither restaurant nor epoch and serves only the expiry schedule list (C11). Gateway readiness is not checked for any of them.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "restaurantID",
+            "operation",
+            "epoch"
+          ],
+          "properties": {
+            "restaurantID": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "operation": {
+              "type": "string",
+              "enum": [
+                "expiry.due",
+                "runtime.register",
+                "runtime.close",
+                "order.resolve"
+              ]
+            },
+            "epoch": {
+              "$ref": "#/components/schemas/Epoch"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operation"
+          ],
+          "properties": {
+            "operation": {
+              "const": "expiry.due"
+            }
+          }
+        }
+      ]
+    },
+    "ServiceClaims": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "iss",
+            "aud",
+            "iat",
+            "nbf",
+            "exp",
+            "jti",
+            "operation",
+            "permissions",
+            "kind",
+            "sub",
+            "org_id",
+            "tenant_id",
+            "runtime_epoch",
+            "lifecycle_version",
+            "azp"
+          ],
+          "properties": {
+            "iss": {
+              "type": "string",
+              "const": "urn:umir:auth"
+            },
+            "aud": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "umir-warehouse",
+                  "umir-serving",
+                  "umir-gateway",
+                  "umir-feedback"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true
+            },
+            "iat": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nbf": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exp": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "jti": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "operation": {
+              "type": "string",
+              "not": {
+                "const": "order.resolve"
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Capability"
+              },
+              "minItems": 1,
+              "maxItems": 40,
+              "uniqueItems": true
+            },
+            "kind": {
+              "type": "string",
+              "const": "service"
+            },
+            "sub": {
+              "type": "string",
+              "enum": [
+                "service:auth",
+                "service:gateway"
+              ]
+            },
+            "org_id": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "tenant_id": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "runtime_epoch": {
+              "$ref": "#/components/schemas/Epoch"
+            },
+            "lifecycle_version": {
+              "$ref": "#/components/schemas/Version"
+            },
+            "azp": {
+              "type": "string",
+              "enum": [
+                "umir-auth",
+                "umir-gateway"
+              ]
+            }
+          },
+          "description": "Restaurant-scoped service token."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "iss",
+            "aud",
+            "iat",
+            "nbf",
+            "exp",
+            "jti",
+            "operation",
+            "permissions",
+            "kind",
+            "sub",
+            "org_id",
+            "tenant_id",
+            "runtime_epoch",
+            "lifecycle_version",
+            "azp"
+          ],
+          "properties": {
+            "iss": {
+              "type": "string",
+              "const": "urn:umir:auth"
+            },
+            "aud": {
+              "type": "array",
+              "const": [
+                "umir-warehouse"
+              ]
+            },
+            "iat": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nbf": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exp": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "jti": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "operation": {
+              "const": "order.resolve"
+            },
+            "permissions": {
+              "type": "array",
+              "const": [
+                "consumer.order.resolve"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "service"
+            },
+            "sub": {
+              "const": "service:serving"
+            },
+            "org_id": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "tenant_id": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "runtime_epoch": {
+              "$ref": "#/components/schemas/Epoch"
+            },
+            "lifecycle_version": {
+              "$ref": "#/components/schemas/Version"
+            },
+            "azp": {
+              "const": "umir-serving"
+            }
+          },
+          "description": "order.resolve (C11): Serving to Warehouse for one restaurant (tenant_id). runtime_epoch is the storage generation of Warehouse. Valid only for GET /internal/warehouse/v2/r/{restaurantID}/order-attempts and GET /internal/warehouse/v2/r/{restaurantID}/commands. Warehouse compares the operation claim with the route; the orders route, which the consumer.order.resolve permission would otherwise open, and every other route refuse it (C11). Repeating a commit stays with the client."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "iss",
+            "aud",
+            "iat",
+            "nbf",
+            "exp",
+            "jti",
+            "operation",
+            "permissions",
+            "kind",
+            "sub",
+            "azp"
+          ],
+          "properties": {
+            "iss": {
+              "type": "string",
+              "const": "urn:umir:auth"
+            },
+            "aud": {
+              "type": "array",
+              "const": [
+                "umir-warehouse"
+              ]
+            },
+            "iat": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nbf": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "exp": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "jti": {
+              "$ref": "#/components/schemas/EntityID"
+            },
+            "operation": {
+              "const": "expiry.due"
+            },
+            "permissions": {
+              "type": "array",
+              "const": [
+                "expiry.due"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "const": "service"
+            },
+            "sub": {
+              "const": "service:gateway"
+            },
+            "azp": {
+              "const": "umir-gateway"
+            }
+          },
+          "description": "Cell-level expiry.due (C11): no restaurant, organization, epoch or lifecycle claim. Valid only for GET /internal/warehouse/v2/expiry-due."
+        }
+      ]
+    },
+    "WOrderAttempt": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "Unseen"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "Pending",
+              "description": "The attempt is executing. It may become Interrupted, Completed or Rejected."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "Interrupted",
+              "description": "Execution stopped without a recorded outcome. An exact repeat of the same commit (same commandID, proposalID and accepted positions) is allowed and moves the attempt back to Pending. No new commandID is needed."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "result"
+          ],
+          "properties": {
+            "state": {
+              "const": "Completed"
+            },
+            "result": {
+              "$ref": "#/components/schemas/WOrderCommitResult"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "error"
+          ],
+          "properties": {
+            "state": {
+              "const": "Rejected"
+            },
+            "error": {
+              "$ref": "#/components/schemas/WRejectedError"
+            }
+          }
+        }
+      ],
+      "description": "State of one order commit attempt at Warehouse. Transitions: Unseen -> Pending -> (Interrupted -> Pending)* -> Completed or Rejected. Pending means the attempt is executing; Interrupted means execution stopped without a recorded outcome and permits an exact repeat of the same commit. A receipt recorded for the command always wins over an attempt row. Serving maps Interrupted to an unknown outcome until it resolves the attempt; the earlier working name Abandoned is not used (C21)."
+    }
+  },
+  "x-operation-patches": {
+    "GET /api/v2/r/{restaurantID}/live": {
+      "responses": {
+        "200": {
+          "description": "Typed successful result. Acceptance is not delivery or cleanup completion.",
+          "content": {
+            "text/event-stream": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveEvent"
+              }
+            }
+          }
+        },
+        "429": {
+          "description": "Stream quota reached (C36): 8 per session, 200 per organization, 2000 per cell. Retry-After is 1 second.",
+          "headers": {
+            "Retry-After": {
+              "$ref": "#/components/headers/Retry-After"
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        },
+        "default": {
+          "description": "Typed failure; a transport failure never proves not_committed.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-durable-policy": {
+    "profile": "DUR1",
+    "status": "Approved at G1 on 2026-10-16 (section 11 of the main spec); numbers marked as a ceiling are reviewed at G2.",
+    "epoch": {
+      "meaning": "storage generation",
+      "changesOnlyOn": [
+        "storage reset",
+        "restore to an earlier history"
+      ],
+      "neverChangesOn": [
+        "process restart",
+        "redeploy",
+        "replica change"
+      ],
+      "runtimeResetOnlyOnConfirmedGenerationReset": true,
+      "instanceIdentifierOnTheWire": false,
+      "bootNonceIn": [
+        "SSE epoch",
+        "edge stream cursor"
+      ]
+    },
+    "gatewayRemoval": {
+      "removeIn": "2.0.0-DUR.2",
+      "order": "C7",
+      "requires": [
+        "gateway-pr-1: Gateway reads the registry by revision and no longer depends on runtime registration",
+        "auth-pr: Auth no longer lists Gateway as a peer",
+        "gateway-pr-2: Gateway removes the runtime and registry routes and the JWKS check for Auth without sync-contract"
+      ],
+      "note": "Physical removal is profile 2.0.0-DUR.2 in wave 3. The FIN1 profile used for rollback is not touched."
+    },
+    "registry": {
+      "revisionStartsAt": 1,
+      "pageLimitMax": 1000,
+      "activeRestaurantsMax": 10000,
+      "quotaRefusal": {
+        "status": 409,
+        "code": "LimitExceeded",
+        "outcome": "not_committed"
+      },
+      "tombstones": "kept without time limit, read through since and the point read",
+      "listCarriesLiveRestaurantsOnly": true
+    },
+    "orderAttempt": {
+      "states": [
+        "Unseen",
+        "Pending",
+        "Interrupted",
+        "Completed",
+        "Rejected"
+      ],
+      "transitions": [
+        "Pending -> Interrupted",
+        "Interrupted -> Pending on an exact repeat of the same commit"
+      ],
+      "newCommandIDForPlacedProposal": {
+        "status": 200,
+        "result": "the same orderID, no second order"
+      }
+    },
+    "expirySchedule": {
+      "list": "GET /internal/warehouse/v2/expiry-due",
+      "hint": "nextDueAt in the expiry-runs answer",
+      "token": "expiry.due (cell level)"
+    },
+    "commandConflict": {
+      "code": "CommandConflict",
+      "replaces": "CommandIdentityConflict",
+      "authRepeatAfterResultCleared": {
+        "status": 409,
+        "outcome": "unknown"
+      },
+      "authResultRetentionDays": 30,
+      "tombstoneDays": 180,
+      "liveRecordDifferentFingerprint": {
+        "status": 409,
+        "outcomePost": "not_committed",
+        "outcomeGet": "unavailable"
+      },
+      "repeatGuaranteeEnds": "after the 180-day tombstone a repeat of an old command executes as a new command (C53)"
+    },
+    "admission": {
+      "everyRateLimitedAnswerCarriesRetryAfter": true,
+      "rateLimited": {
+        "status": 429,
+        "code": "RateLimited",
+        "header": "Retry-After",
+        "detail": "details.retryAfterSeconds",
+        "outcome": "not_committed"
+      },
+      "storeUnavailable": {
+        "status": 503,
+        "code": "ServiceUnavailable",
+        "outcomeForWrite": "not_committed",
+        "outcomeForRead": "unavailable",
+        "newCodes": []
+      },
+      "failureAfterDispatch": {
+        "codes": [
+          "ServiceUnavailable",
+          "UpstreamTimeout"
+        ],
+        "outcome": "unknown"
+      },
+      "perClientBudgets": "Gateway holds every budget per client on public entries of Auth. Auth holds reliable budgets per login, address, code issue and wrong code in Postgres in the same transaction as the action. The private contract carries no client key header."
+    },
+    "limits": {
+      "orderPositionsMax": 200,
+      "activeProposalsPerRestaurantMax": 2000,
+      "idMaxLength": 256,
+      "clientCommandIDMaxLength": 256,
+      "overPositions": {
+        "status": 400,
+        "code": "InvalidArgument",
+        "outcome": "not_committed"
+      },
+      "overActiveProposals": {
+        "status": 409,
+        "code": "LimitExceeded",
+        "outcome": "not_committed"
+      },
+      "overIdentifierLength": {
+        "status": 400,
+        "code": "InvalidArgument",
+        "outcome": "not_committed"
+      },
+      "limitExceededStatus": {
+        "quota": 409,
+        "existingPageReads": 503
+      }
+    },
+    "serviceTokens": {
+      "expiry.due": "cell level, no restaurant, only the expiry schedule list",
+      "order.resolve": "Serving to Warehouse, one restaurant, storage generation of Warehouse, only GET order-attempts and GET commands",
+      "orderResolveRoutes": [
+        "GET /internal/warehouse/v2/r/{restaurantID}/order-attempts",
+        "GET /internal/warehouse/v2/r/{restaurantID}/commands"
+      ],
+      "orderResolveOrdersRouteAllowed": false,
+      "warehouseComparesOperationClaimWithRoute": true,
+      "acceptedByWarehouse": [
+        "expiry.due",
+        "order.resolve"
+      ],
+      "commitRepeatStaysWithTheClient": true,
+      "gatewayReadinessChecked": false
+    },
+    "aggregateRevision": {
+      "auth": "monotonic database sequence value, not consecutive; consumers must not rely on continuity",
+      "warehouse": "consecutive within a generation per restaurant stream (see events.md)"
+    },
+    "health": {
+      "liveness": "GET /healthz",
+      "readiness": "GET /readyz",
+      "body": "HealthReadiness",
+      "subpaths": false,
+      "frontend": {
+        "capabilities": {
+          "static": "ok"
+        },
+        "instance": false,
+        "generation": false
+      },
+      "gateway": {
+        "generation": false
+      }
+    },
+    "sseQuotas": {
+      "perSession": 8,
+      "perOrganization": 200,
+      "perCell": 2000,
+      "refusal": {
+        "status": 429,
+        "code": "RateLimited",
+        "retryAfter": 1
+      },
+      "status": "Approved at G1 on 2026-10-16 as a ceiling; reviewed at G2 after the AccessCheck measurement (R13)"
+    },
+    "pairRetention": {
+      "warehouseAttemptReceiptsMinDays": 35,
+      "servingAutoResolveStopsAfterDays": 30,
+      "afterThat": "attempt becomes unresolved, visible in logs and reads, the commit is not repeated"
+    },
+    "invalidationHeader": "X-Umir-Invalidation-Required is unchanged; Gateway ignores it after R4 and DUR.2 removes it"
+  }
+}
