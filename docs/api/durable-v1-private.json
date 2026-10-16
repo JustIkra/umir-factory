@@ -274,7 +274,7 @@
             "minProperties": 1,
             "maxProperties": 16,
             "propertyNames": {
-              "pattern": "^[a-z][a-z0-9_]*$",
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
               "maxLength": 64
             },
             "additionalProperties": {

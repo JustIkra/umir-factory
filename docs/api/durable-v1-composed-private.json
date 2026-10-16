@@ -14964,7 +14964,7 @@
             "minProperties": 1,
             "maxProperties": 16,
             "propertyNames": {
-              "pattern": "^[a-z][a-z0-9_]*$",
+              "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
               "maxLength": 64
             },
             "additionalProperties": {
@@ -15073,9 +15073,9 @@
   },
   "x-durable-source": {
     "registration-v1-composed-public.json": "2be37f544a1ababa92cf16a4652826281db7f9b0e3d64bf1b389be2af0e0c873",
-    "durable-v1-public.json": "2799572f6c581709d1cd7a0a76a22a30646e23f0335d1e1e6059b5c55b2bf16e",
+    "durable-v1-public.json": "170947d10e96bf6107e0c2e7658e8eef4d86877dc7d1fe5d5c9a212d757fd9d1",
     "registration-v1-composed-private.json": "2d21db8cd51085196b8294615b7db2afd68b540fcd4cbf90d0e67e4fb50a45d3",
-    "durable-v1-private.json": "015af020c5e57879c13c2e3fa3aad3888c42e38fab4d07315d41b4191128a487"
+    "durable-v1-private.json": "1726f5346cf40d2ece34a039dfd31b5008df0fb7bb82fd0e05921cb02f32e393"
   },
   "x-durable-policy": {
     "profile": "DUR1",

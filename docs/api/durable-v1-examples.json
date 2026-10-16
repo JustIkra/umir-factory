@@ -333,9 +333,23 @@
         "instance": "warehouse",
         "generation": "44444444-4444-4444-8444-444444444444",
         "capabilities": {
-          "http": "ok",
-          "database": "ok",
-          "events": "degraded"
+          "journal": "ok",
+          "outbox": "degraded",
+          "captures": "ok"
+        }
+      }
+    },
+    {
+      "name": "health-feedback",
+      "schema": "HealthReadiness",
+      "value": {
+        "instance": "feedback",
+        "generation": "55555555-5555-4555-8555-555555555555",
+        "capabilities": {
+          "intake": "ok",
+          "delivery.smtp": "ok",
+          "delivery.telegram": "degraded",
+          "outbox": "ok"
         }
       }
     },

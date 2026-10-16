@@ -15,11 +15,11 @@ make check-contract
 
 | Файл | SHA-256 |
 | --- | --- |
-| `docs/api/durable-v1-composed-public.json` | `7d9c87eadcec4c26ce7c64aa0c8fd14bcc1a0d07624125c971d247454248b8d1` |
-| `docs/api/durable-v1-composed-private.json` | `6cb7a3565f20f025c8f84230ac94c3a54b050a8104425019137f4a07e3806834` |
-| `docs/api/durable-v1-public.json` (оверлей) | `2799572f6c581709d1cd7a0a76a22a30646e23f0335d1e1e6059b5c55b2bf16e` |
-| `docs/api/durable-v1-private.json` (оверлей) | `015af020c5e57879c13c2e3fa3aad3888c42e38fab4d07315d41b4191128a487` |
-| `docs/api/durable-v1-examples.json` | `33a44cd16f56f03a914c975806d579e77a2f1020f2db81ce4609df3b64b3a11e` |
+| `docs/api/durable-v1-composed-public.json` | `614580ad7dd5aa3b299948852e0308cc0601ca00e9cb21f2df8526450322ed1e` |
+| `docs/api/durable-v1-composed-private.json` | `d070d324d86a26d69dd13304ff878e96a89b42510ca1cf1c31b9a2b0e7207b4f` |
+| `docs/api/durable-v1-public.json` (оверлей) | `170947d10e96bf6107e0c2e7658e8eef4d86877dc7d1fe5d5c9a212d757fd9d1` |
+| `docs/api/durable-v1-private.json` (оверлей) | `1726f5346cf40d2ece34a039dfd31b5008df0fb7bb82fd0e05921cb02f32e393` |
+| `docs/api/durable-v1-examples.json` | `4e74ca65e394c564c95185f4e0fa6843e50e62b77471a34df6bcb71924273ffe` |
 | `docs/api/registration-v1-composed-public.json` (предшественник) | `2be37f544a1ababa92cf16a4652826281db7f9b0e3d64bf1b389be2af0e0c873` |
 | `docs/api/registration-v1-composed-private.json` (предшественник) | `2d21db8cd51085196b8294615b7db2afd68b540fcd4cbf90d0e67e4fb50a45d3` |
 
@@ -117,7 +117,7 @@ Warehouse принимает оба вида. Повтор commit остаётс
 
 ## 12. Здоровье (C32, C42, C49, C52)
 
-`GET /healthz` — процесс жив. `GET /readyz` — основная возможность готова; тело `HealthReadiness`: `{instance, generation, capabilities: {<имя>: ok|degraded|down}}`; `200`, если все возможности, обязательные для готовности по `docs/durable/configuration.md`, в состоянии `ok`, иначе `503` с тем же телом. Подпутей `/readyz/*` нет. У frontend `/readyz` отдаёт `{"capabilities":{"static":"ok"}}` без `instance` и `generation`; у Gateway `generation` нет. Ответы не требуют сервисного ключа. Имена возможностей — в `configuration.md`.
+`GET /healthz` — процесс жив. `GET /readyz` — основная возможность готова; тело `HealthReadiness`: `{instance, generation, capabilities: {<имя>: ok|degraded|down}}`; `200`, если все возможности, обязательные для готовности по `docs/durable/configuration.md`, в состоянии `ok`, иначе `503` с тем же телом. Подпутей `/readyz/*` нет. У frontend `/readyz` отдаёт `{"capabilities":{"static":"ok"}}` без `instance` и `generation`; у Gateway `generation` нет. Ответы не требуют сервисного ключа. Имена возможностей — в `configuration.md`; имя соответствует `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$` (точка отделяет канал, например `delivery.smtp`, C59).
 
 ## 13. Квоты SSE (C36)
 
