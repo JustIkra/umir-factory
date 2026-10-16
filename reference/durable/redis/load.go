@@ -1,9 +1,7 @@
 package redis
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -31,7 +29,7 @@ func (k Kind) name() (string, bool) {
 // LoadURL reads the Redis URL of one instance from the environment:
 // <prefix>_REDIS_LIMITER_URL or <prefix>_REDIS_CACHE_URL, or the same name with
 // the _FILE suffix naming a file with the URL (surrounding whitespace is
-// trimmed). Exactly one of the two must be set; both or neither is an error.
+// trimmed; the file must be a regular private file, not a symbolic link, as in postgres.LoadDSN). Exactly one of the two must be set; both or neither is an error.
 // getenv is os.Getenv in production; an empty value counts as not set.
 //
 // The URL is validated: only the schemes redis and rediss are accepted (not
@@ -57,15 +55,11 @@ func LoadURL(getenv func(string) string, prefix string, kind Kind) (string, erro
 	case direct != "":
 		value = strings.TrimSpace(direct)
 	default:
-		raw, err := os.ReadFile(file)
+		raw, err := readSecretFile(file, fileName)
 		if err != nil {
-			var pathErr *os.PathError
-			if errors.As(err, &pathErr) { // keep the cause, drop the path
-				err = pathErr.Err
-			}
-			return "", fmt.Errorf("%w: read %s: %w", ErrInvalidConfig, fileName, err)
+			return "", fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 		}
-		value = strings.TrimSpace(string(raw))
+		value = strings.TrimSpace(raw)
 	}
 	if value == "" {
 		return "", invalidConfig("%s is empty", name)

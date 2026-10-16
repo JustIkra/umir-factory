@@ -3,7 +3,6 @@ package rabbitmq
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -29,11 +28,11 @@ func LoadURL(getenv func(string) string, prefix string) (BrokerURL, error) {
 	name := valueVar
 	if file != "" {
 		name = fileVar
-		raw, err := os.ReadFile(file)
+		raw, err := readSecretFile(file, fileVar)
 		if err != nil {
-			return "", fmt.Errorf("read %s: %w", fileVar, err)
+			return "", err
 		}
-		value = strings.TrimSpace(string(raw))
+		value = strings.TrimSpace(raw)
 	}
 	if value == "" {
 		return "", fmt.Errorf("%s is empty", name)

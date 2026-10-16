@@ -37,3 +37,6 @@ func invalidRequest(format string, args ...any) error {
 func invalidConfig(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalidConfig, fmt.Sprintf(format, args...))
 }
+
+// ignoreErr documents a deliberately ignored error from a cleanup path.
+func ignoreErr(error) {}
