@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -466,5 +467,91 @@ func TestOutboxStats(t *testing.T) {
 	stats, err = ob.Stats(t.Context())
 	if err != nil || stats.Pending != 0 || stats.OldestAge != 0 {
 		t.Fatalf("stats after publishing = %+v, %v", stats, err)
+	}
+}
+
+func TestOutboxClaimSkipsRowsLockedByAnotherTransaction(t *testing.T) {
+	f := newFixture(t)
+	rt := f.runtime(t, withMaxConns(4))
+	ob := postgres.NewOutbox(rt)
+	ids := addEvents(t, rt, ob, 6)
+
+	// Another relay is in the middle of claiming: its transaction holds FOR
+	// UPDATE on the head of the queue.
+	holder, err := rt.Pool().Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	released := false
+	release := func() {
+		if !released {
+			released = true
+			ignoreErr(holder.Rollback(context.WithoutCancel(t.Context())))
+		}
+	}
+	defer release()
+	held, err := column(t.Context(), holder, "SELECT id::text FROM outbox ORDER BY position LIMIT 2 FOR UPDATE")
+	if err != nil || !slices.Equal(held, ids[:2]) {
+		t.Fatalf("held rows = %v (%v), want the first two %v", held, err, ids[:2])
+	}
+
+	// With plain FOR UPDATE this Claim would wait for the holder; with SKIP
+	// LOCKED it returns at once with the rows behind the locked head.
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	start := time.Now()
+	rows, fence, err := ob.Claim(ctx, "relay-b", 10, testLease)
+	if err != nil {
+		t.Fatalf("Claim blocked or failed behind a locked head: %v", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Fatalf("Claim took %v: it waited for the locked rows", time.Since(start))
+	}
+	if !slices.Equal(rowIDs(rows), ids[2:]) || fence <= 0 {
+		t.Fatalf("Claim = %v (fence %d), want the rows behind the locked head %v", rowIDs(rows), fence, ids[2:])
+	}
+
+	// Once the other transaction lets go, its rows are free again.
+	release()
+	rows, _, err = ob.Claim(t.Context(), "relay-b", 10, testLease)
+	if err != nil || !slices.Equal(rowIDs(rows), ids[:2]) {
+		t.Fatalf("Claim after the release = %v (%v), want the head %v", rowIDs(rows), err, ids[:2])
+	}
+}
+
+func TestOutboxClaimConvertsNonStringHeadersInsteadOfBlockingTheQueue(t *testing.T) {
+	f := newFixture(t)
+	rt := f.runtime(t, nil)
+	ob := postgres.NewOutbox(rt)
+
+	// A row written by other means than AddEvent: jsonb holds any JSON value.
+	exec(t, rt, `INSERT INTO outbox (id, exchange, routing_key, headers, body) VALUES
+		(gen_random_uuid(), 'umir.events', 'odd', '{"x-attempt": 3, "x-flag": true, "x-null": null, "x-obj": {"a": [1]}, "x-text": "ok"}', '{}'::jsonb)`)
+	addEvents(t, rt, ob, 1)
+
+	rows, _, err := ob.Claim(t.Context(), "relay-a", 10, testLease)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("Claim = %d rows, err %v: a row with unusual headers must not block the queue", len(rows), err)
+	}
+	want := map[string]string{"x-attempt": "3", "x-flag": "true", "x-obj": `{"a":[1]}`, "x-text": "ok"}
+	if !maps.Equal(rows[0].Headers, want) {
+		t.Fatalf("headers = %v, want %v", rows[0].Headers, want)
+	}
+	if rows[1].Headers["x-umir-schema"] != "1" {
+		t.Fatalf("regular row headers = %v", rows[1].Headers)
+	}
+}
+
+func TestOutboxHeadersMustBeAJSONObject(t *testing.T) {
+	f := newFixture(t)
+	rt := f.runtime(t, nil)
+	for _, headers := range []string{`'[]'`, `'"text"'`, `'7'`, `'null'`} {
+		err := rt.InTx(t.Context(), pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, "INSERT INTO outbox (id, exchange, routing_key, headers, body) VALUES (gen_random_uuid(), 'e', 'k', "+headers+"::jsonb, '{}'::jsonb)")
+			return err
+		})
+		if err == nil || sqlState(t, err) != "23514" {
+			t.Errorf("headers %s: err = %v, want a check violation (23514)", headers, err)
+		}
 	}
 }

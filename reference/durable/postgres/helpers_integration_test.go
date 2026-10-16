@@ -304,3 +304,6 @@ func mapFS(t testing.TB, spec postgres.Spec) fstest.MapFS {
 	}
 	return files
 }
+
+// ignoreErr documents a deliberately ignored error from a cleanup path.
+func ignoreErr(error) {}

@@ -259,13 +259,13 @@ func TestSlotsRenewIsAllOrNothing(t *testing.T) {
 func TestSlotsReacquireBySameHolderIsNotCountedTwice(t *testing.T) {
 	e := newEnv(t)
 	s := newSlots(t, e, "wh")
-	dims := []SlotDimension{{Key: "capslots", MaxCount: 1}, {Key: "capbytes", MaxUnits: 100, Units: 60}}
+	dims := []SlotDimension{{Key: "capslots:g:r", MaxCount: 1}, {Key: "capbytes:g:r", MaxUnits: 100, Units: 60}}
 	for range 3 {
 		if g := acquire(t, s, "same", time.Minute, dims...); !g.Granted {
 			t.Fatalf("reacquire denied: %+v", g)
 		}
 	}
-	if n := members(t, e, "wh", "capslots"); n != 1 {
+	if n := members(t, e, "wh", "capslots:g:r"); n != 1 {
 		t.Fatalf("%d members", n)
 	}
 	if g := acquire(t, s, "other", time.Minute, dims...); g.Granted {

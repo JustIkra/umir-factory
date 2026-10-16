@@ -1,11 +1,14 @@
 package postgres
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,10 +40,16 @@ type Event struct {
 
 // Row is a claimed outbox row, as the relay publishes it.
 type Row struct {
-	ID           string
-	Position     int64
-	Exchange     string
-	RoutingKey   string
+	ID         string
+	Position   int64
+	Exchange   string
+	RoutingKey string
+	// Headers are the message headers. AddEvent writes strings only, but the
+	// column is jsonb and a row written by other means must not block the head
+	// of the queue, so Claim converts every value to a string: strings as they
+	// are, numbers and booleans in their JSON spelling, objects and arrays as
+	// compact JSON, null values are left out. The outbox_headers_object check
+	// guarantees that the column holds a JSON object.
 	Headers      map[string]string
 	Body         []byte
 	OrgID        string
@@ -58,9 +67,12 @@ type OutboxStats struct {
 	OldestAge time.Duration
 }
 
-// Outbox is the transactional outbox table (outbox.sql). It holds no tenant data
-// beyond identifiers and carries no row level security: the relay reads it across
-// tenants.
+// Outbox is the transactional outbox table (outbox.sql). Its rows carry event
+// payloads (body, headers) of every tenant, yet the table has no row level
+// security on purpose (C4): the relay claims rows across the tenant boundary and
+// publishes them as one stream. The runtime role of the service may therefore
+// read and write every row; the table is not reachable by tenant code paths, and
+// org_id and restaurant_id are routing metadata, not an access control.
 //
 // Ordering. Rows are claimed in position order. Events of one aggregate are
 // written one transaction after another, so their positions follow commit order.
@@ -177,9 +189,14 @@ func (o *Outbox) Claim(ctx context.Context, owner string, limit int, lease time.
 		for result.Next() {
 			var r Row
 			var org, restaurant *string
-			if err := result.Scan(&r.ID, &r.Position, &r.Exchange, &r.RoutingKey, &r.Headers, &r.Body,
+			var headers []byte
+			if err := result.Scan(&r.ID, &r.Position, &r.Exchange, &r.RoutingKey, &headers, &r.Body,
 				&org, &restaurant, &r.Attempts, &r.CreatedAt, &fence); err != nil {
 				return err
+			}
+			var err error
+			if r.Headers, err = decodeHeaders(headers); err != nil {
+				return fmt.Errorf("outbox row %s: %w", r.ID, err)
 			}
 			if org != nil {
 				r.OrgID = *org
@@ -194,7 +211,7 @@ func (o *Outbox) Claim(ctx context.Context, owner string, limit int, lease time.
 	if err != nil {
 		return nil, 0, fmt.Errorf("claim outbox rows: %w", err)
 	}
-	slices.SortFunc(rows, func(a, b Row) int { return int(a.Position - b.Position) })
+	slices.SortFunc(rows, func(a, b Row) int { return cmp.Compare(a.Position, b.Position) })
 	return rows, fence, nil
 }
 
@@ -301,4 +318,38 @@ func (o *Outbox) Stats(ctx context.Context) (OutboxStats, error) {
 		return OutboxStats{}, fmt.Errorf("read outbox stats: %w", err)
 	}
 	return OutboxStats{Pending: pending, OldestAge: time.Duration(age * float64(time.Second))}, nil
+}
+
+// decodeHeaders turns the jsonb headers into string headers (see Row.Headers).
+// Numbers keep their JSON spelling; they are not rounded through float64.
+func decodeHeaders(raw []byte) (map[string]string, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var values map[string]any
+	if err := dec.Decode(&values); err != nil {
+		return nil, fmt.Errorf("headers are not a JSON object: %w", err)
+	}
+	if values == nil {
+		return nil, errors.New("headers are not a JSON object: null")
+	}
+	headers := make(map[string]string, len(values))
+	for name, value := range values {
+		switch v := value.(type) {
+		case nil:
+			continue
+		case string:
+			headers[name] = v
+		case json.Number:
+			headers[name] = v.String()
+		case bool:
+			headers[name] = strconv.FormatBool(v)
+		default: // object or array
+			text, err := json.Marshal(v)
+			if err != nil {
+				return nil, fmt.Errorf("header %q: %w", name, err)
+			}
+			headers[name] = string(text)
+		}
+	}
+	return headers, nil
 }

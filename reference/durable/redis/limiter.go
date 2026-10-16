@@ -28,8 +28,21 @@ type Dimension struct {
 // Request is one admission attempt.
 //
 // ID identifies the attempt (for example ClientCommandID, 1..256 code points)
-// and lives no longer than the longest window of the request. Fingerprint
-// identifies its content. Policy names the rule and separates ID spaces.
+// and lives no longer than the longest window of the request. Policy names the
+// rule and separates ID spaces.
+//
+// Fingerprint identifies the content of the request: it must cover everything
+// that makes two requests with one ID the same request, the body or its digest
+// together with the subjects and the dimensions (their keys, limits and
+// windows). Otherwise a retry that differs in a subject or a dimension would be
+// taken for a replay and escape the charge it owes. Only its sha256 is stored.
+//
+// The counter of a dimension gets its TTL, the window, from the request that
+// creates it; later requests with another window do not change it. Therefore the
+// window belongs to the identity of the rule: put it in the dimension key (for
+// example client:5m:<HMAC>) and use a new key when the window changes; the
+// policy name does not take part in the counter key. The ID record behaves the
+// same way: its TTL is the longest window of the request that created it.
 type Request struct {
 	ID          string
 	Fingerprint string
@@ -62,8 +75,8 @@ type Limiter struct {
 
 // Limiter returns the admission limiter whose keys live under umir:<owner>:.
 func (c *Client) Limiter(owner string) (*Limiter, error) {
-	if !validOwner(owner) {
-		return nil, invalidConfig("owner must be 1..32 characters of a-z0-9 starting with a letter")
+	if err := c.checkOwner(owner); err != nil {
+		return nil, err
 	}
 	return &Limiter{c: c, prefix: c.ownerKey(owner), script: newScript(limiterScript)}, nil
 }

@@ -70,8 +70,10 @@ func TestInTxRetriesSerializationFailure(t *testing.T) {
 			t.Fatalf("transaction %d failed: %v", i, err)
 		}
 	}
-	if got := attempts.Load(); got != 3 {
-		t.Fatalf("attempts = %d, want 3 (one serialization failure retried once)", got)
+	// One failure and one retry make three runs; a further conflict between the
+	// retries would add runs, up to the limit of three attempts for each side.
+	if got := attempts.Load(); got < 3 || got > 6 {
+		t.Fatalf("attempts = %d, want 3..6 (a serialization failure was retried)", got)
 	}
 	if got := count(t, t.Context(), db, "SELECT count(*) FROM acc"); got != 2 {
 		t.Fatalf("rows = %d, want 2", got)
@@ -112,8 +114,8 @@ func TestInTxRetriesDeadlock(t *testing.T) {
 			t.Fatalf("transaction %d failed: %v", i, err)
 		}
 	}
-	if got := attempts.Load(); got != 3 {
-		t.Fatalf("attempts = %d, want 3 (the deadlock victim retried once)", got)
+	if got := attempts.Load(); got < 3 || got > 6 {
+		t.Fatalf("attempts = %d, want 3..6 (the deadlock victim was retried)", got)
 	}
 }
 
@@ -151,8 +153,62 @@ func TestInTxStopsRetryingWhenContextIsDone(t *testing.T) {
 		cancel()
 		return &pgconn.PgError{Code: "40P01"}
 	})
-	if err == nil || attempts != 1 {
-		t.Fatalf("err=%v attempts=%d, want one attempt and an error", err, attempts)
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "40P01" {
+		t.Fatalf("err = %v, want the deadlock error that was being retried", err)
+	}
+	var unknown *postgres.CommitUnknownError
+	if errors.As(err, &unknown) {
+		t.Fatalf("a failed transaction is not CommitUnknownError: %v", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
+	}
+}
+
+func TestInTxContextDoneBeforeCommitRollsBackWithoutUnknownOutcome(t *testing.T) {
+	db, _ := plainDB(t, nil)
+	exec(t, db, "CREATE TABLE early_cancel (id int PRIMARY KEY)")
+	ctx, cancel := context.WithCancel(t.Context())
+	var attempts int
+	err := db.InTx(ctx, pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		attempts++
+		if _, err := tx.Exec(ctx, "INSERT INTO early_cancel (id) VALUES (1)"); err != nil {
+			return err
+		}
+		cancel() // fn succeeds, but the context is done before COMMIT is sent
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	var unknown *postgres.CommitUnknownError
+	if errors.As(err, &unknown) {
+		t.Fatalf("COMMIT was never sent, so the outcome is not unknown: %v", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
+	}
+	if got := count(t, t.Context(), db, "SELECT count(*) FROM early_cancel"); got != 0 {
+		t.Fatalf("rows = %d, the transaction must have been rolled back", got)
+	}
+}
+
+func TestInTxPausesBetweenRetries(t *testing.T) {
+	db, _ := plainDB(t, nil)
+	var times []time.Time
+	err := db.InTx(t.Context(), pgx.TxOptions{}, func(context.Context, pgx.Tx) error {
+		times = append(times, time.Now())
+		return &pgconn.PgError{Code: "40001"}
+	})
+	if err == nil || len(times) != 3 {
+		t.Fatalf("err=%v attempts=%d, want an error after 3 attempts", err, len(times))
+	}
+	for i := 1; i < len(times); i++ {
+		// 5 ms is the shortest pause; allow for timer granularity.
+		if gap := times[i].Sub(times[i-1]); gap < 4*time.Millisecond {
+			t.Fatalf("attempts %d and %d are %v apart, want a pause of at least 5 ms", i, i+1, gap)
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -8,36 +9,75 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func death(queue, reason string, count any) amqp.Table {
-	return amqp.Table{"queue": queue, "reason": reason, "count": count, "exchange": "umir.dlx"}
-}
-
-func TestAttemptFromDeath(t *testing.T) {
+func TestAttemptFromHeaders(t *testing.T) {
 	cases := []struct {
 		name    string
 		headers amqp.Table
 		want    int
 	}{
 		{"no headers", nil, 1},
-		{"no x-death", amqp.Table{"x-umir-schema": int32(1)}, 1},
-		{"one rejection", amqp.Table{"x-death": []any{death("auth.mail", "rejected", int64(1))}}, 2},
-		{"rejected and expired", amqp.Table{"x-death": []any{
-			death("auth.mail.retry", "expired", int64(2)),
-			death("auth.mail", "rejected", int64(2)),
-		}}, 3},
-		{"delivery limit counts", amqp.Table{"x-death": []any{
-			death("auth.mail", "delivery_limit", int64(2)),
-			death("auth.mail", "rejected", int64(1)),
-			death("auth.mail.retry", "expired", int64(3)),
-		}}, 4},
-		{"other queue ignored", amqp.Table{"x-death": []any{death("feedback.smtp", "rejected", int64(4))}}, 1},
-		{"int32 count", amqp.Table{"x-death": []any{death("auth.mail", "rejected", int32(3))}}, 4},
-		{"broken entries ignored", amqp.Table{"x-death": []any{"junk", amqp.Table{"queue": "auth.mail"}, death("auth.mail", "rejected", "x")}}, 1},
-		{"wrong header type", amqp.Table{"x-death": "junk"}, 1},
+		{"no counter", amqp.Table{"x-umir-schema": int32(1)}, 1},
+		{"one failure", amqp.Table{"x-umir-attempt": int32(1)}, 2},
+		{"int64", amqp.Table{"x-umir-attempt": int64(4)}, 5},
+		{"four failures", amqp.Table{"x-umir-attempt": int32(4)}, 5},
+		{"negative", amqp.Table{"x-umir-attempt": int32(-3)}, 1},
+		{"wrong type", amqp.Table{"x-umir-attempt": "3"}, 1},
+		{"huge is capped", amqp.Table{"x-umir-attempt": int64(1) << 40}, 1<<20 + 1},
+		// The broker's own markers are not the counter: a crash loop is the broker's business.
+		{"broker headers ignored", amqp.Table{"x-delivery-count": int64(3), "x-death": []any{amqp.Table{"queue": "auth.mail", "count": int64(2)}}}, 1},
 	}
 	for _, c := range cases {
-		if got := attemptFromDeath(c.headers, "auth.mail"); got != c.want {
+		if got := attemptFromHeaders(c.headers); got != c.want {
 			t.Errorf("%s: attempt %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
+func TestBuildCopy(t *testing.T) {
+	raw := amqp.Delivery{
+		MessageId: "m1", Type: "auth.mail", ContentType: "application/json", Body: []byte(`{"a":1}`),
+		Headers: amqp.Table{
+			"x-umir-schema": int32(1), "x-umir-generation": "g", "x-umir-attempt": int32(2),
+			"x-umir-error-class": "stale", "x-umir-source-queue": "stale",
+			"x-death": []any{amqp.Table{"queue": "auth.mail.retry"}}, "x-delivery-count": int64(1),
+		},
+	}
+	retry := buildCopy(raw, "auth.mail", 3, ".retry", "boom")
+	if retry.Headers["x-umir-attempt"] != int32(3) || retry.Headers["x-umir-schema"] != int32(1) || retry.Headers["x-umir-generation"] != "g" {
+		t.Fatalf("retry headers: %v", retry.Headers)
+	}
+	for _, k := range []string{"x-umir-error-class", "x-umir-source-queue", "x-death", "x-delivery-count"} {
+		if _, ok := retry.Headers[k]; ok {
+			t.Errorf("retry copy must not carry %s", k)
+		}
+	}
+	if retry.MessageId != "m1" || retry.Type != "auth.mail" || retry.DeliveryMode != amqp.Persistent || string(retry.Body) != `{"a":1}` {
+		t.Fatalf("retry identity: %+v", retry)
+	}
+	dead := buildCopy(raw, "auth.mail", 5, ".dlq", "boom")
+	if dead.Headers["x-umir-attempt"] != int32(5) || dead.Headers["x-umir-error-class"] != "boom" || dead.Headers["x-umir-source-queue"] != "auth.mail" {
+		t.Fatalf("dlq headers: %v", dead.Headers)
+	}
+	if _, ok := dead.Headers["x-death"]; ok {
+		t.Error("dlq copy must not carry x-death")
+	}
+	if raw.Headers["x-umir-attempt"] != int32(2) {
+		t.Error("buildCopy must not change the original headers")
+	}
+}
+
+func TestConsumeRejectsBadConfiguration(t *testing.T) {
+	c := &Connector{URL: "amqp://u:p@127.0.0.1:1/x"} // never dialed: the configuration error comes first
+	h := func(context.Context, Delivery) error { return nil }
+	for name, call := range map[string]func() error{
+		"zero prefetch":     func() error { return c.Consume(t.Context(), "q", 0, h) },
+		"negative prefetch": func() error { return c.Consume(t.Context(), "q", -1, h) },
+		"zero attempts":     func() error { return c.Consume(t.Context(), "q", 1, h, WithMaxAttempts(0)) },
+		"zero copy pause":   func() error { return c.Consume(t.Context(), "q", 1, h, WithCopyPause(0)) },
+		"package Consume":   func() error { return Consume(t.Context(), nil, "q", 0, h) },
+	} {
+		if err := call(); err == nil {
+			t.Errorf("%s: want a configuration error", name)
 		}
 	}
 }

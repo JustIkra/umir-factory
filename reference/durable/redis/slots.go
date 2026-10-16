@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -11,6 +12,19 @@ import (
 // unitsSuffix is appended to a slot key for the HASH with the units held per
 // holder. Slot keys must not end with it.
 const unitsSuffix = ":u"
+
+// Slot keys have the form <kind>:<rest>. The kind names the use (sse, capslots,
+// capbytes) and keeps the key space of slots apart from the keys of the other
+// operations under umir:<owner>:. The kinds below belong to those operations, and
+// the suffixes below to their derived keys, so a slot key may not collide with:
+//
+//	adm:<dimension>, admid:<policy>:<digest>   Limiter
+//	<name>:lease, <name>:fence                 Lease
+//	<slot key>:u                               the units HASH of a slot
+var (
+	reservedSlotKinds    = []string{"adm", "admid", "lease", "fence", ownerLimiter}
+	reservedSlotSuffixes = []string{unitsSuffix, ":lease", ":fence"}
+)
 
 // Slots are counted leases: a holder takes one slot in each of several keys at
 // once (all or none), the slots expire after a TTL unless renewed, and the
@@ -32,15 +46,20 @@ type Slots struct {
 
 // SlotDimension is one capped key of an Acquire.
 type SlotDimension struct {
-	// Key is the key below umir:<owner>:, for example sse:s:<HMAC(session)> or
-	// capslots:<generation>:<restaurantID>.
+	// Key is the key below umir:<owner>:, in the form <kind>:<rest>, for example
+	// sse:s:<HMAC(session)> or capslots:<generation>:<restaurantID>. The kind is
+	// lower case letters, digits, '_' or '-' starting with a letter; it must not
+	// be one of adm, admid, lease, fence or limiter, and the key must not end
+	// with :u, :lease or :fence (those belong to other operations).
 	Key string
-	// MaxCount caps the number of holders; zero means no cap on the count.
+	// MaxCount caps the number of holders; zero means no cap on the count, and
+	// then MaxUnits must be set so that the number of holders is still bounded.
 	MaxCount int64
 	// MaxUnits caps the sum of units of all holders; zero means no cap.
 	MaxUnits int64
-	// Units is what this holder adds to the sum (bytes, rows). It requires
-	// MaxUnits > 0 and must not exceed it.
+	// Units is what this holder adds to the sum (bytes, rows). With MaxUnits > 0
+	// it must be at least 1 (a holder that adds nothing would not be bounded by
+	// the sum) and must not exceed MaxUnits; without MaxUnits it must be zero.
 	Units int64
 }
 
@@ -62,8 +81,8 @@ type SlotGrant struct {
 
 // Slots returns the slot operations under umir:<owner>:.
 func (c *Client) Slots(owner string) (*Slots, error) {
-	if !validOwner(owner) {
-		return nil, invalidConfig("owner must be 1..32 characters of a-z0-9 starting with a letter")
+	if err := c.checkOwner(owner); err != nil {
+		return nil, err
 	}
 	return &Slots{
 		c: c, prefix: c.ownerKey(owner),
@@ -79,10 +98,36 @@ func validateHolder(holder string) error {
 }
 
 func validateSlotKey(key string) error {
-	if !validKey(key) || strings.HasSuffix(key, unitsSuffix) {
-		return invalidRequest("slot key must be 1..%d printable ASCII characters and must not end with %q", MaxKeyLength, unitsSuffix)
+	if !validKey(key) {
+		return invalidRequest("slot key must be 1..%d printable ASCII characters", MaxKeyLength)
+	}
+	kind, rest, ok := strings.Cut(key, ":")
+	if !ok || rest == "" || !validSlotKind(kind) {
+		return invalidRequest("slot key must have the form <kind>:<rest>, for example sse:s:<id>")
+	}
+	if slices.Contains(reservedSlotKinds, kind) {
+		return invalidRequest("slot key kind %q is reserved", kind)
+	}
+	for _, suffix := range reservedSlotSuffixes {
+		if strings.HasSuffix(key, suffix) {
+			return invalidRequest("slot key must not end with %q", suffix)
+		}
 	}
 	return nil
+}
+
+// validSlotKind checks the part of a slot key before the first ':'.
+func validSlotKind(kind string) bool {
+	if kind == "" || len(kind) > 32 || kind[0] < 'a' || kind[0] > 'z' {
+		return false
+	}
+	for i := range len(kind) {
+		ch := kind[i]
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' && ch != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func (r SlotRequest) validate() error {
@@ -108,7 +153,9 @@ func (r SlotRequest) validate() error {
 		case d.MaxCount < 0 || d.MaxUnits < 0 || d.Units < 0:
 			return invalidRequest("dimension %d: negative limit or units", i)
 		case d.MaxCount == 0 && d.MaxUnits == 0:
-			return invalidRequest("dimension %d: set MaxCount or MaxUnits", i)
+			return invalidRequest("dimension %d: set MaxCount or MaxUnits, or the number of holders is unbounded", i)
+		case d.MaxUnits > 0 && d.Units < 1:
+			return invalidRequest("dimension %d: Units must be at least 1 when MaxUnits is set", i)
 		case d.Units > 0 && d.MaxUnits == 0:
 			return invalidRequest("dimension %d: Units need MaxUnits", i)
 		case d.Units > d.MaxUnits && d.MaxUnits > 0:

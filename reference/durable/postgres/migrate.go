@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -32,7 +33,12 @@ var (
 // Spec names the service and its embedded migrations: files Dir/NNNN_name.sql in
 // FS, numbered from 1 without gaps. A line "-- umir:include <fragment>" inside a
 // file is replaced by a reference fragment (storage_meta, worker_leases, outbox,
-// inbox).
+// inbox). A line that mentions "umir:include" but is not a well-formed directive
+// is an error that names the line.
+//
+// There is no checksum of applied migrations: schema_migrations records the
+// version and the name only, so editing an applied file is not detected. Never
+// change a migration that has been applied; add a new one.
 type Spec struct {
 	// Service names the migration lock: hashtext('<Service>.migrate').
 	Service string
@@ -72,13 +78,13 @@ func loadMigrations(spec Spec) ([]migration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("migration %q: %w", entry.Name(), err)
 		}
-		body, err := fs.ReadFile(spec.FS, spec.Dir+"/"+entry.Name())
+		body, err := fs.ReadFile(spec.FS, path.Join(spec.Dir, entry.Name()))
 		if err != nil {
 			return nil, fmt.Errorf("read migration %q: %w", entry.Name(), err)
 		}
-		sql, unknown := expandIncludes(string(body))
-		if unknown != "" {
-			return nil, fmt.Errorf("migration %q includes unknown fragment %q", entry.Name(), unknown)
+		sql, err := expandIncludes(string(body))
+		if err != nil {
+			return nil, fmt.Errorf("migration %q: %w", entry.Name(), err)
 		}
 		if strings.TrimSpace(sql) == "" {
 			return nil, fmt.Errorf("migration %q is empty", entry.Name())

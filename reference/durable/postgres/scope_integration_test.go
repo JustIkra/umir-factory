@@ -446,3 +446,128 @@ func TestScopeDoesNotLeakThroughThePool(t *testing.T) {
 		}
 	})
 }
+
+// A pooled connection that served a scoped transaction reports its settings as
+// the empty string, not as unset. Without NULLIF in the policy expressions a row
+// whose column is the empty string would match an empty string against itself.
+func TestEmptyIdentifiersMatchNoRowWithoutContext(t *testing.T) {
+	f := newFixture(t)
+	rt := f.runtime(t, withMaxConns(1)) // one connection: the settings left by a transaction stay visible to the next
+	if err := rt.InSystemTx(t.Context(), "seed empty identifiers", pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "INSERT INTO settings (org_id, theme) VALUES ('', 'ghost'), ('o1', 'light')")
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, "INSERT INTO dishes (org_id, restaurant_id, name) VALUES ('o1', '', 'ghost dish')")
+		return err
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Leave empty settings behind on the only connection.
+	if err := rt.InScopedTx(t.Context(), postgres.Scope{Actor: postgres.ActorTenant, OrgID: "o1", RestaurantID: "r1"},
+		pgx.TxOptions{}, func(context.Context, pgx.Tx) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	var reported string
+	if err := rt.InTx(t.Context(), pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		return tx.QueryRow(ctx, "SELECT coalesce(current_setting('umir.org_id', true), 'unset')").Scan(&reported)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("org_id on the reused connection: %q", reported)
+
+	if n := count(t, t.Context(), rt, "SELECT count(*) FROM settings"); n != 0 {
+		t.Errorf("without context %d settings rows are visible, want 0", n)
+	}
+	if n := count(t, t.Context(), rt, "SELECT count(*) FROM dishes"); n != 0 {
+		t.Errorf("without context %d dishes rows are visible, want 0", n)
+	}
+
+	// The anonymous scope sets every identifier to the empty string explicitly.
+	var visibleSettings, visibleDishes int
+	if err := rt.InScopedTx(t.Context(), postgres.Scope{Actor: postgres.ActorAnonymous}, pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM settings").Scan(&visibleSettings); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, "SELECT count(*) FROM dishes").Scan(&visibleDishes)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if visibleSettings != 0 || visibleDishes != 0 {
+		t.Errorf("anonymous scope sees %d settings and %d dishes rows, want none", visibleSettings, visibleDishes)
+	}
+
+	// A tenant of o1 at organization level sees its own row, and the row with
+	// an empty restaurant stays out of reach of a scope without a restaurant.
+	var themes, names []string
+	if err := rt.InScopedTx(t.Context(), postgres.Scope{Actor: postgres.ActorTenant, OrgID: "o1"}, pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		if themes, err = column(ctx, tx, "SELECT theme FROM settings ORDER BY theme"); err != nil {
+			return err
+		}
+		names, err = column(ctx, tx, "SELECT name FROM dishes ORDER BY name")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(themes, []string{"light"}) || len(names) != 0 {
+		t.Errorf("tenant o1 sees themes %v and dishes %v, want [light] and none", themes, names)
+	}
+}
+
+func TestRLSPolicyOnUUIDColumn(t *testing.T) {
+	f := newFixture(t)
+	rt := f.runtime(t, nil)
+	plain, err := postgres.RLSPolicySQL("uuid_dishes", "restaurant_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cast, err := postgres.RLSPolicySQL("uuid_dishes", "restaurant_id", postgres.RLSUUIDColumn())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const create = "CREATE TABLE uuid_dishes (id serial PRIMARY KEY, restaurant_id uuid NOT NULL, name text NOT NULL);\n"
+	// The plain policy cannot be created on a uuid column.
+	err = f.owner.InTx(t.Context(), pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, create+plain)
+		return err
+	})
+	if err == nil || sqlState(t, err) != "42883" {
+		t.Fatalf("err = %v, want 42883 (operator does not exist: uuid = text)", err)
+	}
+	if err := f.owner.InTx(t.Context(), pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, create+cast)
+		return err
+	}); err != nil {
+		t.Fatalf("policy with RLSUUIDColumn: %v", err)
+	}
+
+	const r1, r2 = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+	if err := rt.InSystemTx(t.Context(), "seed uuid", pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, "INSERT INTO uuid_dishes (restaurant_id, name) VALUES ($1, 'soup'), ($2, 'salad')", r1, r2)
+		return err
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	var names []string
+	if err := rt.InScopedTx(t.Context(), postgres.Scope{Actor: postgres.ActorTenant, OrgID: "o1", RestaurantID: r1},
+		pgx.TxOptions{}, func(ctx context.Context, tx pgx.Tx) error {
+			var err error
+			names, err = column(ctx, tx, "SELECT name FROM uuid_dishes ORDER BY name")
+			return err
+		}); err != nil || !slices.Equal(names, []string{"soup"}) {
+		t.Fatalf("restaurant r1 sees %v (%v), want [soup]", names, err)
+	}
+	if n := count(t, t.Context(), rt, "SELECT count(*) FROM uuid_dishes"); n != 0 {
+		t.Fatalf("without context %d rows are visible, want 0", n)
+	}
+	// An organization-level tenant has no restaurant: nothing matches.
+	var visible int
+	if err := rt.InScopedTx(t.Context(), postgres.Scope{Actor: postgres.ActorTenant, OrgID: "o1"}, pgx.TxOptions{},
+		func(ctx context.Context, tx pgx.Tx) error {
+			return tx.QueryRow(ctx, "SELECT count(*) FROM uuid_dishes").Scan(&visible)
+		}); err != nil || visible != 0 {
+		t.Fatalf("organization-level scope sees %d rows (%v), want 0", visible, err)
+	}
+}

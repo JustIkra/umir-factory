@@ -26,11 +26,21 @@ const (
 )
 
 // Defaults of the retry chain (events.md, "Очереди задач").
+//
+// The chain has two halves that never meet. A Handler failure is moved by the
+// consumer itself: it publishes a copy to umir.dlx with the key <q>.retry (or
+// <q>.dlq after the last attempt) and acknowledges the original only after the
+// broker confirmed the copy. A consumer that dies without ack is handled by the
+// broker: x-delivery-limit dead-letters the message straight to <q>.dlq. The
+// work queue must not dead-letter into <q>.retry: <q>.retry returns messages to
+// <q> and RabbitMQ drops a message that comes back to a queue it was
+// dead-lettered from for a reason other than "rejected" (a cycle).
 const (
 	// DefaultRetryTTL is the pause in <q>.retry before a message returns to <q>.
 	DefaultRetryTTL = 30 * time.Second
-	// DefaultDeliveryLimit is x-delivery-limit of work queues and the number of
-	// attempts before a message goes to <q>.dlq.
+	// DefaultDeliveryLimit is x-delivery-limit of work queues, the number of
+	// broker deliveries without ack after which the broker dead-letters the
+	// message to <q>.dlq, and the number of Handler attempts before Consume does.
 	DefaultDeliveryLimit = 5
 	// FanoutPrefetch is the prefetch of the exclusive fan-out queues.
 	FanoutPrefetch = 32
@@ -184,7 +194,7 @@ func (t Topology) Queues() []QueueSpec {
 				"x-delivery-limit":          int64(t.DeliveryLimit),
 				"x-overflow":                "reject-publish",
 				"x-dead-letter-exchange":    ExchangeDLX,
-				"x-dead-letter-routing-key": w.Name + ".retry",
+				"x-dead-letter-routing-key": w.Name + ".dlq",
 				"x-dead-letter-strategy":    "at-least-once",
 			}},
 		)

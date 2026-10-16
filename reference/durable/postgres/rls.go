@@ -29,6 +29,18 @@ var scopeColumns = map[string]string{
 	"user_id":         ScopeUserIDSQL,
 }
 
+// RLSOption adjusts the policy that RLSPolicySQL writes.
+type RLSOption func(*rlsOptions)
+
+type rlsOptions struct{ uuidColumn bool }
+
+// RLSUUIDColumn declares that the scope column has the type uuid. The settings
+// are text, and PostgreSQL has no operator "uuid = text", so the policy casts the
+// setting: column = NULLIF(current_setting(...), empty string)::uuid. An empty or unset
+// setting stays NULL and matches no row; a setting that is not a UUID makes the
+// statement fail (22P02) instead of matching, which is the safe direction.
+func RLSUUIDColumn() RLSOption { return func(o *rlsOptions) { o.uuidColumn = true } }
+
 // RLSPolicySQL returns the statements that scope table by column for a
 // migration: row level security is enabled and forced (the owner is bound too),
 // and one policy lets a row through when the column equals the matching setting
@@ -38,7 +50,15 @@ var scopeColumns = map[string]string{
 // column is restaurant_id, org_id (or organization_id) or user_id. Several
 // policies on one table combine with OR; a table with two scope columns takes a
 // hand-written policy if it needs AND.
-func RLSPolicySQL(table, column string) (string, error) {
+//
+// The policy compares the column with a text setting, so it fits text and
+// varchar columns. For a uuid column pass RLSUUIDColumn(); without it
+// CREATE POLICY fails with "operator does not exist: uuid = text".
+func RLSPolicySQL(table, column string, opts ...RLSOption) (string, error) {
+	var o rlsOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	expr, ok := scopeColumns[column]
 	if !ok {
 		return "", errors.New("unsupported scope column: use restaurant_id, org_id, organization_id or user_id")
@@ -57,6 +77,9 @@ func RLSPolicySQL(table, column string) (string, error) {
 		return "", errors.New("table name is too long for a policy name")
 	}
 	qualified := pgx.Identifier(parts).Sanitize()
+	if o.uuidColumn {
+		expr += "::uuid"
+	}
 	check := fmt.Sprintf(`%s = 'system' OR %s = %s`, ScopeActorSQL, pgx.Identifier{column}.Sanitize(), expr)
 	return fmt.Sprintf(`ALTER TABLE %[1]s ENABLE ROW LEVEL SECURITY;
 ALTER TABLE %[1]s FORCE ROW LEVEL SECURITY;

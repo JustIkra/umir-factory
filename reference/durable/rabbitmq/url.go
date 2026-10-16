@@ -13,7 +13,7 @@ import (
 // file named by <prefix>_AMQP_URL_FILE. Setting both, setting neither or an
 // invalid URL is an error. The URL carries credentials: it never appears in an
 // error text. getenv is os.Getenv in production.
-func LoadURL(getenv func(string) string, prefix string) (string, error) {
+func LoadURL(getenv func(string) string, prefix string) (BrokerURL, error) {
 	prefix = strings.TrimSuffix(prefix, "_")
 	valueVar, fileVar := prefix+"_AMQP_URL", prefix+"_AMQP_URL_FILE"
 	if prefix == "" {
@@ -41,7 +41,7 @@ func LoadURL(getenv func(string) string, prefix string) (string, error) {
 	if err := validateURL(value); err != nil {
 		return "", fmt.Errorf("%s is not a valid amqp or amqps URL", name)
 	}
-	return value, nil
+	return BrokerURL(value), nil
 }
 
 func validateURL(raw string) error {

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	goredis "github.com/redis/go-redis/v9"
 )
 
 // Kind selects one of the two Redis instances of the stack.
@@ -36,7 +34,8 @@ func (k Kind) name() (string, bool) {
 // trimmed). Exactly one of the two must be set; both or neither is an error.
 // getenv is os.Getenv in production; an empty value counts as not set.
 //
-// The URL is validated (scheme redis or rediss). Errors name variables only and
+// The URL is validated: only the schemes redis and rediss are accepted (not
+// unix, which go-redis would also parse). Errors name variables only and
 // never contain the URL or the path.
 func LoadURL(getenv func(string) string, prefix string, kind Kind) (string, error) {
 	if getenv == nil || prefix == "" {
@@ -71,7 +70,7 @@ func LoadURL(getenv func(string) string, prefix string, kind Kind) (string, erro
 	if value == "" {
 		return "", invalidConfig("%s is empty", name)
 	}
-	if _, err := goredis.ParseURL(value); err != nil {
+	if _, err := parseRedisURL(value); err != nil {
 		return "", invalidConfig("%s is not a valid redis:// or rediss:// URL", name)
 	}
 	return value, nil

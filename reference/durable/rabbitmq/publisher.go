@@ -129,7 +129,8 @@ func (p *Publisher) session(ctx context.Context, conn *amqp.Connection, up func(
 	if err != nil {
 		return err
 	}
-	closed := cc.ch.NotifyClose(make(chan *amqp.Error, 1))
+	defer cc.close()
+	closed := cc.closed
 	if p.setup != nil {
 		if err := p.setup(cc.ch); err != nil {
 			return fmt.Errorf("setup: %w", err)

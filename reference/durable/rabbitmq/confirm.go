@@ -53,6 +53,8 @@ const returnBuffer = 16
 type confirmChannel struct {
 	ch      *amqp.Channel
 	returns chan amqp.Return
+	// closed receives the channel exception, if any, and is then closed.
+	closed <-chan *amqp.Error
 }
 
 // newConfirmChannel opens a channel on conn and switches it to confirm mode.
@@ -62,9 +64,19 @@ func newConfirmChannel(conn *amqp.Connection) (*confirmChannel, error) {
 		return nil, fmt.Errorf("open channel: %w", err)
 	}
 	if err := ch.Confirm(false); err != nil {
+		ignoreErr(ch.Close())
 		return nil, fmt.Errorf("enable publisher confirms: %w", err)
 	}
-	return &confirmChannel{ch: ch, returns: ch.NotifyReturn(make(chan amqp.Return, returnBuffer))}, nil
+	return &confirmChannel{
+		ch:      ch,
+		returns: ch.NotifyReturn(make(chan amqp.Return, returnBuffer)),
+		closed:  ch.NotifyClose(make(chan *amqp.Error, 1)),
+	}, nil
+}
+
+// close closes the channel; an already closed channel is not an error.
+func (c *confirmChannel) close() {
+	ignoreErr(c.ch.Close())
 }
 
 // publish sends one mandatory message and waits for the broker's verdict. The
@@ -106,3 +118,7 @@ func (c *confirmChannel) publish(ctx context.Context, exchange, key string, pub 
 		}
 	}
 }
+
+// ignoreErr documents a deliberately ignored error from a shutdown path, where
+// the peer may already have closed the connection.
+func ignoreErr(error) {}

@@ -12,7 +12,8 @@ CREATE TABLE outbox (
     position         bigserial   NOT NULL UNIQUE,
     exchange         text        NOT NULL,
     routing_key      text        NOT NULL,
-    headers          jsonb       NOT NULL DEFAULT '{}'::jsonb,
+    headers          jsonb       NOT NULL DEFAULT '{}'::jsonb
+                     CONSTRAINT outbox_headers_object CHECK (jsonb_typeof(headers) = 'object'),
     body             jsonb       NOT NULL,
     org_id           text,
     restaurant_id    text,

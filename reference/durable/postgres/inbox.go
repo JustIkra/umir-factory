@@ -23,8 +23,11 @@ func NewInbox(db *DB) *Inbox { return &Inbox{db: db} }
 // and applied is false; when fn fails, nothing is recorded, so a redelivery
 // tries again. fn gets the transaction (set a Scope on it with SetScope when it
 // writes tenant tables) and must be safe to run again, because a serialization
-// failure repeats the transaction. Concurrent deliveries of one message run fn
-// once; the others wait and report applied=false.
+// failure repeats the transaction. Concurrent deliveries of one message are
+// serialized on the inbox record: a delivery that finds the record in a
+// transaction that has not finished waits for it. If that transaction commits,
+// the waiting one reports applied=false and does not call fn; if it rolls back
+// (fn failed), the waiting one finds no record and applies fn itself.
 func (i *Inbox) Apply(ctx context.Context, consumer, eventID string, fn func(pgx.Tx) error) (applied bool, err error) {
 	if consumer == "" || len(consumer) > maxScopeValueLen || eventID == "" || len(eventID) > maxScopeValueLen {
 		return false, errors.New("inbox consumer and event id must be 1..256 characters")

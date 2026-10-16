@@ -6,18 +6,26 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// errShutdown tells the consume loop that ctx ended while a Handler ran.
+// errShutdown tells the consume loop that ctx ended while a message was in hand.
 var errShutdown = errors.New("rabbitmq: consumer is shutting down")
 
 const (
-	dlqPublishTimeout     = 10 * time.Second
+	copyPublishTimeout    = 10 * time.Second
+	defaultCopyPause      = 2 * time.Second
 	classAttemptsExceeded = "attempts_exceeded"
+	// attemptHeader counts the failed Handler attempts of a message. Only the
+	// consumer sets it, on the copy it publishes to <q>.retry and <q>.dlq.
+	attemptHeader = "x-umir-attempt"
 )
+
+// consumerSeq makes consumer tags unique within the process.
+var consumerSeq atomic.Uint64
 
 // Delivery is one message handed to a Handler.
 type Delivery struct {
@@ -27,10 +35,12 @@ type Delivery struct {
 	// MessageID and Type are the AMQP message_id and type properties.
 	MessageID string
 	Type      string
-	// Headers are the message headers (x-umir-*, x-death and others).
+	// Headers are the message headers (x-umir-*, x-delivery-count and others).
 	Headers map[string]any
-	// Attempt is the 1-based number of this processing attempt: 1 plus the sum
-	// of the x-death counts of the work queue. Always 1 on fan-out queues.
+	// Attempt is the 1-based number of this Handler attempt: 1 plus the value of
+	// the header x-umir-attempt, which counts the failures the consumer has
+	// recorded. Deliveries repeated after a crash without ack do not change it;
+	// the broker limits those with x-delivery-limit. Always 1 on fan-out queues.
 	Attempt int
 	// Redelivered is the broker's flag: the message was delivered before and
 	// not acknowledged.
@@ -49,6 +59,7 @@ type consumeConfig struct {
 	setup       func(*amqp.Channel) error
 	maxAttempts int
 	fanout      bool
+	copyPause   time.Duration
 	logger      *slog.Logger
 }
 
@@ -75,21 +86,33 @@ func WithFanout() ConsumeOption {
 	return func(c *consumeConfig) { c.fanout = true }
 }
 
+// WithCopyPause sets how long Consume waits before it publishes the copy of a
+// failed message again when the broker did not confirm it (the default is 2 s).
+func WithCopyPause(d time.Duration) ConsumeOption {
+	return func(c *consumeConfig) { c.copyPause = d }
+}
+
 // WithLogger sets the logger of Consume (Connector.Consume uses the connector's).
 func WithLogger(l *slog.Logger) ConsumeOption {
 	return func(c *consumeConfig) { c.logger = l }
 }
 
-func newConsumeConfig(opts []ConsumeOption, fallback *slog.Logger) (consumeConfig, error) {
-	cfg := consumeConfig{maxAttempts: DefaultDeliveryLimit, logger: fallback}
+func newConsumeConfig(prefetch int, opts []ConsumeOption, fallback *slog.Logger) (consumeConfig, error) {
+	cfg := consumeConfig{maxAttempts: DefaultDeliveryLimit, copyPause: defaultCopyPause, logger: fallback}
 	for _, o := range opts {
 		o(&cfg)
 	}
 	if cfg.logger == nil {
 		cfg.logger = slog.New(slog.DiscardHandler)
 	}
-	if cfg.maxAttempts < 1 {
+	switch {
+	case prefetch < 1:
+		// Zero means "unlimited" to the broker: the whole queue would sit unacknowledged.
+		return cfg, errors.New("rabbitmq: prefetch must be positive")
+	case cfg.maxAttempts < 1:
 		return cfg, errors.New("rabbitmq: max attempts must be positive")
+	case cfg.copyPause <= 0:
+		return cfg, errors.New("rabbitmq: copy pause must be positive")
 	}
 	return cfg, nil
 }
@@ -98,7 +121,7 @@ func newConsumeConfig(opts []ConsumeOption, fallback *slog.Logger) (consumeConfi
 // ctx ends; it returns ctx.Err() (or a configuration error at once). See the
 // package-level Consume for the processing rules.
 func (c *Connector) Consume(ctx context.Context, queue string, prefetch int, h Handler, opts ...ConsumeOption) error {
-	cfg, err := newConsumeConfig(opts, c.Logger)
+	cfg, err := newConsumeConfig(prefetch, opts, c.Logger)
 	if err != nil {
 		return err
 	}
@@ -108,25 +131,36 @@ func (c *Connector) Consume(ctx context.Context, queue string, prefetch int, h H
 }
 
 // Consume reads queue on conn until ctx ends (nil) or the channel fails (error),
-// handling one delivery at a time. prefetch is the unacknowledged limit.
+// handling one delivery at a time: the Handler is sequential, so prefetch is
+// only the number of messages the broker keeps ready on this consumer. For
+// task queues use 1: every prefetched message waits unacknowledged behind a
+// slow Handler and counts as delivered if the process dies. Fan-out queues use
+// FanoutPrefetch. prefetch must be positive.
 //
 //   - A Handler success acknowledges the message after the Handler returned.
-//   - A Handler error nacks it without requeue: the queue's dead-letter
-//     arguments send it through umir.dlx to <queue>.retry and, after the pause,
-//     back to <queue>.
-//   - When attempt number maxAttempts fails, Consume publishes a copy to
-//     umir.dlx with the key <queue>.dlq, waits for the broker's confirm and only
-//     then acknowledges the original. If the copy is not confirmed, the
-//     original goes through the retry chain again.
-//   - A message whose attempt number is already above maxAttempts before the
+//   - A Handler error on a work queue moves the message by the consumer's own
+//     publish: it sends a copy to umir.dlx with the key <queue>.retry (after the
+//     pause the broker returns it to <queue>), waits for the broker's confirm
+//     and only then acknowledges the original. The copy carries x-umir-attempt,
+//     the number of failures so far.
+//   - When attempt number maxAttempts fails, the copy goes to <queue>.dlq in
+//     the same way.
+//   - If the broker does not confirm the copy (no binding, a full queue), the
+//     original stays unacknowledged and Consume publishes the copy again after
+//     the copy pause, until it is confirmed, ctx ends or the channel fails.
+//     Nothing is acknowledged before the copy is stored.
+//   - A message whose recorded failures already reach maxAttempts before the
 //     Handler runs goes to <queue>.dlq at once, without calling the Handler.
-//   - Logs and the DLQ copy's metadata carry message_id, type, attempt, queue
-//     and the error class, never the body or the error text.
+//   - A consumer that dies without ack is not counted here: the broker returns
+//     the message and, after x-delivery-limit deliveries, dead-letters it to
+//     <queue>.dlq itself (without x-umir-* metadata, with x-death).
+//   - Logs and the copy's metadata carry message_id, type, attempt, queue and
+//     the error class, never the body or the error text.
 //
 // If ctx ends while a Handler runs, its error is not counted as a failed
 // attempt: the message stays unacknowledged and returns to the queue.
 func Consume(ctx context.Context, conn *amqp.Connection, queue string, prefetch int, h Handler, opts ...ConsumeOption) error {
-	cfg, err := newConsumeConfig(opts, nil)
+	cfg, err := newConsumeConfig(prefetch, opts, nil)
 	if err != nil {
 		return err
 	}
@@ -138,6 +172,9 @@ func consume(ctx context.Context, conn *amqp.Connection, queue string, prefetch 
 	if err != nil {
 		return fmt.Errorf("open channel: %w", err)
 	}
+	// Closing the channels gives unacknowledged messages back to the queue; the
+	// conn belongs to the caller and may outlive this call.
+	defer func() { ignoreErr(ch.Close()) }()
 	closed := ch.NotifyClose(make(chan *amqp.Error, 1))
 	if err := ch.Qos(prefetch, 0, false); err != nil {
 		return fmt.Errorf("set prefetch: %w", err)
@@ -148,15 +185,20 @@ func consume(ctx context.Context, conn *amqp.Connection, queue string, prefetch 
 		}
 	}
 	var dlq *confirmChannel
+	var dlqClosed <-chan *amqp.Error // nil on a fan-out queue: never ready
 	if !cfg.fanout {
 		if dlq, err = newConfirmChannel(conn); err != nil {
 			return fmt.Errorf("dead-letter channel: %w", err)
 		}
+		defer dlq.close()
+		dlqClosed = dlq.closed
 	}
-	deliveries, err := ch.Consume(queue, "", false, false, false, false, nil)
+	tag := fmt.Sprintf("umir-%s-%d", queue, consumerSeq.Add(1))
+	deliveries, err := ch.Consume(queue, tag, false, false, false, false, nil)
 	if err != nil {
 		return classify("consume "+queue, err)
 	}
+	defer func() { ignoreErr(ch.Cancel(tag, false)) }()
 	up()
 	for {
 		select {
@@ -167,6 +209,12 @@ func consume(ctx context.Context, conn *amqp.Connection, queue string, prefetch 
 				return errors.New("channel closed")
 			}
 			return fmt.Errorf("channel closed: %w", e)
+		case e := <-dlqClosed:
+			// The channel that publishes copies is gone: reconnect, the unacknowledged message comes back.
+			if e == nil {
+				return errors.New("dead-letter channel closed")
+			}
+			return fmt.Errorf("dead-letter channel closed: %w", e)
 		case raw, ok := <-deliveries:
 			if !ok {
 				return errors.New("deliveries closed")
@@ -188,7 +236,7 @@ func toDelivery(raw amqp.Delivery, queue string, fanout bool) Delivery {
 		Attempt: 1, Redelivered: raw.Redelivered, Body: raw.Body,
 	}
 	if !fanout {
-		d.Attempt = attemptFromDeath(raw.Headers, queue)
+		d.Attempt = attemptFromHeaders(raw.Headers)
 	}
 	return d
 }
@@ -197,18 +245,9 @@ func toDelivery(raw amqp.Delivery, queue string, fanout bool) Delivery {
 func settle(ctx context.Context, raw amqp.Delivery, queue string, h Handler, cfg consumeConfig, dlq *confirmChannel) error {
 	d := toDelivery(raw, queue, cfg.fanout)
 	if !cfg.fanout && d.Attempt > cfg.maxAttempts {
-		// The handler already failed (or crashed) maxAttempts times: do not run it again.
-		log := cfg.logger.With("queue", queue, "message_id", d.MessageID, "type", d.Type, "attempt", d.Attempt, "error_class", classAttemptsExceeded)
-		if deadLetter(ctx, raw, d, classAttemptsExceeded, dlq, log) {
-			if err := raw.Ack(false); err != nil {
-				return fmt.Errorf("ack: %w", err)
-			}
-			return nil
-		}
-		if err := raw.Nack(false, false); err != nil {
-			return fmt.Errorf("nack: %w", err)
-		}
-		return nil
+		// The Handler already failed maxAttempts times: do not run it again.
+		log := cfg.logger.With("queue", queue, "message_id", d.MessageID, "type", d.Type, "attempt", d.Attempt-1, "error_class", classAttemptsExceeded)
+		return move(ctx, raw, d, d.Attempt-1, ".dlq", classAttemptsExceeded, cfg, dlq, log)
 	}
 	herr := h(ctx, d)
 	if herr == nil {
@@ -229,76 +268,89 @@ func settle(ctx context.Context, raw amqp.Delivery, queue string, h Handler, cfg
 		}
 		return nil
 	}
+	suffix := ".retry"
 	if d.Attempt >= cfg.maxAttempts {
-		if deadLetter(ctx, raw, d, class, dlq, log) {
+		suffix = ".dlq"
+	}
+	return move(ctx, raw, d, d.Attempt, suffix, class, cfg, dlq, log)
+}
+
+// move publishes the copy of a failed message to umir.dlx with the key
+// <queue><suffix> (".retry" or ".dlq"), waits until the broker confirms it as
+// routed and only then acknowledges the original. failed is the number of
+// failed attempts the copy records. An unconfirmed copy is published again
+// after the copy pause with the original still unacknowledged; an unknown
+// outcome ends the session instead, because the channel can no longer be
+// trusted: the original comes back and the Handler runs again (at least once).
+func move(ctx context.Context, raw amqp.Delivery, d Delivery, failed int, suffix, class string, cfg consumeConfig, dlq *confirmChannel, log *slog.Logger) error {
+	key := d.Queue + suffix
+	pub := buildCopy(raw, d.Queue, failed, suffix, class)
+	for {
+		pctx, cancel := context.WithTimeout(ctx, copyPublishTimeout)
+		out, err := dlq.publish(pctx, ExchangeDLX, key, pub)
+		cancel()
+		switch out {
+		case Confirmed:
+			if suffix == ".dlq" {
+				log.Error("rabbitmq message moved to the dead-letter queue")
+			} else {
+				log.Warn("rabbitmq message failed; retry follows")
+			}
 			if err := raw.Ack(false); err != nil {
 				return fmt.Errorf("ack: %w", err)
 			}
 			return nil
+		case Unknown:
+			if ctx.Err() != nil {
+				return errShutdown
+			}
+			return fmt.Errorf("copy to %s: %w", key, err)
 		}
-		log.Error("rabbitmq dead-letter copy was not confirmed; message goes through the retry chain again")
-	} else {
-		log.Warn("rabbitmq message failed; retry follows")
+		log.Error("rabbitmq copy of a failed message was not confirmed; the original stays unacknowledged", "outcome", out.String(), "target", key)
+		timer := time.NewTimer(cfg.copyPause)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return errShutdown
+		case <-dlq.closed:
+			timer.Stop()
+			return fmt.Errorf("copy to %s: %w", key, ErrChannelClosed)
+		case <-timer.C:
+		}
 	}
-	if err := raw.Nack(false, false); err != nil {
-		return fmt.Errorf("nack: %w", err)
-	}
-	return nil
 }
 
-// deadLetter publishes the copy of a failed message to <queue>.dlq and reports
-// whether the broker confirmed it as routed.
-func deadLetter(ctx context.Context, raw amqp.Delivery, d Delivery, class string, dlq *confirmChannel, log *slog.Logger) bool {
+// buildCopy builds the message published for a failed delivery: the original
+// identity, body and x-umir-* headers, the failure count and, for the dead-letter
+// queue, the error class and the source queue.
+func buildCopy(raw amqp.Delivery, queue string, failed int, suffix, class string) amqp.Publishing {
 	headers := amqp.Table{}
 	for k, v := range raw.Headers {
 		if strings.HasPrefix(k, "x-umir-") {
 			headers[k] = v
 		}
 	}
-	headers["x-umir-attempt"] = int32(d.Attempt)
-	headers["x-umir-error-class"] = class
-	headers["x-umir-source-queue"] = d.Queue
-	pub := amqp.Publishing{
+	headers[attemptHeader] = int32(failed)
+	if suffix == ".dlq" {
+		headers["x-umir-error-class"] = class
+		headers["x-umir-source-queue"] = queue
+	} else {
+		delete(headers, "x-umir-error-class")
+		delete(headers, "x-umir-source-queue")
+	}
+	return amqp.Publishing{
 		Headers: headers, ContentType: raw.ContentType, DeliveryMode: amqp.Persistent,
 		MessageId: raw.MessageId, Type: raw.Type, Body: raw.Body,
 	}
-	pctx, cancel := context.WithTimeout(ctx, dlqPublishTimeout)
-	defer cancel()
-	out, err := dlq.publish(pctx, ExchangeDLX, d.Queue+".dlq", pub)
-	if out == Confirmed {
-		log.Error("rabbitmq message moved to the dead-letter queue")
-		return true
-	}
-	if err != nil {
-		log.Error("rabbitmq dead-letter publish failed", "outcome", out.String(), "error_class", errorClass(err))
-	} else {
-		log.Error("rabbitmq dead-letter publish failed", "outcome", out.String())
-	}
-	return false
 }
 
-// attemptFromDeath returns the number of the current processing attempt of a
-// message on a work queue: 1 plus the sum of the counts of the x-death entries
-// whose queue is the work queue itself, whatever the reason (rejected,
-// delivery_limit). Entries of .retry (expired) are not counted: they are the
-// same attempt seen from the other side.
-func attemptFromDeath(headers amqp.Table, queue string) int {
-	entries, ok := headers["x-death"].([]any)
-	if !ok {
-		return 1
-	}
-	attempt := 1
-	for _, e := range entries {
-		entry, ok := e.(amqp.Table)
-		if !ok {
-			continue
-		}
-		if name, ok := entry["queue"].(string); !ok || name != queue {
-			continue
-		}
-		attempt += int(toInt64(entry["count"]))
-	}
-	return attempt
+// attemptFromHeaders returns the number of the current Handler attempt: 1 plus
+// the failures recorded in the header x-umir-attempt. A missing, malformed or
+// negative header counts as no failures; a huge one is capped.
+func attemptFromHeaders(headers amqp.Table) int {
+	n := toInt64(headers[attemptHeader])
+	n = max(0, min(n, 1<<20))
+	return int(n) + 1
 }
 
 func toInt64(v any) int64 {

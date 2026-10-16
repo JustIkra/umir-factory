@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -158,7 +159,7 @@ func startPublisher(t *testing.T, amqpURL string, setup func(*amqp.Channel) erro
 	if setup != nil {
 		opts = append(opts, WithPublisherSetup(setup))
 	}
-	pub := NewPublisher(&Connector{URL: amqpURL, Name: "itest-publisher", Heartbeat: time.Second, Backoff: fastBackoff, Logger: testLogger(logs)}, opts...)
+	pub := NewPublisher(&Connector{URL: BrokerURL(amqpURL), Name: "itest-publisher", Heartbeat: time.Second, Backoff: fastBackoff, Logger: testLogger(logs)}, opts...)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -495,7 +496,7 @@ func TestPublisherNotReadyWithoutBroker(t *testing.T) {
 	proxy, proxied := proxyFor(t, amqpURL)
 	proxy.Close() // nothing listens any more
 	logs := &safeBuffer{}
-	pub := NewPublisher(&Connector{URL: proxied, Name: "itest-down", Backoff: fastBackoff, Logger: testLogger(logs)})
+	pub := NewPublisher(&Connector{URL: BrokerURL(proxied), Name: "itest-down", Backoff: fastBackoff, Logger: testLogger(logs)})
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 	go func() {
@@ -533,21 +534,33 @@ func (a *attempts) snapshot() []int {
 
 func startConsumer(t *testing.T, amqpURL, queue string, h Handler, opts ...ConsumeOption) *safeBuffer {
 	t.Helper()
+	logs, _ := startStoppableConsumer(t, amqpURL, queue, h, opts...)
+	return logs
+}
+
+// startStoppableConsumer is startConsumer with a stop function that ends the
+// consumer and waits for it; the cleanup calls it too, so calling it twice is fine.
+func startStoppableConsumer(t *testing.T, amqpURL, queue string, h Handler, opts ...ConsumeOption) (*safeBuffer, func()) {
+	t.Helper()
 	logs := &safeBuffer{}
-	c := &Connector{URL: amqpURL, Name: "itest-consumer", Heartbeat: time.Second, Backoff: fastBackoff, Logger: testLogger(logs)}
+	c := &Connector{URL: BrokerURL(amqpURL), Name: "itest-consumer", Heartbeat: time.Second, Backoff: fastBackoff, Logger: testLogger(logs)}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		if err := c.Consume(ctx, queue, 4, h, opts...); !errors.Is(err, context.Canceled) {
+		if err := c.Consume(ctx, queue, 1, h, append([]ConsumeOption{WithCopyPause(50 * time.Millisecond)}, opts...)...); !errors.Is(err, context.Canceled) {
 			t.Errorf("Consume: %v", err)
 		}
 	}()
-	t.Cleanup(func() {
-		cancel()
-		<-done
-	})
-	return logs
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			cancel()
+			<-done
+		})
+	}
+	t.Cleanup(stop)
+	return logs, stop
 }
 
 func TestRetryChainEndsInDLQOnFifthAttempt(t *testing.T) {
@@ -603,7 +616,7 @@ func TestRetryChainEndsInDLQOnFifthAttempt(t *testing.T) {
 	}
 }
 
-func TestExhaustedMessageGoesToDLQWithoutCallingHandler(t *testing.T) {
+func TestMessageWithSpentAttemptsGoesToDLQWithoutCallingHandler(t *testing.T) {
 	amqpURL := itest.NewVHost(t)
 	declareTopology(t, amqpURL, fastTopology(TopologyOptions{}))
 	var calls atomic.Int32
@@ -611,17 +624,12 @@ func TestExhaustedMessageGoesToDLQWithoutCallingHandler(t *testing.T) {
 		calls.Add(1)
 		return nil
 	})
-	// A message that comes back from the broker with five recorded failures.
+	// A message that arrives with five recorded failures: replayed from the DLQ
+	// without clearing the header, or after the attempt limit was lowered.
 	ch := adminChannel(t, amqpURL)
-	forged := amqp.Table{
-		"x-umir-schema": int32(1), "x-umir-generation": "g",
-		"x-death": []any{
-			amqp.Table{"queue": "auth.mail", "reason": "delivery_limit", "count": int64(3), "exchange": "umir.dlx", "routing-keys": []any{"auth.mail"}},
-			amqp.Table{"queue": "auth.mail", "reason": "rejected", "count": int64(2), "exchange": "umir.tasks", "routing-keys": []any{"auth.mail"}},
-		},
-	}
 	err := ch.PublishWithContext(publishCtx(t, waitLong), "umir.tasks", "auth.mail", false, false, amqp.Publishing{
-		Headers: forged, ContentType: "application/json", DeliveryMode: amqp.Persistent, MessageId: "task-spent", Type: "auth.mail", Body: []byte(`{}`),
+		Headers:     amqp.Table{"x-umir-schema": int32(1), "x-umir-generation": "g", "x-umir-attempt": int32(5)},
+		ContentType: "application/json", DeliveryMode: amqp.Persistent, MessageId: "task-spent", Type: "auth.mail", Body: []byte(`{}`),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -633,8 +641,98 @@ func TestExhaustedMessageGoesToDLQWithoutCallingHandler(t *testing.T) {
 		t.Fatalf("handler was called %d times for an exhausted message", n)
 	}
 	d, ok, gerr := adminChannel(t, amqpURL).Get("auth.mail.dlq", true)
-	if gerr != nil || !ok || d.MessageId != "task-spent" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "6" || d.Headers["x-umir-error-class"] != "attempts_exceeded" {
+	if gerr != nil || !ok || d.MessageId != "task-spent" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "5" || d.Headers["x-umir-error-class"] != "attempts_exceeded" {
 		t.Fatalf("dlq copy: ok=%v err=%v id=%q headers=%v", ok, gerr, d.MessageId, d.Headers)
+	}
+}
+
+// crashOnce plays a consumer that dies: it takes one delivery of queue on its
+// own connection and drops the connection without acknowledging.
+func crashOnce(t *testing.T, amqpURL, queue string) (amqp.Delivery, bool) {
+	t.Helper()
+	conn, err := amqp.Dial(amqpURL)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { ignoreErr(conn.Close()) }()
+	ch, err := conn.Channel()
+	if err != nil {
+		t.Fatalf("channel: %v", err)
+	}
+	deliveries, err := ch.Consume(queue, "", false, false, false, false, nil)
+	if err != nil {
+		t.Fatalf("consume: %v", err)
+	}
+	select {
+	case d := <-deliveries:
+		return d, true
+	case <-time.After(2 * time.Second):
+		return amqp.Delivery{}, false
+	}
+}
+
+// TestCrashLoopWithoutAckEndsInDLQ is the broker half of the retry chain: a
+// message whose consumers die without ack is dead-lettered by x-delivery-limit
+// straight to .dlq, not into .retry, where RabbitMQ would drop it as a cycle.
+func TestCrashLoopWithoutAckEndsInDLQ(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	declareTopology(t, amqpURL, topo)
+	pub, _ := startPublisher(t, amqpURL, nil)
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-crash")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	deliveries := 0
+	for deliveries < 3*topo.DeliveryLimit {
+		if _, ok := crashOnce(t, amqpURL, "auth.mail"); !ok {
+			break
+		}
+		deliveries++
+	}
+	eventually(t, "message in auth.mail.dlq", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.dlq") == 1 })
+	// x-delivery-limit counts redeliveries: the first delivery plus DeliveryLimit more.
+	if deliveries != topo.DeliveryLimit+1 {
+		t.Fatalf("the broker delivered the message %d times before dead-lettering, want 1 + x-delivery-limit = %d", deliveries, topo.DeliveryLimit+1)
+	}
+	time.Sleep(2 * testRetry)
+	for _, q := range []string{"auth.mail", "auth.mail.retry"} {
+		if n := queueMessages(t, amqpURL, q); n != 0 {
+			t.Fatalf("%s holds %d messages", q, n)
+		}
+	}
+	d, ok, err := adminChannel(t, amqpURL).Get("auth.mail.dlq", true)
+	if err != nil || !ok || d.MessageId != "task-crash" || !bytes.Equal(d.Body, taskMessage("task-crash").Body) {
+		t.Fatalf("dlq message: ok=%v err=%v id=%q", ok, err, d.MessageId)
+	}
+}
+
+// TestConsumeCrashLoopEndsInDLQ drops the consumer's connection in the middle of
+// every Handler call: no ack is ever sent, and the message is not lost.
+func TestConsumeCrashLoopEndsInDLQ(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	declareTopology(t, amqpURL, topo)
+	pub, _ := startPublisher(t, amqpURL, nil)
+	proxy, proxied := proxyFor(t, amqpURL)
+	var calls atomic.Int32
+	startConsumer(t, proxied, "auth.mail", func(ctx context.Context, _ Delivery) error {
+		calls.Add(1)
+		proxy.CutAfterBytes(0)
+		<-ctx.Done()
+		return ctx.Err()
+	})
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-poison")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	eventually(t, "message in auth.mail.dlq", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.dlq") == 1 })
+	time.Sleep(2 * testRetry)
+	if got := int(calls.Load()); got != topo.DeliveryLimit+1 {
+		t.Fatalf("handler ran %d times, want 1 + x-delivery-limit = %d", got, topo.DeliveryLimit+1)
+	}
+	for _, q := range []string{"auth.mail", "auth.mail.retry"} {
+		if n := queueMessages(t, amqpURL, q); n != 0 {
+			t.Fatalf("%s holds %d messages", q, n)
+		}
 	}
 }
 
@@ -695,6 +793,220 @@ func TestConsumeRedeliversWhenConnectionDropsMidHandler(t *testing.T) {
 	eventually(t, "queue drained", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail") == 0 })
 	if !redelivered.Load() {
 		t.Fatal("the message must come back flagged as redelivered")
+	}
+}
+
+func waitLog(t *testing.T, logs *safeBuffer, what, fragment string) {
+	t.Helper()
+	eventually(t, what, waitLong, func() bool { return strings.Contains(logs.String(), fragment) })
+}
+
+// TestUnconfirmedRetryCopyKeepsOriginalUnacknowledged: a full .retry queue
+// answers the copy with nack. The original must stay unacknowledged, so it is
+// given back when the consumer stops; a later copy is confirmed and only then
+// is the original acknowledged.
+func TestUnconfirmedRetryCopyKeepsOriginalUnacknowledged(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	declareTopology(t, amqpURL, fastTopology(TopologyOptions{}))
+	pub, _ := startPublisher(t, amqpURL, nil)
+	admin := adminChannel(t, amqpURL)
+	// A classic queue enforces the limit exactly and has no TTL: the blocker stays.
+	if _, err := admin.QueueDelete("auth.mail.retry", false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	args := amqp.Table{"x-queue-type": "classic", "x-max-length": int64(1), "x-overflow": "reject-publish"}
+	if _, err := admin.QueueDeclare("auth.mail.retry", true, false, false, false, args); err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.QueueBind("auth.mail.retry", "auth.mail.retry", "umir.dlx", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := admin.PublishWithContext(publishCtx(t, waitLong), "umir.dlx", "auth.mail.retry", false, false, amqp.Publishing{MessageId: "blocker", Body: []byte("x")}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "blocker queued", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.retry") == 1 })
+
+	var calls atomic.Int32
+	fail := func(context.Context, Delivery) error {
+		calls.Add(1)
+		return errors.New("boom")
+	}
+	logs, stop := startStoppableConsumer(t, amqpURL, "auth.mail", fail)
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-nack")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	waitLog(t, logs, "nacked copy", "outcome=nacked")
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("the Handler ran %d times; the copy is published again, not the Handler", n)
+	}
+	stop()
+	// Not acknowledged: the broker gave the message back, and no copy was stored.
+	eventually(t, "original returned to auth.mail", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail") == 1 })
+	if n := queueMessages(t, amqpURL, "auth.mail.retry"); n != 1 {
+		t.Fatalf("auth.mail.retry holds %d messages, want only the blocker", n)
+	}
+
+	if _, err := admin.QueuePurge("auth.mail.retry", false); err != nil {
+		t.Fatal(err)
+	}
+	startConsumer(t, amqpURL, "auth.mail", fail)
+	eventually(t, "copy in auth.mail.retry", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.retry") == 1 })
+	eventually(t, "original acknowledged", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail") == 0 })
+	d, ok, err := admin.Get("auth.mail.retry", true)
+	if err != nil || !ok || d.MessageId != "task-nack" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "1" {
+		t.Fatalf("retry copy: ok=%v err=%v id=%q headers=%v", ok, err, d.MessageId, d.Headers)
+	}
+}
+
+// TestRetryQueueMissingThenRepaired: without the .retry binding the copy is
+// returned by the broker; after mq-init declares the topology again the message
+// goes through the chain and succeeds on the second attempt.
+func TestRetryQueueMissingThenRepaired(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	declareTopology(t, amqpURL, topo)
+	pub, _ := startPublisher(t, amqpURL, nil)
+	if _, err := adminChannel(t, amqpURL).QueueDelete("auth.mail.retry", false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	var seen attempts
+	logs := startConsumer(t, amqpURL, "auth.mail", func(_ context.Context, d Delivery) error {
+		seen.add(d.Attempt)
+		if d.Attempt < 2 {
+			return errors.New("boom")
+		}
+		return nil
+	})
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-repair")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	waitLog(t, logs, "returned copy", "outcome=returned")
+	declareTopology(t, amqpURL, topo)
+	eventually(t, "second attempt", waitLong, func() bool { return fmt.Sprint(seen.snapshot()) == "[1 2]" })
+	eventually(t, "queues drained", waitLong, func() bool {
+		return queueMessages(t, amqpURL, "auth.mail") == 0 && queueMessages(t, amqpURL, "auth.mail.retry") == 0
+	})
+	if n := queueMessages(t, amqpURL, "auth.mail.dlq"); n != 0 {
+		t.Fatalf("auth.mail.dlq holds %d messages after a success", n)
+	}
+}
+
+// TestDLQUnavailableThenRepaired: the last failure cannot be copied while .dlq
+// is gone; the original is kept (the Handler does not run again) and the copy
+// arrives after the topology is repaired.
+func TestDLQUnavailableThenRepaired(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	declareTopology(t, amqpURL, topo)
+	pub, _ := startPublisher(t, amqpURL, nil)
+	if _, err := adminChannel(t, amqpURL).QueueDelete("auth.mail.dlq", false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	logs := startConsumer(t, amqpURL, "auth.mail", func(context.Context, Delivery) error {
+		calls.Add(1)
+		return errors.New("boom")
+	}, WithMaxAttempts(1))
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-last")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	waitLog(t, logs, "unconfirmed dead-letter copy", "target=auth.mail.dlq")
+	time.Sleep(200 * time.Millisecond)
+	if n := queueMessages(t, amqpURL, "auth.mail"); n != 0 {
+		t.Fatalf("auth.mail holds %d ready messages: the original must stay with the consumer", n)
+	}
+	declareTopology(t, amqpURL, topo)
+	eventually(t, "message in auth.mail.dlq", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.dlq") == 1 })
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("the Handler ran %d times", n)
+	}
+	d, ok, err := adminChannel(t, amqpURL).Get("auth.mail.dlq", true)
+	if err != nil || !ok || d.MessageId != "task-last" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "1" {
+		t.Fatalf("dlq copy: ok=%v err=%v id=%q headers=%v", ok, err, d.MessageId, d.Headers)
+	}
+}
+
+// TestDeadLetterChannelFailureReconnects: publishing the copy to a missing
+// umir.dlx closes the publishing channel. The consumer must notice, reconnect
+// and, once the topology is back, move the message; it is not lost.
+func TestDeadLetterChannelFailureReconnects(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	topo.DeliveryLimit = 50 // the redeliveries while the exchange is gone must not reach the broker limit
+	declareTopology(t, amqpURL, topo)
+	pub, _ := startPublisher(t, amqpURL, nil)
+	if err := adminChannel(t, amqpURL).ExchangeDelete("umir.dlx", false, false); err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	logs := startConsumer(t, amqpURL, "auth.mail", func(context.Context, Delivery) error {
+		calls.Add(1)
+		return errors.New("boom")
+	}, WithMaxAttempts(1))
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("task-chan")); err != nil || out != Confirmed {
+		t.Fatalf("Publish: %v, %v", out, err)
+	}
+	eventually(t, "second delivery after reconnect", waitLong, func() bool { return calls.Load() >= 2 })
+	if !strings.Contains(logs.String(), "connection lost") {
+		t.Fatalf("the session must end and be logged:\n%s", logs.String())
+	}
+	declareTopology(t, amqpURL, topo)
+	eventually(t, "message in auth.mail.dlq", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail.dlq") == 1 })
+	eventually(t, "work queue drained", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail") == 0 })
+}
+
+func TestConcurrentPublishConfirmsEveryMessage(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	declareTopology(t, amqpURL, fastTopology(TopologyOptions{}))
+	pub, _ := startPublisher(t, amqpURL, nil)
+	const workers, each = 8, 25
+	var wg sync.WaitGroup
+	var bad atomic.Int32
+	for w := range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range each {
+				out, err := pub.Publish(publishCtx(t, waitLong), taskMessage(fmt.Sprintf("c-%d-%d", w, i)))
+				if err != nil || out != Confirmed {
+					bad.Add(1)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if n := bad.Load(); n != 0 {
+		t.Fatalf("%d publishes were not confirmed", n)
+	}
+	eventually(t, "all messages queued", waitLong, func() bool { return queueMessages(t, amqpURL, "auth.mail") == workers*each })
+}
+
+// TestCheckPassiveDoesNotSeeArgumentsOrBindings pins the limit documented in
+// events.md: a service sees a missing exchange or queue, nothing else. Only
+// Declare in mq-init finds other arguments; a lost binding shows itself as a
+// Returned publish.
+func TestCheckPassiveDoesNotSeeArgumentsOrBindings(t *testing.T) {
+	amqpURL := itest.NewVHost(t)
+	topo := fastTopology(TopologyOptions{})
+	declareTopology(t, amqpURL, topo)
+	admin := adminChannel(t, amqpURL)
+	if _, err := admin.QueueDelete("auth.mail", false, false, false); err != nil {
+		t.Fatal(err)
+	}
+	// Same name, other arguments: no delivery limit, no dead-letter target, and the
+	// bindings of the old queue (umir.tasks, umir.dlx) are gone with it.
+	if _, err := admin.QueueDeclare("auth.mail", true, false, false, false, amqp.Table{"x-queue-type": "quorum"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckPassive(adminChannel(t, amqpURL), topo); err != nil {
+		t.Fatalf("CheckPassive must pass for a queue with other arguments and no bindings: %v", err)
+	}
+	if err := Declare(adminChannel(t, amqpURL), topo); !errors.Is(err, ErrTopologyMismatch) {
+		t.Fatalf("Declare must report the mismatch, got %v", err)
+	}
+	pub, _ := startPublisher(t, amqpURL, nil)
+	if out, err := pub.Publish(publishCtx(t, waitLong), taskMessage("lost-binding")); err != nil || out != Returned {
+		t.Fatalf("without the umir.tasks binding the publish must be Returned, got %v, %v", out, err)
 	}
 }
 

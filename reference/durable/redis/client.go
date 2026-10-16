@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -26,6 +27,18 @@ const (
 	MaxWindow            = 24 * time.Hour
 )
 
+// Owners that may use Limiter, Lease and Slots (Config.AllowAnyOwner lifts the
+// list for tests).
+const (
+	// OwnerGateway is the key space of the Gateway.
+	OwnerGateway = "gw"
+	// OwnerWarehouse is the key space of the Warehouse capture slots.
+	OwnerWarehouse = "wh"
+
+	// ownerLimiter names the continuity marker namespace, umir:limiter:.
+	ownerLimiter = "limiter"
+)
+
 // Config opens a Client.
 type Config struct {
 	// URL is redis:// or rediss:// with the credentials. It never appears in errors.
@@ -39,14 +52,21 @@ type Config struct {
 	// KeyRoot is prepended to every key: empty in production, the itest prefix
 	// (t:factory:<rand>:) in tests. It must be empty or end with ':'.
 	KeyRoot string
+	// AllowAnyOwner lifts the owner whitelist (OwnerGateway, OwnerWarehouse) for
+	// tests that need their own owners. Production leaves it false, so that a
+	// typo or a stray owner cannot write into another component's key space.
+	// The owner "limiter" is never accepted: umir:limiter: is the continuity
+	// marker namespace.
+	AllowAnyOwner bool
 }
 
 // Client is a connection pool to one Redis node plus the key root. Limiter,
 // Continuity, Lease and Slots are built from it. It is safe for concurrent use.
 type Client struct {
-	rdb     *goredis.Client
-	timeout time.Duration
-	root    string
+	rdb      *goredis.Client
+	timeout  time.Duration
+	root     string
+	anyOwner bool
 }
 
 // Open connects to Redis and checks the connection with PING.
@@ -77,8 +97,8 @@ func newClient(cfg Config) (*Client, error) {
 	if !validRoot(cfg.KeyRoot) {
 		return nil, invalidConfig("KeyRoot must be empty or printable ASCII ending with ':'")
 	}
-	opts, err := goredis.ParseURL(cfg.URL)
-	if err != nil { // the error text of the URL parser may quote the URL
+	opts, err := parseRedisURL(cfg.URL)
+	if err != nil {
 		return nil, invalidConfig("URL is not a valid redis:// or rediss:// URL")
 	}
 	timeout := cfg.Timeout
@@ -96,7 +116,7 @@ func newClient(cfg Config) (*Client, error) {
 	if cfg.ClientName != "" {
 		opts.ClientName = cfg.ClientName
 	}
-	return &Client{rdb: goredis.NewClient(opts), timeout: timeout, root: cfg.KeyRoot}, nil
+	return &Client{rdb: goredis.NewClient(opts), timeout: timeout, root: cfg.KeyRoot, anyOwner: cfg.AllowAnyOwner}, nil
 }
 
 // Close closes the pool.
@@ -112,11 +132,41 @@ func (c *Client) Ping(ctx context.Context) error {
 	return nil
 }
 
+// parseRedisURL accepts redis:// and rediss:// only. go-redis also understands
+// unix://, which this package does not use. Errors carry no part of the URL.
+func parseRedisURL(raw string) (*goredis.Options, error) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "redis" && u.Scheme != "rediss") {
+		return nil, errors.New("not a redis URL")
+	}
+	opts, err := goredis.ParseURL(raw)
+	if err != nil { // the error text of the URL parser may quote the URL
+		return nil, errors.New("not a redis URL")
+	}
+	return opts, nil
+}
+
 // ownerKey returns the common prefix of the keys of one owner.
 func (c *Client) ownerKey(owner string) string { return c.root + "umir:" + owner + ":" }
 
 func validRoot(root string) bool {
 	return root == "" || (strings.HasSuffix(root, ":") && printableASCII(root))
+}
+
+// checkOwner validates an owner passed to Limiter, Lease or Slots: the format,
+// then the whitelist unless Config.AllowAnyOwner is set. "limiter" is refused in
+// every case.
+func (c *Client) checkOwner(owner string) error {
+	if !validOwner(owner) {
+		return invalidConfig("owner must be 1..32 characters of a-z0-9 starting with a letter")
+	}
+	if owner == ownerLimiter {
+		return invalidConfig("owner %q is reserved for the continuity marker", ownerLimiter)
+	}
+	if !c.anyOwner && owner != OwnerGateway && owner != OwnerWarehouse {
+		return invalidConfig("owner must be %q or %q", OwnerGateway, OwnerWarehouse)
+	}
+	return nil
 }
 
 func validOwner(owner string) bool {

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	_ "embed"
+	"fmt"
 	"strings"
 )
 
@@ -46,23 +47,33 @@ func fragment(name string) (string, bool) {
 	return "", false
 }
 
+// includeMarker is the substring that makes a line a candidate directive.
+const includeMarker = "umir:include"
+
 // expandIncludes replaces every line "-- umir:include <name>" by the fragment.
-// The second result names an unknown fragment.
-func expandIncludes(sql string) (string, string) {
-	if !strings.Contains(sql, includePrefix) {
-		return sql, ""
+// A line that holds the marker but is not a well-formed directive (a typo such
+// as "--umir:include outbox", an indented directive, a trailing comment) is an
+// error naming the line, so that a misspelt directive cannot silently drop a
+// fragment from the schema. An unknown fragment name is an error too.
+func expandIncludes(sql string) (string, error) {
+	if !strings.Contains(sql, includeMarker) {
+		return sql, nil
 	}
 	lines := strings.Split(sql, "\n")
 	for i, line := range lines {
-		rest, ok := strings.CutPrefix(strings.TrimRight(line, "\r \t"), includePrefix)
-		if !ok {
+		if !strings.Contains(line, includeMarker) {
 			continue
 		}
-		text, known := fragment(strings.TrimSpace(rest))
+		rest, ok := strings.CutPrefix(strings.TrimRight(line, "\r \t"), includePrefix)
+		if !ok {
+			return "", fmt.Errorf("line %d: %q is not a directive; write it as \"-- umir:include <fragment>\" at the start of the line", i+1, includeMarker)
+		}
+		name := strings.TrimSpace(rest)
+		text, known := fragment(name)
 		if !known {
-			return "", strings.TrimSpace(rest)
+			return "", fmt.Errorf("line %d: unknown fragment %q", i+1, name)
 		}
 		lines[i] = strings.TrimRight(text, "\n")
 	}
-	return strings.Join(lines, "\n"), ""
+	return strings.Join(lines, "\n"), nil
 }

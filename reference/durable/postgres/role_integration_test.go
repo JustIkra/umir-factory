@@ -79,18 +79,20 @@ func TestRuntimeRoleCannotRunDDLOrBypassRLS(t *testing.T) {
 
 func TestAssertRuntimeRoleRejectsPrivilegedRoles(t *testing.T) {
 	f := newFixture(t)
+	// The error names the role, and role names carry words such as "owner", so
+	// the check looks for the phrase that describes the problem.
 	cases := map[string]struct {
 		url    string
 		reason string
 	}{
-		"owner of the tables":    {f.env.OwnerURL, "owner"},
-		"superuser":              {f.env.AdminURL, "superuser"},
-		"role that bypasses RLS": {f.env.loginRole(t, "bypass", "NOSUPERUSER BYPASSRLS"), "bypass"},
+		"owner of the tables":    {f.env.OwnerURL, "owns tables"},
+		"superuser":              {f.env.AdminURL, "is a superuser"},
+		"role that bypasses RLS": {f.env.loginRole(t, "bypass", "NOSUPERUSER BYPASSRLS"), "bypasses row level security"},
 		"role with CREATE on the schema": {
-			f.env.loginRole(t, "creator", "NOSUPERUSER NOBYPASSRLS", "GRANT CREATE ON SCHEMA public TO %s"), "create",
+			f.env.loginRole(t, "creator", "NOSUPERUSER NOBYPASSRLS", "GRANT CREATE ON SCHEMA public TO %s"), "can create objects in the schema",
 		},
 		"member of the owner role": {
-			f.env.loginRole(t, "member", "NOSUPERUSER NOBYPASSRLS", "GRANT "+quote(f.env.OwnerRole)+" TO %s"), "owner",
+			f.env.loginRole(t, "member", "NOSUPERUSER NOBYPASSRLS", "GRANT "+quote(f.env.OwnerRole)+" TO %s"), "is a member of their owner",
 		},
 	}
 	for name, tc := range cases {
@@ -100,8 +102,8 @@ func TestAssertRuntimeRoleRejectsPrivilegedRoles(t *testing.T) {
 			if err == nil {
 				t.Fatal("AssertRuntimeRole must reject this role")
 			}
-			if !strings.Contains(strings.ToLower(err.Error()), tc.reason) {
-				t.Fatalf("error should name the reason %q: %v", tc.reason, err)
+			if !strings.Contains(err.Error(), tc.reason) {
+				t.Fatalf("error should say %q: %v", tc.reason, err)
 			}
 		})
 	}

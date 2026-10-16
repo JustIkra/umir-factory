@@ -80,3 +80,21 @@ func TestScopeExpressions(t *testing.T) {
 		}
 	}
 }
+
+func TestRLSPolicySQLCastsTheSettingForUUIDColumns(t *testing.T) {
+	text, err := RLSPolicySQL("t", "restaurant_id")
+	if err != nil || strings.Contains(text, "::uuid") {
+		t.Fatalf("the default policy must not cast: %v\n%s", err, text)
+	}
+	got, err := RLSPolicySQL("t", "restaurant_id", RLSUUIDColumn())
+	if err != nil {
+		t.Fatalf("RLSPolicySQL: %v", err)
+	}
+	want := `"restaurant_id" = NULLIF(current_setting('umir.restaurant_id', true), '')::uuid`
+	if !strings.Contains(got, want) {
+		t.Fatalf("policy lacks %q:\n%s", want, got)
+	}
+	if strings.Count(got, "::uuid") != 2 { // USING and WITH CHECK
+		t.Fatalf("expected the cast in USING and WITH CHECK:\n%s", got)
+	}
+}

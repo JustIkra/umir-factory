@@ -17,6 +17,16 @@ import (
 // acquisition, so the token grows monotonically across expiries. If Redis
 // loses the counter (restart without persistence) the token restarts; it is
 // meant for logs and for "is the lease still mine" checks, not for storage.
+//
+// The holder string passed to Acquire, Renew and Release must be unique per
+// process lifetime: the instance identity plus a nonce drawn at boot (C19), for
+// example "gw-3:9f1c2a7e". A holder that is only the instance name lets a
+// restarted process treat the lease of its dead predecessor as its own, keep it
+// without a new fence and run beside a replacement. The package cannot check
+// this; the caller is responsible.
+//
+// Lease names must not be "adm" or "admid": umir:<owner>:adm:lease would equal
+// the counter of a limiter dimension whose key is "lease".
 type Lease struct {
 	c       *Client
 	prefix  string
@@ -35,8 +45,8 @@ type LeaseGrant struct {
 
 // Lease returns the lease operations under umir:<owner>:.
 func (c *Client) Lease(owner string) (*Lease, error) {
-	if !validOwner(owner) {
-		return nil, invalidConfig("owner must be 1..32 characters of a-z0-9 starting with a letter")
+	if err := c.checkOwner(owner); err != nil {
+		return nil, err
 	}
 	return &Lease{
 		c: c, prefix: c.ownerKey(owner),
@@ -52,8 +62,11 @@ func validateLease(name, holder string, ttl time.Duration) error {
 	if !validName(name, MaxPolicyLength) {
 		return invalidRequest("lease name must be 1..%d characters of letters, digits, '.', '_' and '-'", MaxPolicyLength)
 	}
+	if name == "adm" || name == "admid" {
+		return invalidRequest("lease name %q is reserved", name)
+	}
 	if !validKey(holder) {
-		return invalidRequest("lease owner must be 1..%d printable ASCII characters", MaxKeyLength)
+		return invalidRequest("lease holder must be 1..%d printable ASCII characters", MaxKeyLength)
 	}
 	if ttl.Milliseconds() < 1 {
 		return invalidRequest("lease TTL must be at least 1ms")

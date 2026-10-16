@@ -47,8 +47,17 @@ func TestDefaultTopologyTaskQueues(t *testing.T) {
 		if work.Args["x-overflow"] != "reject-publish" {
 			t.Fatalf("%s overflow: %v", q, work.Args["x-overflow"])
 		}
-		if work.Args["x-dead-letter-exchange"] != "umir.dlx" || work.Args["x-dead-letter-routing-key"] != q+".retry" {
+		// The broker dead-letters a work queue message only when x-delivery-limit
+		// is hit (the consumer crashed without ack): that goes straight to .dlq.
+		// Handler failures take the retry path by a publish of the consumer.
+		if work.Args["x-dead-letter-exchange"] != "umir.dlx" || work.Args["x-dead-letter-routing-key"] != q+".dlq" {
 			t.Fatalf("%s dead-letter target: %v", q, work.Args)
+		}
+		for _, name := range []string{q, q + ".retry"} {
+			// at-least-once dead-lettering needs a quorum queue with reject-publish.
+			if got := queueByName(t, topo, name).Args["x-dead-letter-strategy"]; got != "at-least-once" {
+				t.Fatalf("%s dead-letter strategy: %v", name, got)
+			}
 		}
 		retry := queueByName(t, topo, q+".retry")
 		if retry.Args["x-message-ttl"] != int64(30000) {

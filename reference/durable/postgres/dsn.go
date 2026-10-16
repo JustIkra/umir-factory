@@ -3,8 +3,8 @@ package postgres
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -59,16 +59,29 @@ func loadDSN(getenv func(string) string, key string, allowVariable bool) (string
 	return value, nil
 }
 
-// readSecretFile reads a regular, private, small file. Errors name the setting,
-// not the path or the content.
+// readSecretFile reads a regular, private, small file that belongs to the
+// current user (where the platform reports owners). The file is opened first,
+// without following a symbolic link, and the checks run on the open descriptor,
+// so the file cannot be swapped between the check and the read. Errors name the
+// setting, not the path or the content.
 func readSecretFile(path, setting string) (string, error) {
-	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 || info.Size() > maxSecretFileSize {
-		return "", fmt.Errorf("invalid %s: it must name a regular file readable by the owner only", setting)
+	invalid := fmt.Errorf("invalid %s: it must name a regular file readable by its owner only", setting)
+	f, err := openSecretFile(path)
+	if err != nil {
+		return "", invalid
 	}
-	content, err := os.ReadFile(path)
+	defer func() { ignoreErr(f.Close()) }()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 ||
+		info.Size() > maxSecretFileSize || !ownedByCurrentUser(info) {
+		return "", invalid
+	}
+	content, err := io.ReadAll(io.LimitReader(f, maxSecretFileSize+1))
 	if err != nil {
 		return "", fmt.Errorf("cannot read %s", setting)
+	}
+	if len(content) > maxSecretFileSize {
+		return "", invalid
 	}
 	value := strings.TrimSuffix(strings.TrimSuffix(string(content), "\n"), "\r")
 	if value == "" {
