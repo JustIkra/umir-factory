@@ -91,7 +91,7 @@ for f in "$out/auth-state.tar.enc" "$keys_out/bundle.tar.enc"; do
   [ "$(grep -c -a -F -f "$key_pattern" "$f" || true)" = 0 ] || fail "plain key in $f"
 done
 # Rollback history stays in the encrypted key archive.
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass "file:$key" -in "$keys_out/bundle.tar.enc" | tar -t | grep -Fq '.generations/2/meta.json' || fail "the previous generation metadata was not archived"
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass "file:$key" -in "$keys_out/bundle.tar.enc" | tar -t | grep -F '.generations/2/meta.json' >/dev/null || fail "the previous generation metadata was not archived"
 
 # A bad backup key, a bad archive and a foreign project are refused before anything is created.
 refused() {
