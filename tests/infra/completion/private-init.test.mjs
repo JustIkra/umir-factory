@@ -8,6 +8,7 @@
 //   - in the pinned alpine image (busybox) with bind mounts, as a compatibility
 //     check. Docker is required: without it these tests fail.
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
@@ -38,6 +39,7 @@ import {
 const factory = new URL("../../../", import.meta.url).pathname;
 
 let specCache;
+const protectedTargetRoots = new Set();
 function spec(t) {
   if (specCache === undefined) {
     const { options } = fixture(t);
@@ -65,6 +67,7 @@ function spec(t) {
       // the container receives the single "$".
       script: service.command[2].replaceAll("$$", "$"),
       image: service.image,
+      helperImage: model.services["transport-ready"].image,
       service,
     };
   }
@@ -73,8 +76,81 @@ function spec(t) {
 
 function temporary(t, prefix) {
   const path = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
-  t.after(() => rmSync(path, { recursive: true, force: true }));
+  t.after(() => {
+    if (
+      protectedTargetRoots.has(path) &&
+      specCache?.helperImage &&
+      readdirSync(path).length > 0
+    ) {
+      runNodeHelper(path, "rw", `
+        const fs = require("node:fs");
+        const path = require("node:path");
+        for (const name of fs.readdirSync("/volume"))
+          fs.rmSync(path.join("/volume", name), { recursive: true, force: true });
+      `);
+    }
+    rmSync(path, { recursive: true, force: true });
+  });
   return path;
+}
+
+function runNodeHelper(root, mode, script, args = []) {
+  const { helperImage } = specCache ?? {};
+  assert.ok(helperImage, "the pinned Node helper image is available");
+  const result = spawnSync(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "--user",
+      "0:0",
+      "-v",
+      `${root}:/volume:${mode}`,
+      helperImage,
+      "node",
+      "-e",
+      script,
+      ...args,
+    ],
+    { encoding: "utf8", timeout: 120000 },
+  );
+  assert.notEqual(result.status, null, "Docker helper did not finish");
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+const inspectScript = `
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const crypto = require("node:crypto");
+  const result = {};
+  function visit(full, relative) {
+    const stat = fs.lstatSync(full);
+    if (stat.isSymbolicLink()) throw new Error("symbolic link in private-init test volume");
+    const entry = {
+      type: stat.isDirectory() ? "dir" : "file",
+      mode: stat.mode & 0o777,
+      uid: stat.uid,
+      gid: stat.gid,
+    };
+    if (stat.isFile()) {
+      const body = fs.readFileSync(full);
+      entry.sha256 = crypto.createHash("sha256").update(body).digest("hex");
+      if (path.basename(relative) === ".ready") entry.marker = body.toString("utf8");
+    }
+    result[relative] = entry;
+    if (stat.isDirectory())
+      for (const name of fs.readdirSync(full).sort())
+        visit(path.join(full, name), relative === "." ? name : path.join(relative, name));
+  }
+  visit("/volume", ".");
+  process.stdout.write(JSON.stringify(result));
+`;
+
+function inspectProtected(root) {
+  return JSON.parse(runNodeHelper(root, "ro", inspectScript));
 }
 
 // A prepared private bundle (generation 1). `rotate` makes the next generation.
@@ -92,6 +168,7 @@ function bundle(t) {
 
 function emptyTargets(t) {
   const root = temporary(t, "umir-private-init-targets-");
+  protectedTargetRoots.add(root);
   for (const name of names) mkdirSync(join(root, name));
   return root;
 }
@@ -104,7 +181,7 @@ const mutating = ["mv", "cp", "rm", "rmdir", "mkdir", "chmod", "chown", "sync"];
 
 // Shims go first on PATH. Every changing command is appended to the log. With
 // `stopAt` = N the N-th changing command and all later ones fail without doing
-// anything: the power went out there.
+// anything, simulating process interruption at that command boundary.
 function host(t, { stopAt } = {}) {
   const dir = temporary(t, "umir-private-init-shims-");
   const log = join(dir, "log");
@@ -115,9 +192,13 @@ function host(t, { stopAt } = {}) {
     writeFileSync(join(dir, name), `#!/bin/sh\n${body}`, { mode: 0o755 });
     chmodSync(join(dir, name), 0o755);
   };
+  // The host runner models process interruption at command boundaries. Its sync
+  // is logged, counted and injectable, but only the BusyBox runner below flushes
+  // the filesystem; the host test cannot simulate loss of power to page cache.
   for (const name of mutating) {
-    const real = name === "chown" ? "true" : realTool(name);
-    const exec = name === "chown" ? "exit 0" : `exec ${real} "$@"`;
+    const simulated = name === "chown" || name === "sync";
+    const real = simulated ? "true" : realTool(name);
+    const exec = simulated ? "exit 0" : `exec ${real} "$@"`;
     tool(
       name,
       `printf '%s\\n' "${name} $*" >> '${log}'
@@ -154,9 +235,11 @@ ${exec}
 
 function docker(t) {
   const { image } = spec(t);
+  const inspections = new Map();
   return {
     kind: "docker",
     run(script, { bootstrap, targets }) {
+      inspections.clear();
       const result = spawnSync(
         "docker",
         [
@@ -200,6 +283,24 @@ function docker(t) {
         .split("\n")
         .filter(Boolean);
     },
+    inspect(targets) {
+      if (!inspections.has(targets)) inspections.set(targets, inspectProtected(targets));
+      return inspections.get(targets);
+    },
+    clean(targets) {
+      inspections.clear();
+      runNodeHelper(
+        targets,
+        "rw",
+        `
+          const fs = require("node:fs");
+          const path = require("node:path");
+          for (const name of fs.readdirSync("/volume"))
+            fs.rmSync(path.join("/volume", name), { recursive: true, force: true });
+        `,
+      );
+      inspections.clear();
+    },
   };
 }
 
@@ -209,21 +310,39 @@ const apply = (t, runner, { bootstrap, targets }) =>
 // ---- Observing volumes ------------------------------------------------------
 
 // Every entry (including service directories) with kind, mode and content hash.
-function dump(root, prefix = "") {
+function dump(root, prefix = "", runner) {
+  if (runner?.kind === "docker") {
+    const inspected = runner.inspect(root);
+    return Object.fromEntries(
+      Object.entries(inspected)
+        .filter(([path]) => path !== ".")
+        .map(([path, entry]) => [
+          path,
+          `${entry.type} ${entry.mode} ${entry.uid}:${entry.gid}${entry.sha256 ? ` ${entry.sha256}` : ""}`,
+        ]),
+    );
+  }
   const out = {};
   for (const name of readdirSync(join(root, prefix)).sort()) {
     const path = prefix === "" ? name : `${prefix}/${name}`;
     const stat = lstatSync(join(root, path));
     if (stat.isDirectory()) {
       out[path] = `dir ${stat.mode & 0o777}`;
-      Object.assign(out, dump(root, path));
+      Object.assign(out, dump(root, path, runner));
     } else {
       out[path] = `file ${stat.mode & 0o777} ${digest(join(root, path))}`;
     }
   }
   return out;
 }
-function volumeFiles(root, prefix = "") {
+function volumeFiles(root, prefix = "", runner) {
+  if (runner?.kind === "docker")
+    return Object.entries(runner.inspect(root))
+      .filter(
+        ([path, entry]) =>
+          entry.type === "file" && !serviceDirectory.test(path),
+      )
+      .map(([path]) => path);
   return readdirSync(join(root, prefix)).flatMap((name) => {
     const path = prefix === "" ? name : `${prefix}/${name}`;
     if (serviceDirectory.test(path)) return [];
@@ -232,41 +351,84 @@ function volumeFiles(root, prefix = "") {
       : [path];
   });
 }
-const content = (root) =>
-  Object.fromEntries(
+const content = (root, runner) => {
+  if (runner?.kind === "docker") {
+    const inspected = runner.inspect(root);
+    return Object.fromEntries(
+      Object.entries(inspected)
+        .filter(
+          ([path, entry]) =>
+            entry.type === "file" && !serviceDirectory.test(path),
+        )
+        .map(([path, entry]) => [path, entry.sha256]),
+    );
+  }
+  return Object.fromEntries(
     volumeFiles(root)
       .sort()
-      .map((path) => [path, readFileSync(join(root, path)).toString("base64")]),
+      .map((path) => [path, digest(join(root, path))]),
   );
+};
+
+function observedReady(root, runner) {
+  if (runner?.kind !== "docker") return readReady(root);
+  const marker = runner.inspect(root)[".ready"]?.marker;
+  const match =
+    marker === undefined
+      ? null
+      : /^completion-private-v2 generation=(\d+)\ntree-sha256=([a-f0-9]{64})\n$/.exec(marker);
+  return match === null ? null : { generation: Number(match[1]), tree: match[2] };
+}
+
+function observedTreeSha(root, runner) {
+  if (runner?.kind !== "docker") return treeSha(root);
+  const listing = Object.entries(runner.inspect(root))
+    .filter(
+      ([path, entry]) =>
+        entry.type === "file" &&
+        path !== ".ready" &&
+        !serviceDirectory.test(path),
+    )
+    .sort(([left], [right]) => Buffer.compare(Buffer.from(left), Buffer.from(right)))
+    .map(([path, entry]) => `${entry.sha256}  ${path}\n`)
+    .join("");
+  return createHash("sha256").update(listing).digest("hex");
+}
 
 // Volume equals generation `generation` of the bundle: same files, same marker.
-function assertCurrent(directory, targets, generation, label = "") {
+function assertCurrent(directory, targets, generation, label = "", runner) {
   for (const name of names) {
     const volume = join(targets, name);
     const source = join(directory, name);
-    assert.deepEqual(content(volume), content(source), `${label} ${name} files`);
-    const ready = readReady(volume);
+    assert.deepEqual(content(volume, runner), content(source), `${label} ${name} files`);
+    const ready = observedReady(volume, runner);
     assert.equal(ready?.generation, generation, `${label} ${name} generation`);
-    assert.equal(ready.tree, treeSha(volume), `${label} ${name} marker tree`);
+    assert.equal(ready.tree, observedTreeSha(volume, runner), `${label} ${name} marker tree`);
     assert.equal(ready.tree, readReady(source).tree);
   }
 }
 // With a marker the volume is consistent: its files are exactly the marker's tree.
-function assertConsistentIfReady(targets, label) {
+function assertConsistentIfReady(targets, label, runner) {
   for (const name of names) {
     const volume = join(targets, name);
-    if (!existsSync(join(volume, ".ready"))) continue;
-    const ready = readReady(volume);
+    if (runner?.kind === "docker") {
+      if (runner.inspect(volume)[".ready"] === undefined) continue;
+    } else if (!existsSync(join(volume, ".ready"))) continue;
+    const ready = observedReady(volume, runner);
     assert.notEqual(ready, null, `${label} ${name} marker readable`);
-    assert.equal(treeSha(volume), ready.tree, `${label} ${name} mixed content`);
+    assert.equal(observedTreeSha(volume, runner), ready.tree, `${label} ${name} mixed content`);
   }
 }
-function assertNoLeftovers(targets) {
+function assertNoLeftovers(targets, runner) {
   for (const name of names)
     assert.deepEqual(
-      readdirSync(join(targets, name)).filter((entry) =>
-        /^\.(next-|previous\.tmp)/.test(entry),
-      ),
+      runner?.kind === "docker"
+        ? Object.keys(runner.inspect(join(targets, name))).filter(
+            (entry) => !entry.includes("/") && /^\.(next-|previous\.tmp)/.test(entry),
+          )
+        : readdirSync(join(targets, name)).filter((entry) =>
+            /^\.(next-|previous\.tmp)/.test(entry),
+          ),
       [],
       `${name} leftovers`,
     );
@@ -283,9 +445,12 @@ for (const kind of ["host", "docker"]) {
     const r = runner(t);
     const result = apply(t, r, { bootstrap: b.directory, targets });
     assert.equal(result.status, 0, result.stderr);
-    assertCurrent(b.directory, targets, 1);
+    assertCurrent(b.directory, targets, 1, "", r);
     for (const name of names) {
-      const ready = readFileSync(join(targets, name, ".ready"), "utf8");
+      const ready =
+        kind === "docker"
+          ? r.inspect(join(targets, name))[".ready"].marker
+          : readFileSync(join(targets, name, ".ready"), "utf8");
       assert.equal(
         ready,
         readFileSync(join(b.directory, name, ".ready"), "utf8"),
@@ -320,6 +485,7 @@ for (const kind of ["host", "docker"]) {
         chowns.every((line) => /65532:65532/.test(line)),
         chowns.join("\n"),
       );
+      assert.ok(log.some((line) => line.startsWith("sync ")), "sync is counted");
       for (const name of names) {
         const volume = join(targets, name);
         for (const path of volumeFiles(volume).concat([".ready"]))
@@ -353,86 +519,80 @@ for (const kind of ["host", "docker"]) {
   test(`${kind}: the same generation with the same digest changes nothing`, (t) => {
     const b = bundle(t);
     const targets = emptyTargets(t);
-    assert.equal(
-      apply(t, runner(t), { bootstrap: b.directory, targets }).status,
-      0,
-    );
-    const before = dump(targets);
+    const first = runner(t);
+    assert.equal(apply(t, first, { bootstrap: b.directory, targets }).status, 0);
+    const before = dump(targets, "", first);
     const second = runner(t);
     const result = apply(t, second, { bootstrap: b.directory, targets });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(dump(targets), before);
+    assert.deepEqual(dump(targets, "", second), before);
     if (kind === "host") assert.deepEqual(second.log(), []);
   });
 
   test(`${kind}: a newer generation is applied and the previous one is kept`, (t) => {
     const b = bundle(t);
     const targets = emptyTargets(t);
-    assert.equal(
-      apply(t, runner(t), { bootstrap: b.directory, targets }).status,
-      0,
-    );
+    const r = runner(t);
+    assert.equal(apply(t, r, { bootstrap: b.directory, targets }).status, 0);
     const first = Object.fromEntries(
-      names.map((name) => [name, content(join(targets, name))]),
+      names.map((name) => [name, content(join(targets, name), r)]),
     );
     const firstReady = Object.fromEntries(
-      names.map((name) => [name, readReady(join(targets, name))]),
+      names.map((name) => [name, observedReady(join(targets, name), r)]),
     );
     assert.equal(b.rotate().generation, 2);
-    const result = apply(t, runner(t), { bootstrap: b.directory, targets });
+    const result = apply(t, r, { bootstrap: b.directory, targets });
     assert.equal(result.status, 0, result.stderr);
-    assertCurrent(b.directory, targets, 2);
-    assertNoLeftovers(targets);
+    assertCurrent(b.directory, targets, 2, "", r);
+    assertNoLeftovers(targets, r);
     for (const name of names) {
       const previous = join(targets, name, ".previous");
-      assert.deepEqual(content(previous), first[name], `${name} previous files`);
-      assert.deepEqual(readReady(previous), firstReady[name]);
+      assert.deepEqual(content(previous, r), first[name], `${name} previous files`);
+      assert.deepEqual(observedReady(previous, r), firstReady[name]);
     }
     // The leaf rotation changed exactly the auth and transport targets.
     assert.notEqual(
-      readReady(join(targets, "auth")).tree,
+      observedReady(join(targets, "auth"), r).tree,
       firstReady.auth.tree,
     );
     // Running it again is a no-op.
-    const again = dump(targets);
+    const again = dump(targets, "", r);
     assert.equal(
-      apply(t, runner(t), { bootstrap: b.directory, targets }).status,
+      apply(t, r, { bootstrap: b.directory, targets }).status,
       0,
     );
-    assert.deepEqual(dump(targets), again);
+    assert.deepEqual(dump(targets, "", r), again);
   });
 
   test(`${kind}: an older generation or another digest at the same number is refused`, (t) => {
     const b = bundle(t);
     const targets = emptyTargets(t);
     const old = temporary(t, "umir-private-init-old-");
-    assert.equal(
-      apply(t, runner(t), { bootstrap: b.directory, targets }).status,
-      0,
-    );
+    const r = runner(t);
+    assert.equal(apply(t, r, { bootstrap: b.directory, targets }).status, 0);
     cpSync(b.directory, join(old, "gen1"), { recursive: true });
     b.rotate();
     assert.equal(
-      apply(t, runner(t), { bootstrap: b.directory, targets }).status,
+      apply(t, r, { bootstrap: b.directory, targets }).status,
       0,
     );
-    const before = dump(targets);
-    const older = apply(t, runner(t), {
+    const before = dump(targets, "", r);
+    const older = apply(t, r, {
       bootstrap: join(old, "gen1"),
       targets,
     });
     assert.notEqual(older.status, 0);
     assert.match(older.stderr, /older/i);
-    assert.deepEqual(dump(targets), before, "older generation left the volume");
+    assert.deepEqual(dump(targets, "", r), before, "older generation left the volume");
 
     // Same number, different content: another independently prepared bundle.
     const other = bundle(t);
-    const sameNumber = apply(t, runner(t), {
+    const sameNumber = apply(t, r, {
       bootstrap: other.directory,
       targets: (() => {
         const fresh = emptyTargets(t);
         assert.equal(
-          apply(t, runner(t), { bootstrap: join(old, "gen1"), targets: fresh })
+          apply(t, r, { bootstrap: join(old, "gen1"), targets: fresh })
             .status,
           0,
         );
@@ -443,6 +603,23 @@ for (const kind of ["host", "docker"]) {
     assert.match(sameNumber.stderr, /different content|same generation/i);
   });
 }
+
+test("docker test helpers inspect and clean target data owned by the service UID", (t) => {
+  const b = bundle(t);
+  const targets = emptyTargets(t);
+  const r = docker(t);
+  const result = apply(t, r, { bootstrap: b.directory, targets });
+  assert.equal(result.status, 0, result.stderr);
+  const observed = r.inspect(join(targets, "auth"));
+  assert.equal(observed["."].uid, 65532);
+  assert.equal(observed["."].gid, 65532);
+  assert.equal(observed["."].mode, 0o700);
+  assert.ok(Object.keys(observed).some((path) => path !== "." && path !== ".ready"));
+  assert.equal(observed[".ready"].mode, 0o600);
+  assert.equal(observed[".ready"].uid, 65532);
+  r.clean(targets);
+  assert.deepEqual(readdirSync(targets), []);
+});
 
 test("an interrupted first copy is completed, also over foreign files", (t) => {
   const b = bundle(t);
@@ -488,6 +665,7 @@ function sweep(t, { seed, bootstrap, generation }) {
   );
   const total = probe.calls();
   assert.ok(total > 20, `${total} changing commands`);
+  assert.ok(probe.log().some((line) => line.startsWith("sync ")), "sync is in the interruption sweep");
   let stopped = 0;
   for (let at = 1; at <= total; at++) {
     const targets = join(trial, `s${at}`);
@@ -535,11 +713,12 @@ test("a change stopped midway is finished by busybox too", (t) => {
     apply(t, crash, { bootstrap: b.directory, targets }).status,
     0,
   );
+  const r = docker(t);
   assertConsistentIfReady(targets, "after the stop");
-  const result = apply(t, docker(t), { bootstrap: b.directory, targets });
+  const result = apply(t, r, { bootstrap: b.directory, targets });
   assert.equal(result.status, 0, result.stderr);
-  assertCurrent(b.directory, targets, 2);
-  assertNoLeftovers(targets);
+  assertCurrent(b.directory, targets, 2, "", r);
+  assertNoLeftovers(targets, r);
 });
 
 test("a volume with the old marker counts as generation 0", (t) => {
