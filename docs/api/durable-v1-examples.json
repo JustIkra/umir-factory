@@ -361,6 +361,108 @@
       }
     },
     {
+      "name": "error-command-conflict-post",
+      "schema": "Error",
+      "value": {
+        "code": "CommandConflict",
+        "outcome": "not_committed",
+        "message": "the command identity was already used with different input; nothing was changed",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-command-conflict-get",
+      "schema": "Error",
+      "value": {
+        "code": "CommandConflict",
+        "outcome": "unavailable",
+        "message": "the command identity was already used with different input; the original result is not shown",
+        "retryable": false
+      },
+      "status": 409
+    },
+    {
+      "name": "error-not-found-registry-point",
+      "schema": "Error",
+      "value": {
+        "code": "NotFound",
+        "outcome": "unavailable",
+        "message": "the restaurant never existed",
+        "retryable": false
+      },
+      "status": 404
+    },
+    {
+      "name": "error-upstream-timeout-after-dispatch",
+      "schema": "Error",
+      "value": {
+        "code": "UpstreamTimeout",
+        "outcome": "unknown",
+        "message": "the service did not answer in time after the command was dispatched",
+        "retryable": true
+      },
+      "status": 504
+    },
+    {
+      "name": "service-claims-restaurant-register",
+      "schema": "ServiceClaims",
+      "value": {
+        "iss": "urn:umir:auth",
+        "iat": 1760522400,
+        "nbf": 1760522400,
+        "exp": 1760522700,
+        "jti": "55555555-5555-4555-8555-555555555555",
+        "kind": "service",
+        "aud": [
+          "umir-warehouse"
+        ],
+        "operation": "runtime.register",
+        "permissions": [
+          "runtime.register"
+        ],
+        "sub": "service:auth",
+        "azp": "umir-auth",
+        "org_id": "22222222-2222-4222-8222-222222222222",
+        "tenant_id": "33333333-3333-4333-8333-333333333333",
+        "runtime_epoch": "44444444-4444-4444-8444-444444444444",
+        "lifecycle_version": "2"
+      }
+    },
+    {
+      "name": "registry-entry",
+      "schema": "RegistryEntry",
+      "value": {
+        "restaurant": {
+          "restaurantID": "33333333-3333-4333-8333-333333333333",
+          "orgID": "22222222-2222-4222-8222-222222222222",
+          "name": "Cafe",
+          "lifecycle": "ready",
+          "lifecycleVersion": "2"
+        },
+        "settings": {
+          "timeZone": "Europe/Moscow",
+          "settingsVersion": "1"
+        },
+        "services": [
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "warehouse",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "ready",
+            "lifecycleVersion": "2"
+          },
+          {
+            "restaurantID": "33333333-3333-4333-8333-333333333333",
+            "service": "serving",
+            "epoch": "44444444-4444-4444-8444-444444444444",
+            "state": "ready",
+            "lifecycleVersion": "2"
+          }
+        ]
+      }
+    },
+    {
       "name": "error-command-conflict",
       "schema": "Error",
       "value": {

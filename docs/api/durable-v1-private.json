@@ -43,6 +43,16 @@
               }
             }
           },
+          "404": {
+            "description": "The restaurant never existed. A deleted restaurant answers 200 with a tombstone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "default": {
             "description": "Typed failure; a transport failure never proves not_committed.",
             "content": {
@@ -281,7 +291,7 @@
         "description": "Body of GET /readyz (C32). The frontend answers {\"capabilities\":{\"static\":\"ok\"}} without instance and generation."
       },
       "RegistryPoint": {
-        "description": "Point read of one restaurant. registryRevision is the revision at which it was read and the ETag value. A restaurant that never existed is 404 NotFound.",
+        "description": "Point read of one restaurant. registryRevision is the global registry revision at the moment of the read, as in the list, and is the ETag value: 304 means the registry has not changed since that revision, so the record is unchanged too; a changed registry may answer 200 with the same record. A restaurant that never existed is 404 NotFound.",
         "oneOf": [
           {
             "type": "object",
@@ -293,7 +303,8 @@
             ],
             "properties": {
               "registryRevision": {
-                "$ref": "#/components/schemas/Version"
+                "$ref": "#/components/schemas/Version",
+                "description": "Global registry revision at the moment of the read, the same counter as in the list, not a per-restaurant version."
               },
               "state": {
                 "const": "live"
@@ -313,7 +324,8 @@
             ],
             "properties": {
               "registryRevision": {
-                "$ref": "#/components/schemas/Version"
+                "$ref": "#/components/schemas/Version",
+                "description": "Global registry revision at the moment of the read, the same counter as in the list, not a per-restaurant version."
               },
               "state": {
                 "const": "tombstone"
@@ -446,7 +458,7 @@
     },
     "Epoch": {
       "$ref": "#/components/schemas/EntityID",
-      "description": "Storage generation (R2, C9). A UUID that the owning service creates in its first migration and stores with its data (storage_meta). It changes only when the storage is reset or restored to an earlier history (generation rotate by the owner under the owner role), never on a process restart, redeploy or replica change. Warehouse, Serving and Auth each have their own generation. runtimeEpoch, readerEpoch, expectedEpoch, currentEpoch and X-Umir-Runtime-Epoch carry it; the UUID format is unchanged. The replica identifier (INSTANCE_ID) is not an epoch: it appears only in /readyz, logs, the SSE epoch and the stream cursor of the edge service (C19). RuntimeReset is returned only after a confirmed generation reset."
+      "description": "Storage generation (R2, C9). A UUID that the owning service creates in its first migration and stores with its data (storage_meta). It changes only when the storage is reset or restored to an earlier history (generation rotate by the owner under the owner role), never on a process restart, redeploy or replica change. Warehouse, Serving and Auth each have their own generation. runtimeEpoch, readerEpoch, expectedEpoch, currentEpoch and X-Umir-Runtime-Epoch carry it; the UUID format is unchanged. The replica identifier (INSTANCE_ID) is not an epoch and is not on the wire: it appears only in /readyz and logs. The SSE epoch and the stream cursor of the edge service carry a random boot nonce that is independent of INSTANCE_ID (C19). RuntimeReset is returned only after a confirmed generation reset."
     },
     "Error": {
       "type": "object",
@@ -584,7 +596,7 @@
           "type": "boolean"
         }
       },
-      "description": "Typed failure. RateLimited (429) carries the Retry-After header and details.retryAfterSeconds and always has outcome not_committed. ServiceUnavailable (503) from the admission store before the request was dispatched is not_committed for a write and unavailable for a read; there is no AdmissionUnavailable code. A failure after dispatch keeps its earlier code (ServiceUnavailable or UpstreamTimeout) with outcome unknown. CommandConflict is the only code for a reused command identity with different input and for a repeat whose stored result no longer exists (outcome unknown); CommandIdentityConflict does not exist. LimitExceeded is 409 for quotas and 503 for existing page reads (C53).",
+      "description": "Typed failure. CommandConflict (409) is the only code for a command identity that is reused with a different fingerprint while its record is retained: outcome not_committed for a POST and unavailable for a passive GET lookup, and the original result is never exposed. CommandConflict with outcome unknown means only that Auth has already cleared the stored result of an old command (results 30 days, fingerprint tombstone 180 days, C29, C53); after the tombstone a repeat runs as a new command. CommandIdentityConflict does not exist. RateLimited (429) carries the Retry-After header and details.retryAfterSeconds and always has outcome not_committed; every RateLimited answer, including those defined before DUR1, must carry both. ServiceUnavailable (503) from the admission store before the request was dispatched is not_committed for a write and unavailable for a read; there is no AdmissionUnavailable code. A failure after dispatch keeps its earlier code (ServiceUnavailable or UpstreamTimeout) with outcome unknown. LimitExceeded is 409 for quotas and 503 for existing page reads (C53).",
       "allOf": [
         {
           "if": {
@@ -913,7 +925,33 @@
           }
         }
       ],
-      "description": "One page of the registry. Without since it lists live restaurants only and tombstones is empty. With since it lists records changed after that revision, including tombstones. A page holds at most limit records (entries plus tombstones), at most 1000. Each record reflects the readiness confirmed by acknowledgement; no live peer status is read (C13). A walk that follows nextAfter takes the registryRevision of its first page as R0 and ends with ?since=R0 to catch up with changes made during the walk. The cell has at most 10000 active restaurants."
+      "description": "One page of the registry. Without since it lists live restaurants only and tombstones is empty. With since it lists records changed after that revision, including tombstones. A page holds at most limit records (entries plus tombstones), at most 1000. Each record reflects the readiness confirmed by acknowledgement; no live peer status is read (C13). A walk that follows nextAfter takes the registryRevision of its first page as R0 and ends with ?since=R0 to catch up with changes made during the walk. The cell has at most 10000 active restaurants. The revision is a positive counter that starts at 1; since=0 lists everything."
+    },
+    "RegistryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "restaurant",
+        "settings",
+        "services"
+      ],
+      "properties": {
+        "restaurant": {
+          "$ref": "#/components/schemas/Restaurant"
+        },
+        "settings": {
+          "$ref": "#/components/schemas/Settings"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RuntimeReadiness"
+          },
+          "minItems": 0,
+          "maxItems": 2,
+          "description": "Readiness confirmed by acknowledgement for warehouse and serving, at most one entry each. No live peer status is read."
+        }
+      }
     },
     "RuntimeReadiness": {
       "type": "object",
@@ -983,7 +1021,7 @@
       "description": "Runtime status of a stateful peer. The service is warehouse or serving; no other service publishes runtime status. epoch is the storage generation."
     },
     "ServiceAuthorizationRequest": {
-      "description": "Request for a service token. Restaurant tokens name a restaurant and the exact peer epoch (storage generation): expiry.due, runtime.register, runtime.close, and order.resolve (Serving to Warehouse: one restaurant, the storage generation of Warehouse, only the passive order-attempts and commands reads). The cell-level expiry.due token names neither restaurant nor epoch and serves only the expiry schedule list (C11). Gateway readiness is not checked for any of them.",
+      "description": "Request for a service token. Restaurant tokens name a restaurant and the exact peer epoch (storage generation): expiry.due, runtime.register, runtime.close, and order.resolve (Serving to Warehouse: one restaurant, the storage generation of Warehouse, only the passive order-attempts and commands reads; Warehouse checks the operation claim against the route and refuses the orders route). The cell-level expiry.due token names neither restaurant nor epoch and serves only the expiry schedule list (C11). Gateway readiness is not checked for any of them.",
       "oneOf": [
         {
           "type": "object",
@@ -1208,7 +1246,7 @@
               "const": "umir-serving"
             }
           },
-          "description": "order.resolve (C11): Serving to Warehouse for one restaurant (tenant_id). runtime_epoch is the storage generation of Warehouse. Valid only for the passive order-attempts and commands reads; every other route refuses it. Repeating a commit stays with the client."
+          "description": "order.resolve (C11): Serving to Warehouse for one restaurant (tenant_id). runtime_epoch is the storage generation of Warehouse. Valid only for GET /internal/warehouse/v2/r/{restaurantID}/order-attempts and GET /internal/warehouse/v2/r/{restaurantID}/commands. Warehouse compares the operation claim with the route; the orders route, which the consumer.order.resolve permission would otherwise open, and every other route refuse it (C11). Repeating a commit stays with the client."
         },
         {
           "type": "object",
@@ -1489,7 +1527,7 @@
       "description": "Checks the access of a session to one restaurant. The readiness of the Gateway runtime is not checked (R3, C7). See backend-v2.md for atomicity, authorization and outcomes."
     },
     "POST /internal/auth/v1/service-tokens": {
-      "description": "Issues a short-lived service token. Operations: expiry.due (cell level when restaurantID and epoch are omitted, restaurant level otherwise), runtime.register, runtime.close, and order.resolve (Serving to Warehouse, C11). The readiness of the Gateway runtime is not checked (R3, C7). See backend-v2.md for atomicity, authorization and outcomes."
+      "description": "Issues a short-lived service token. Operations: expiry.due (cell level when restaurantID and epoch are omitted, restaurant level otherwise), runtime.register, runtime.close, and order.resolve (Serving to Warehouse, C11; Warehouse accepts it only on the order-attempts and commands reads). The readiness of the Gateway runtime is not checked (R3, C7). See backend-v2.md for atomicity, authorization and outcomes."
     }
   },
   "x-durable-policy": {
@@ -1507,7 +1545,8 @@
         "replica change"
       ],
       "runtimeResetOnlyOnConfirmedGenerationReset": true,
-      "instanceIdentifierOnTheWire": [
+      "instanceIdentifierOnTheWire": false,
+      "bootNonceIn": [
         "SSE epoch",
         "edge stream cursor"
       ]
@@ -1523,6 +1562,7 @@
       "note": "Physical removal is profile 2.0.0-DUR.2 in wave 3. The FIN1 profile used for rollback is not touched."
     },
     "registry": {
+      "revisionStartsAt": 1,
       "pageLimitMax": 1000,
       "activeRestaurantsMax": 10000,
       "quotaRefusal": {
@@ -1562,9 +1602,17 @@
         "status": 409,
         "outcome": "unknown"
       },
+      "authResultRetentionDays": 30,
+      "tombstoneDays": 180,
+      "liveRecordDifferentFingerprint": {
+        "status": 409,
+        "outcomePost": "not_committed",
+        "outcomeGet": "unavailable"
+      },
       "repeatGuaranteeEnds": "after the 180-day tombstone a repeat of an old command executes as a new command (C53)"
     },
     "admission": {
+      "everyRateLimitedAnswerCarriesRetryAfter": true,
       "rateLimited": {
         "status": 429,
         "code": "RateLimited",
@@ -1616,6 +1664,12 @@
     "serviceTokens": {
       "expiry.due": "cell level, no restaurant, only the expiry schedule list",
       "order.resolve": "Serving to Warehouse, one restaurant, storage generation of Warehouse, only GET order-attempts and GET commands",
+      "orderResolveRoutes": [
+        "GET /internal/warehouse/v2/r/{restaurantID}/order-attempts",
+        "GET /internal/warehouse/v2/r/{restaurantID}/commands"
+      ],
+      "orderResolveOrdersRouteAllowed": false,
+      "warehouseComparesOperationClaimWithRoute": true,
       "acceptedByWarehouse": [
         "expiry.due",
         "order.resolve"

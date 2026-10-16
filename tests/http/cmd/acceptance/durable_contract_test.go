@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ var (
 	durableReplacedSchemas = []string{
 		"AuthPageIdentity", "DueExpiryResult", "DurableResult", "Epoch", "Error", "ID",
 		"IdempotencyResult", "LiveEvent", "PrepareOrderRequest", "ReadinessAck", "Registry",
-		"RuntimeReadiness", "RuntimeStatus", "ServiceAuthorizationRequest", "ServiceClaims", "WOrderAttempt",
+		"RegistryEntry", "RuntimeReadiness", "RuntimeStatus", "ServiceAuthorizationRequest", "ServiceClaims", "WOrderAttempt",
 	}
 	durableAddedSchemas = []string{
 		"ExpiryDueList", "ExpiryDueRestaurant", "HealthReadiness", "RegistryPoint", "RegistryTombstone",
@@ -37,14 +38,19 @@ var (
 	}
 	// Existing operations whose listed top-level fields DUR1 sets. Everything
 	// else in those operations must stay byte-for-byte equivalent.
-	durablePatchedOperations = map[string][]string{
-		"GET /internal/auth/v1/registry":                        {"description", "parameters", "responses"},
-		"GET /internal/gateway/v2/runtime":                      {"deprecated", "x-umir-removal-gate"},
-		"PUT /internal/gateway/v2/r/{restaurantID}/registry":    {"deprecated", "x-umir-removal-gate"},
-		"DELETE /internal/gateway/v2/r/{restaurantID}/registry": {"deprecated", "x-umir-removal-gate"},
-		"POST /internal/auth/v1/authorize":                      {"description"},
-		"POST /internal/auth/v1/access-check":                   {"description"},
-		"POST /internal/auth/v1/service-tokens":                 {"description"},
+	durablePatchedOperations = map[string]map[string][]string{
+		"private": {
+			"GET /internal/auth/v1/registry":                        {"description", "parameters", "responses"},
+			"GET /internal/gateway/v2/runtime":                      {"deprecated", "x-umir-removal-gate"},
+			"PUT /internal/gateway/v2/r/{restaurantID}/registry":    {"deprecated", "x-umir-removal-gate"},
+			"DELETE /internal/gateway/v2/r/{restaurantID}/registry": {"deprecated", "x-umir-removal-gate"},
+			"POST /internal/auth/v1/authorize":                      {"description"},
+			"POST /internal/auth/v1/access-check":                   {"description"},
+			"POST /internal/auth/v1/service-tokens":                 {"description"},
+		},
+		"public": {
+			"GET /api/v2/r/{restaurantID}/live": {"responses"},
+		},
 	}
 	durableDeprecatedOperations = []string{
 		"GET /internal/gateway/v2/runtime",
@@ -219,7 +225,7 @@ func TestDurableExamplesAndStrictSchemas(t *testing.T) {
 			}
 		}
 	}
-	for _, name := range append(append([]string(nil), durableAddedSchemas...), "WOrderAttempt", "DueExpiryResult", "Registry", "ServiceAuthorizationRequest", "ServiceClaims", "Error") {
+	for _, name := range append(append([]string(nil), durableAddedSchemas...), "RegistryEntry", "WOrderAttempt", "DueExpiryResult", "Registry", "ServiceAuthorizationRequest", "ServiceClaims", "Error") {
 		if !seen[name] {
 			t.Fatal("no example for", name)
 		}
@@ -241,6 +247,10 @@ func TestDurableExamplesAndStrictSchemas(t *testing.T) {
 	}
 	for _, want := range []errorShape{
 		{"CommandConflict", "unknown", 409},
+		{"CommandConflict", "not_committed", 409},
+		{"CommandConflict", "unavailable", 409},
+		{"NotFound", "unavailable", 404},
+		{"UpstreamTimeout", "unknown", 504},
 		{"LimitExceeded", "not_committed", 409},
 		{"InvalidArgument", "not_committed", 400},
 		{"RateLimited", "not_committed", 429},
@@ -374,7 +384,7 @@ func TestDurableCompositionPreservesPredecessor(t *testing.T) {
 			}
 			if !reflect.DeepEqual(old, next) {
 				changed = append(changed, key)
-				allowed, declared := durablePatchedOperations[key]
+				allowed, declared := durablePatchedOperations[visibility][key]
 				if !declared {
 					t.Fatal("undeclared operation change", key)
 				}
@@ -389,12 +399,12 @@ func TestDurableCompositionPreservesPredecessor(t *testing.T) {
 			}
 		}
 		wantAdded := durableNewOperations
-		wantChanged := make([]string, 0, len(durablePatchedOperations))
-		for key := range durablePatchedOperations {
+		wantChanged := make([]string, 0, len(durablePatchedOperations[visibility]))
+		for key := range durablePatchedOperations[visibility] {
 			wantChanged = append(wantChanged, key)
 		}
 		if visibility == "public" {
-			wantAdded, wantChanged = nil, nil
+			wantAdded = nil
 		}
 		if !reflect.DeepEqual(durableSorted(added), durableSorted(wantAdded)) {
 			t.Fatalf("%s: added operations %v, want %v", visibility, durableSorted(added), durableSorted(wantAdded))
@@ -457,53 +467,320 @@ func TestDurableCompositionPreservesPredecessor(t *testing.T) {
 }
 
 func TestDurableCompositionRejectsUndeclaredChanges(t *testing.T) {
-	mutate := func(name string, edit func(map[string]any)) {
+	// Each mutation must fail for the stated reason, not for any reason.
+	mutateAll := func(names []string, reason string, edit func(map[string]any)) {
+		t.Helper()
 		directory, _ := durableCopyInputs(t)
-		path := filepath.Join(directory, name)
-		var document map[string]any
-		body, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
+		for _, name := range names {
+			path := filepath.Join(directory, name)
+			var document map[string]any
+			body, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(body, &document); err != nil {
+				t.Fatal(err)
+			}
+			edit(document)
+			body, err = json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, body, 0o600); err != nil {
+				t.Fatal(err)
+			}
 		}
-		if err := json.Unmarshal(body, &document); err != nil {
-			t.Fatal(err)
+		out, err := durableRun(t, directory)
+		if err == nil {
+			t.Fatalf("composition accepted %q: %s", reason, out)
 		}
-		edit(document)
-		body, err = json.Marshal(document)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, body, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if out, err := durableRun(t, directory); err == nil {
-			t.Fatalf("composition accepted %s: %s", name, out)
+		if !strings.Contains(string(out), reason) {
+			t.Fatalf("composition failed for another reason than %q: %s", reason, out)
 		}
 	}
-	mutate("registration-v1-composed-private.json", func(d map[string]any) {
+	mutate := func(name, reason string, edit func(map[string]any)) {
+		t.Helper()
+		mutateAll([]string{name}, reason, edit)
+	}
+	const privateOverlay, publicOverlay = "durable-v1-private.json", "durable-v1-public.json"
+	patches := func(d map[string]any) map[string]any { return durableMap(t, d["x-operation-patches"]) }
+	registry := func(d map[string]any) map[string]any {
+		return durableMap(t, patches(d)["GET /internal/auth/v1/registry"])
+	}
+	registryResponses := func(d map[string]any) map[string]any { return durableMap(t, registry(d)["responses"]) }
+	newOperation := func(d map[string]any, route string) map[string]any {
+		return durableMap(t, durableMap(t, durableMap(t, d["paths"])[route])["get"])
+	}
+	live := func(d map[string]any) map[string]any {
+		return durableMap(t, durableMap(t, patches(d)["GET /api/v2/r/{restaurantID}/live"])["responses"])
+	}
+
+	mutate("registration-v1-composed-private.json", "Expected REG1 predecessor", func(d map[string]any) {
 		durableMap(t, d["info"])["version"] = "2.0.0-FIN.1"
 	})
-	mutate("durable-v1-private.json", func(d map[string]any) {
+	both := []string{publicOverlay, privateOverlay}
+	mutateAll(both, "Unexpected DUR1 replacements", func(d map[string]any) {
 		durableMap(t, d["x-schema-replacements"])["Product"] = map[string]any{"type": "object"}
 	})
-	mutate("durable-v1-private.json", func(d map[string]any) {
+	mutateAll(both, "Unexpected DUR1 replacements", func(d map[string]any) {
 		delete(durableMap(t, d["x-schema-replacements"]), "ID")
 	})
-	mutate("durable-v1-private.json", func(d map[string]any) {
+	mutate(privateOverlay, "Different public/private DUR1 x-schema-replacements", func(d map[string]any) {
+		delete(durableMap(t, d["x-schema-replacements"]), "ID")
+	})
+	mutate(privateOverlay, "Unexpected private DUR1 operations", func(d map[string]any) {
 		durableMap(t, d["paths"])["/internal/auth/v1/jwks"] = map[string]any{"get": map[string]any{"operationId": "jwks"}}
 	})
-	mutate("durable-v1-private.json", func(d map[string]any) {
-		durableMap(t, durableMap(t, d["x-operation-patches"])["GET /internal/gateway/v2/runtime"])["description"] = "changed"
+	mutate(privateOverlay, "Unexpected fields of GET /internal/gateway/v2/runtime", func(d map[string]any) {
+		durableMap(t, patches(d)["GET /internal/gateway/v2/runtime"])["description"] = "changed"
 	})
-	mutate("durable-v1-private.json", func(d map[string]any) {
-		durableMap(t, d["x-operation-patches"])["GET /internal/auth/v1/jwks"] = map[string]any{"deprecated": true}
+	mutate(privateOverlay, "Unexpected private DUR1 operation patches", func(d map[string]any) {
+		patches(d)["GET /internal/auth/v1/jwks"] = map[string]any{"deprecated": true}
 	})
-	mutate("durable-v1-public.json", func(d map[string]any) {
+	mutate(publicOverlay, "Different public/private DUR1 schemas", func(d map[string]any) {
 		durableMap(t, durableMap(t, d["components"])["schemas"])["Epoch"] = map[string]any{"type": "string"}
 	})
-	mutate("durable-v1-public.json", func(d map[string]any) {
+	mutate(publicOverlay, "Different public/private DUR1 x-durable-policy", func(d map[string]any) {
 		d["x-durable-policy"] = map[string]any{"other": true}
 	})
+	mutate(privateOverlay, "Unexpected overlay key x-extra", func(d map[string]any) { d["x-extra"] = true })
+	mutate(publicOverlay, "Unexpected overlay key servers", func(d map[string]any) { d["servers"] = []any{} })
+
+	// Patches of the registry operation only add to the predecessor.
+	mutate(privateOverlay, "Empty responses of GET /internal/auth/v1/registry", func(d map[string]any) {
+		registry(d)["responses"] = map[string]any{}
+	})
+	mutate(privateOverlay, "drops response default", func(d map[string]any) {
+		delete(registryResponses(d), "default")
+	})
+	mutate(privateOverlay, "drops response 200", func(d map[string]any) {
+		delete(registryResponses(d), "200")
+	})
+	mutate(privateOverlay, "changes the content of response 200", func(d map[string]any) {
+		durableMap(t, registryResponses(d)["200"])["content"] = map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/Error"}}}
+	})
+	mutate(privateOverlay, "changes the default response", func(d map[string]any) {
+		durableMap(t, registryResponses(d)["default"])["description"] = "changed"
+	})
+	mutate(privateOverlay, "Unexpected responses added to GET /internal/auth/v1/registry", func(d map[string]any) {
+		registryResponses(d)["500"] = map[string]any{"description": "extra"}
+	})
+	mutate(privateOverlay, "Empty description of GET /internal/auth/v1/registry", func(d map[string]any) {
+		registry(d)["description"] = " "
+	})
+	mutate(privateOverlay, "repeats a parameter", func(d map[string]any) {
+		parameters := durableList(t, registry(d)["parameters"])
+		registry(d)["parameters"] = append(parameters, parameters[0])
+	})
+	mutate(privateOverlay, "Incomplete removal gate", func(d map[string]any) {
+		gate := durableMap(t, durableMap(t, patches(d)["GET /internal/gateway/v2/runtime"])["x-umir-removal-gate"])
+		gate["requires"] = []any{"one"}
+	})
+
+	// New operations keep a complete form and do not open themselves.
+	mutate(privateOverlay, "must not open itself with empty security", func(d map[string]any) {
+		newOperation(d, "/internal/warehouse/v2/expiry-due")["security"] = []any{}
+	})
+	mutate(privateOverlay, "Incomplete new operation GET /internal/warehouse/v2/expiry-due", func(d map[string]any) {
+		newOperation(d, "/internal/warehouse/v2/expiry-due")["description"] = ""
+	})
+	mutate(privateOverlay, "needs a 200 response", func(d map[string]any) {
+		newOperation(d, "/internal/auth/v1/registry/{restaurantID}")["responses"] = map[string]any{}
+	})
+	mutate(privateOverlay, "must declare security []", func(d map[string]any) {
+		delete(newOperation(d, "/readyz"), "security")
+	})
+
+	// The public live operation only gains the 429 answer.
+	mutate(publicOverlay, "drops response 200", func(d map[string]any) { delete(live(d), "200") })
+	mutate(publicOverlay, "drops response default", func(d map[string]any) { delete(live(d), "default") })
+	mutate(publicOverlay, "Unexpected responses added to GET /api/v2/r/{restaurantID}/live", func(d map[string]any) {
+		live(d)["503"] = map[string]any{"description": "extra"}
+	})
+	mutate(publicOverlay, "Empty responses of GET /api/v2/r/{restaurantID}/live", func(d map[string]any) {
+		durableMap(t, patches(d)["GET /api/v2/r/{restaurantID}/live"])["responses"] = map[string]any{}
+	})
+}
+
+func durableList(t *testing.T, value any) []any {
+	t.Helper()
+	list, ok := value.([]any)
+	if !ok || len(list) == 0 {
+		t.Fatalf("expected a non-empty list, got %T", value)
+	}
+	return list
+}
+
+func durableMember(t *testing.T, value any, path ...string) any {
+	t.Helper()
+	for _, key := range path {
+		value = durableMap(t, value)[key]
+	}
+	return value
+}
+
+func durableResponseSchema(t *testing.T, operation map[string]any, code string) string {
+	t.Helper()
+	return fmt.Sprint(durableMap(t, durableMember(t, operation["responses"], code, "content", "application/json", "schema"))["$ref"])
+}
+
+func durableParameters(t *testing.T, operation map[string]any) map[string]map[string]any {
+	t.Helper()
+	result := map[string]map[string]any{}
+	for _, item := range durableList(t, operation["parameters"]) {
+		parameter := durableMap(t, item)
+		result[fmt.Sprint(parameter["name"])] = parameter
+	}
+	return result
+}
+
+func TestDurableOperationForms(t *testing.T) {
+	predecessor := durableOperations(t, registrationDocument(t, "registration-v1-composed-private.json"))
+	private := durableOperations(t, registrationDocument(t, "durable-v1-composed-private.json"))
+	const registryKey = "GET /internal/auth/v1/registry"
+
+	// The patched registry keeps everything it had and only adds.
+	registry := private[registryKey]
+	if text, ok := registry["description"].(string); !ok || strings.TrimSpace(text) == "" {
+		t.Fatal("registry has no description")
+	}
+	if !reflect.DeepEqual(registry["security"], predecessor[registryKey]["security"]) {
+		t.Fatal("registry security changed")
+	}
+	if !reflect.DeepEqual(durableMember(t, registry["responses"], "default"), durableMember(t, predecessor[registryKey]["responses"], "default")) {
+		t.Fatal("registry lost its default answer")
+	}
+	if !reflect.DeepEqual(durableMember(t, registry["responses"], "200", "content"), durableMember(t, predecessor[registryKey]["responses"], "200", "content")) {
+		t.Fatal("registry 200 content changed")
+	}
+	if durableResponseSchema(t, registry, "200") != "#/components/schemas/Registry" {
+		t.Fatal("registry 200 is not Registry")
+	}
+	if _, ok := durableMap(t, durableMember(t, registry["responses"], "200", "headers"))["ETag"]; !ok {
+		t.Fatal("registry 200 has no ETag")
+	}
+	if _, ok := durableMap(t, registry["responses"])["304"]; !ok {
+		t.Fatal("registry has no 304")
+	}
+	parameters := durableParameters(t, registry)
+	for _, name := range []string{"limit", "after", "since", "If-None-Match"} {
+		if _, ok := parameters[name]; !ok {
+			t.Fatal("registry parameter missing", name)
+		}
+	}
+	if len(parameters) != 4 {
+		t.Fatal("registry has unexpected parameters")
+	}
+	if olds, ok := predecessor[registryKey]["parameters"].([]any); ok {
+		for _, old := range olds {
+			found := false
+			for _, candidate := range durableList(t, registry["parameters"]) {
+				found = found || reflect.DeepEqual(candidate, old)
+			}
+			if !found {
+				t.Fatal("registry lost a predecessor parameter")
+			}
+		}
+	}
+
+	// registryPoint: 200 with ETag, 304 and a typed 404.
+	point := private["GET /internal/auth/v1/registry/{restaurantID}"]
+	if point["operationId"] != "registryPoint" || durableResponseSchema(t, point, "200") != "#/components/schemas/RegistryPoint" {
+		t.Fatal("registryPoint is not wired to RegistryPoint")
+	}
+	for _, code := range []string{"404", "default"} {
+		if durableResponseSchema(t, point, code) != "#/components/schemas/Error" {
+			t.Fatal("registryPoint answer is not Error", code)
+		}
+	}
+	if _, ok := durableMap(t, point["responses"])["304"]; !ok {
+		t.Fatal("registryPoint has no 304")
+	}
+	if _, ok := durableMap(t, durableMember(t, point["responses"], "200", "headers"))["ETag"]; !ok {
+		t.Fatal("registryPoint 200 has no ETag")
+	}
+	pointParameters := durableParameters(t, point)
+	if pointParameters["restaurantID"]["in"] != "path" || pointParameters["restaurantID"]["required"] != true || pointParameters["If-None-Match"]["in"] != "header" {
+		t.Fatal("registryPoint parameters are wrong")
+	}
+
+	// expiryDue: asOf is required; limit and after page the list.
+	due := private["GET /internal/warehouse/v2/expiry-due"]
+	if due["operationId"] != "expiryDue" || due["x-required-capability"] != "expiry.due" || durableResponseSchema(t, due, "200") != "#/components/schemas/ExpiryDueList" {
+		t.Fatal("expiryDue is not wired to ExpiryDueList")
+	}
+	dueParameters := durableParameters(t, due)
+	if dueParameters["asOf"]["required"] != true || dueParameters["limit"]["required"] == true || dueParameters["after"]["required"] == true {
+		t.Fatal("expiryDue parameters are wrong")
+	}
+	for _, name := range []string{"asOf", "limit", "after"} {
+		if dueParameters[name]["in"] != "query" {
+			t.Fatal("expiryDue parameter is not a query parameter", name)
+		}
+	}
+	if durableMember(t, dueParameters["limit"]["schema"], "maximum") != float64(1000) {
+		t.Fatal("expiryDue limit is not bounded")
+	}
+	if security, ok := due["security"].([]any); ok && len(security) == 0 {
+		t.Fatal("expiryDue opens itself")
+	}
+
+	// Health: no key, readyz answers 200 and 503 with the same body.
+	for _, key := range []string{"GET /healthz", "GET /readyz"} {
+		if security, ok := private[key]["security"].([]any); !ok || len(security) != 0 {
+			t.Fatal("health operation must declare security []", key)
+		}
+	}
+	for _, code := range []string{"200", "503"} {
+		if durableResponseSchema(t, private["GET /readyz"], code) != "#/components/schemas/HealthReadiness" {
+			t.Fatal("readyz answer is not HealthReadiness", code)
+		}
+	}
+
+	// The public live operation adds the SSE quota answer with Retry-After.
+	publicPredecessor := durableOperations(t, registrationDocument(t, "registration-v1-composed-public.json"))
+	live := durableOperations(t, registrationDocument(t, "durable-v1-composed-public.json"))["GET /api/v2/r/{restaurantID}/live"]
+	if durableMember(t, live["responses"], "429", "headers", "Retry-After", "$ref") != "#/components/headers/Retry-After" {
+		t.Fatal("live 429 has no Retry-After")
+	}
+	if durableResponseSchema(t, live, "429") != "#/components/schemas/Error" {
+		t.Fatal("live 429 is not Error")
+	}
+	for _, code := range []string{"200", "default"} {
+		if !reflect.DeepEqual(durableMap(t, live["responses"])[code], durableMap(t, publicPredecessor["GET /api/v2/r/{restaurantID}/live"]["responses"])[code]) {
+			t.Fatal("live answer changed", code)
+		}
+	}
+	if len(durableMap(t, live["responses"])) != 3 {
+		t.Fatal("live has unexpected answers")
+	}
+}
+
+func TestDurableErrorCodesAndRetryRules(t *testing.T) {
+	for _, visibility := range []string{"public", "private"} {
+		schemas := durableSchemas(t, registrationDocument(t, "durable-v1-composed-"+visibility+".json"))
+		codes := durableList(t, durableMember(t, schemas["Error"], "properties", "code", "enum"))
+		have := map[string]bool{}
+		for _, code := range codes {
+			have[fmt.Sprint(code)] = true
+		}
+		for _, absent := range []string{"CommandIdentityConflict", "AdmissionUnavailable"} {
+			if have[absent] {
+				t.Fatal(visibility, "Error.code contains", absent)
+			}
+		}
+		for _, present := range []string{"CommandConflict", "RateLimited", "ServiceUnavailable", "LimitExceeded", "InvalidArgument", "UpstreamTimeout", "NotFound"} {
+			if !have[present] {
+				t.Fatal(visibility, "Error.code lacks", present)
+			}
+		}
+		description := fmt.Sprint(durableMap(t, schemas["Error"])["description"])
+		for _, text := range []string{"not_committed for a POST", "unavailable for a passive GET", "has already cleared", "every RateLimited answer"} {
+			if !strings.Contains(description, text) {
+				t.Fatalf("%s Error description lacks %q", visibility, text)
+			}
+		}
+	}
 }
 
 func TestDurableCompositionIsReproducible(t *testing.T) {
@@ -543,6 +820,14 @@ func TestDurableCompositionIsReproducible(t *testing.T) {
 		sum := sha256.Sum256(committed)
 		if !bytes.Contains(amendment, []byte(hex.EncodeToString(sum[:]))) {
 			t.Fatal("docs/durable-api-amendment.md does not record the digest of", name)
+		}
+		examples, err := os.ReadFile(filepath.Join(completionAPI(t), "durable-v1-examples.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		examplesSum := sha256.Sum256(examples)
+		if !bytes.Contains(amendment, []byte(hex.EncodeToString(examplesSum[:]))) {
+			t.Fatal("docs/durable-api-amendment.md does not record the digest of durable-v1-examples.json")
 		}
 		for input, digest := range digests {
 			if !bytes.Contains(amendment, []byte(digest)) {
@@ -619,6 +904,73 @@ func TestDurableDeprecatedGatewayOperationsAreOnlyMarked(t *testing.T) {
 		enum := durableMap(t, durableMap(t, durableMap(t, durableMap(t, schemas[name])["properties"])["service"]))["enum"]
 		if !reflect.DeepEqual(enum, []any{"warehouse", "serving"}) {
 			t.Fatal("service enum is not [warehouse, serving]", name, enum)
+		}
+	}
+}
+
+// durableNumbers are the contract numbers of C13, C15, C25, C36 and C53. The
+// amendment table, x-durable-policy and the schemas must all agree.
+var durableNumbers = map[string]float64{
+	"registry.activeRestaurantsMax":                  10000,
+	"registry.pageLimitMax":                          1000,
+	"registry.revisionStartsAt":                      1,
+	"limits.orderPositionsMax":                       200,
+	"limits.activeProposalsPerRestaurantMax":         2000,
+	"limits.idMaxLength":                             256,
+	"limits.clientCommandIDMaxLength":                256,
+	"sseQuotas.perSession":                           8,
+	"sseQuotas.perOrganization":                      200,
+	"sseQuotas.perCell":                              2000,
+	"commandConflict.authResultRetentionDays":        30,
+	"commandConflict.tombstoneDays":                  180,
+	"pairRetention.warehouseAttemptReceiptsMinDays":  35,
+	"pairRetention.servingAutoResolveStopsAfterDays": 30,
+}
+
+func TestDurablePolicyNumbersMatchAmendmentAndSchemas(t *testing.T) {
+	amendment, err := os.ReadFile(filepath.Join(completionAPI(t), "../durable-api-amendment.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[string]float64{}
+	for _, match := range regexp.MustCompile("(?m)^\\| `([A-Za-z.]+)` \\| (\\d+) \\|").FindAllStringSubmatch(string(amendment), -1) {
+		var number float64
+		if _, err := fmt.Sscan(match[2], &number); err != nil {
+			t.Fatal(err)
+		}
+		rows[match[1]] = number
+	}
+	if !reflect.DeepEqual(rows, durableNumbers) {
+		t.Fatalf("amendment number table %v differs from the contract numbers %v", rows, durableNumbers)
+	}
+	for _, visibility := range []string{"public", "private"} {
+		document := registrationDocument(t, "durable-v1-composed-"+visibility+".json")
+		for key, want := range durableNumbers {
+			path := strings.Split(key, ".")
+			if got := durableMember(t, document["x-durable-policy"], path...); got != want {
+				t.Fatalf("%s policy %s = %v, want %v", visibility, key, got, want)
+			}
+		}
+		schemas := durableSchemas(t, document)
+		checks := []struct {
+			name string
+			got  any
+			want float64
+		}{
+			{"PrepareOrderRequest.positions.maxItems", durableMember(t, schemas["PrepareOrderRequest"], "properties", "positions", "maxItems"), durableNumbers["limits.orderPositionsMax"]},
+			{"ID.maxLength", durableMap(t, schemas["ID"])["maxLength"], durableNumbers["limits.idMaxLength"]},
+			{"ClientCommandID.maxLength", durableMap(t, schemas["ClientCommandID"])["maxLength"], durableNumbers["limits.clientCommandIDMaxLength"]},
+			{"Registry.entries.maxItems", durableMember(t, schemas["Registry"], "properties", "entries", "maxItems"), durableNumbers["registry.pageLimitMax"]},
+			{"Registry.tombstones.maxItems", durableMember(t, schemas["Registry"], "properties", "tombstones", "maxItems"), durableNumbers["registry.pageLimitMax"]},
+			{"ExpiryDueList.items.maxItems", durableMember(t, schemas["ExpiryDueList"], "properties", "items", "maxItems"), durableNumbers["registry.pageLimitMax"]},
+		}
+		for _, c := range checks {
+			if c.got != c.want {
+				t.Fatalf("%s %s = %v, want %v", visibility, c.name, c.got, c.want)
+			}
+		}
+		if durableMember(t, schemas["RegistryEntry"], "properties", "services", "maxItems") != float64(2) {
+			t.Fatal("RegistryEntry.services must hold warehouse and serving only")
 		}
 	}
 }

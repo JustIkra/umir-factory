@@ -15,11 +15,11 @@ make check-contract
 
 | Файл | SHA-256 |
 | --- | --- |
-| `docs/api/durable-v1-composed-public.json` | `fcd57afdc02427dae2533f1dcbf9efb87b3b55ccc4810a7c95a05b47faaf1f09` |
-| `docs/api/durable-v1-composed-private.json` | `712a03199b9ab25f2a920f8bdb7b1a92931642fc6b64d7038e38524c30ce12d8` |
-| `docs/api/durable-v1-public.json` (оверлей) | `7bbe7d1058e1903978d6dd00412592edbf3f699a12a283e5568a067cd9b0e306` |
-| `docs/api/durable-v1-private.json` (оверлей) | `098928a89adb7d2e99c48ac81575dbb93238946649cd16e224b41054088a1030` |
-| `docs/api/durable-v1-examples.json` | `a999c517444773059b380949e58afadd82c71705ac5337c3a77530d82747128b` |
+| `docs/api/durable-v1-composed-public.json` | `7d9c87eadcec4c26ce7c64aa0c8fd14bcc1a0d07624125c971d247454248b8d1` |
+| `docs/api/durable-v1-composed-private.json` | `6cb7a3565f20f025c8f84230ac94c3a54b050a8104425019137f4a07e3806834` |
+| `docs/api/durable-v1-public.json` (оверлей) | `2799572f6c581709d1cd7a0a76a22a30646e23f0335d1e1e6059b5c55b2bf16e` |
+| `docs/api/durable-v1-private.json` (оверлей) | `015af020c5e57879c13c2e3fa3aad3888c42e38fab4d07315d41b4191128a487` |
+| `docs/api/durable-v1-examples.json` | `33a44cd16f56f03a914c975806d579e77a2f1020f2db81ce4609df3b64b3a11e` |
 | `docs/api/registration-v1-composed-public.json` (предшественник) | `2be37f544a1ababa92cf16a4652826281db7f9b0e3d64bf1b389be2af0e0c873` |
 | `docs/api/registration-v1-composed-private.json` (предшественник) | `2d21db8cd51085196b8294615b7db2afd68b540fcd4cbf90d0e67e4fb50a45d3` |
 
@@ -29,10 +29,11 @@ make check-contract
 
 Скрипт отказывает, если набор отличается от объявленного.
 
-- Замена 16 схем: `AuthPageIdentity`, `DueExpiryResult`, `DurableResult`, `Epoch`, `Error`, `ID`, `IdempotencyResult`, `LiveEvent`, `PrepareOrderRequest`, `ReadinessAck`, `Registry`, `RuntimeReadiness`, `RuntimeStatus`, `ServiceAuthorizationRequest`, `ServiceClaims`, `WOrderAttempt`. Оба профиля получают одинаковые замены.
+- Замена 17 схем: `AuthPageIdentity`, `DueExpiryResult`, `DurableResult`, `Epoch`, `Error`, `ID`, `IdempotencyResult`, `LiveEvent`, `PrepareOrderRequest`, `ReadinessAck`, `Registry`, `RegistryEntry`, `RuntimeReadiness`, `RuntimeStatus`, `ServiceAuthorizationRequest`, `ServiceClaims`, `WOrderAttempt`. Оба профиля получают одинаковые замены.
 - Пять новых схем: `ExpiryDueList`, `ExpiryDueRestaurant`, `HealthReadiness`, `RegistryPoint`, `RegistryTombstone` (без коллизий с предшественником).
 - Четыре новые операции только в private: `GET /internal/auth/v1/registry/{restaurantID}` (`registryPoint`), `GET /internal/warehouse/v2/expiry-due` (`expiryDue`), `GET /healthz` (`healthz`), `GET /readyz` (`readyz`). Совпадений `operationId` и путей с существующими нет.
-- Правка полей семи существующих операций (`x-operation-patches`): у `GET /internal/auth/v1/registry` — `description`, `parameters`, `responses`; у `gatewayRuntime`, `gatewayRegister`, `gatewayClose` — только `deprecated` и `x-umir-removal-gate`; у `authorize`, `accessCheck`, `serviceToken` — только `description`. Остальные поля этих операций и все прочие операции предшественника не меняются; удалить операцию нельзя.
+- Правка полей восьми существующих операций (`x-operation-patches`). Private: у `GET /internal/auth/v1/registry` — `description`, `parameters`, `responses`; у `gatewayRuntime`, `gatewayRegister`, `gatewayClose` — только `deprecated` и `x-umir-removal-gate`; у `authorize`, `accessCheck`, `serviceToken` — только `description`. Public: у `GET /api/v2/r/{restaurantID}/live` — только `responses` (ответ `429`). Остальные поля этих операций и все прочие операции предшественника не меняются; удалить операцию нельзя.
+- Патч только добавляет. После наложения скрипт проверяет: у `registry` сохранены `200.content`, `default`, заголовки и все прежние параметры, описание непустое, новые ответы — только `304`; у `live` сохранены `200` и `default`, новый ответ — только `429`. Новые операции обязаны иметь описание, `x-owner`, `x-required-capability`, ответ `200` и описания ответов; у `healthz` и `readyz` `security` равен `[]`, у остальных пустого `security` быть не может. Оверлей с неожиданными ключами верхнего уровня отвергается.
 - Члены верхнего уровня `x-durable-source` и `x-durable-policy`. Цепочка `x-ua1-source`, `x-fin-source`, `x-registration-source` сохраняется.
 
 Все внутренние `$ref` составного файла проверяются скриптом.
@@ -41,7 +42,7 @@ make check-contract
 
 `Epoch` остаётся UUID (формат не меняется), но означает storage generation: идентификатор, который владелец создаёт первой миграцией (`storage_meta`, `gen_random_uuid()`) и хранит вместе с данными. Он меняется только при сбросе хранилища или восстановлении на более раннюю историю (`<bin> generation rotate --reason <текст>` у остановленного сервиса под ролью-владельцем). Перезапуск процесса, выкат и смена реплики его не меняют. У Warehouse, Serving и Auth своя generation. `runtimeEpoch`, `readerEpoch`, `expectedEpoch`, `currentEpoch` и заголовок `X-Umir-Runtime-Epoch` несут её же. `RuntimeReset` возвращается только при подтверждённом сбросе generation.
 
-Идентификатор экземпляра (`INSTANCE_ID`: `gateway-a`, `serving-b`) виден в `/readyz` и логах. На проводе он допустим только в `epoch` SSE и курсоре Gateway (C19): Gateway кладёт туда случайный boot-nonce независимо от `INSTANCE_ID`. Описания в заголовках и параметрах `X-Umir-Runtime-Epoch` берутся через `$ref` на схему `Epoch`, поэтому отдельной замены у операций нет (отклонение от текста подспеки, см. ниже).
+Идентификатор экземпляра (`INSTANCE_ID`: `gateway-a`, `serving-b`) на проводе не передаётся: он виден только в `/readyz` и логах. `epoch` SSE и курсор Gateway несут случайный boot-nonce, который не зависит от `INSTANCE_ID` (C19). Описания в заголовках и параметрах `X-Umir-Runtime-Epoch` берутся через `$ref` на схему `Epoch`, поэтому отдельной замены у операций нет (отклонение от текста подспеки, см. ниже).
 
 ## 2. Операции Gateway и порядок слияния (R3, C7)
 
@@ -55,13 +56,13 @@ make check-contract
 4. Gateway, PR-2: убирает маршруты `runtime|registry` и JWKS-проверку для Auth без `sync-contract`.
 5. `2.0.0-DUR.2` физически удаляет операции; после этого у Gateway `sync-contract`.
 
-Мост совместимости — шаги 2–4. Профиль FIN1 для отката не трогается. `LifecyclePeerReadiness` и `LifecycleResult.services` в DUR1 не меняются: до шага 3 Auth ещё возвращает пиров Gateway (см. вопрос ниже).
+Мост совместимости — шаги 2–4. Профиль FIN1 для отката не трогается. На период моста (шаги 2–4) ответы deprecated-операций Gateway и записи с пиром `gateway` в `LifecycleResult` выходят за суженные схемы; потребители не проверяют их по DUR1. `LifecyclePeerReadiness` и `LifecycleResult.services` в DUR1 не меняются: до шага 3 Auth ещё возвращает пиров Gateway (см. вопрос ниже).
 
 ## 3. Реестр Auth (R5, C13)
 
 `GET /internal/auth/v1/registry` принимает `limit` (1–1000, по умолчанию 1000), `after` (непрозрачный курсор `nextAfter`), `since` (ревизия; `0` — всё записанное) и `If-None-Match`. Ответ несёт `ETag` — квотированное значение `registryRevision`; при неизменной ревизии — `304` без тела (проверяется только запрос без `after`). Без `since` список отдаёт только живые рестораны, `tombstones` пуст. С `since` — изменения после ревизии, включая надгробия. Страница держит не больше `limit` записей (записи плюс надгробия), `complete` равен `true` на последней странице, `nextAfter` есть ровно тогда, когда `complete` равен `false`. Обход берёт `registryRevision` первой страницы как R0 и завершает вызовом `?since=R0`, чтобы догнать изменения во время обхода.
 
-`GET /internal/auth/v1/registry/{restaurantID}` возвращает `RegistryPoint`: `registryRevision` и либо запись (`state: live`), либо надгробие (`state: tombstone`), с `ETag` и `If-None-Match` (`304`). Ресторан, которого не было, — `404 NotFound`. Надгробия хранятся бессрочно, без ПДн, читаются через `since` и точечное чтение. Записи реестра отражают подтверждённую готовность, живых `Status` пира в чтении нет. Ни один бизнес-запрос не читает весь реестр; сверка вызывает статус пира один раз на сервис за проход.
+`GET /internal/auth/v1/registry/{restaurantID}` возвращает `RegistryPoint`: `registryRevision` — глобальная ревизия реестра на момент чтения (тот же счётчик, что в списке, а не версия ресторана) — и либо запись (`state: live`), либо надгробие (`state: tombstone`), с `ETag` (квотированная `registryRevision`) и `If-None-Match`: `304` означает, что реестр не менялся с этой ревизии, а значит запись прежняя; изменившийся реестр может ответить `200` с той же записью (`304` и `200` не различают, менялась ли именно эта запись). Ресторан, которого не было, — `404 NotFound` (в операции описан явно). Ревизия реестра — положительный счётчик, первая ревизия равна 1 (`since=0` — всё записанное). `RegistryEntry.services` содержит не больше двух записей (`warehouse`, `serving`). Надгробия хранятся бессрочно, без ПДн, читаются через `since` и точечное чтение. Записи реестра отражают подтверждённую готовность, живых `Status` пира в чтении нет. Ни один бизнес-запрос не читает весь реестр; сверка вызывает статус пира один раз на сервис за проход.
 
 Квота: 10 000 активных ресторанов, удалённые не считаются. Превышение при создании ресторана — `409 LimitExceeded`, `outcome: not_committed`. Число подтверждает G1.
 
@@ -75,13 +76,18 @@ make check-contract
 
 ## 6. CommandConflict (C29, C53)
 
-Код `CommandConflict` — единственный для повторной команды с другим телом и для повтора, чей сохранённый результат уже очищен. `CommandIdentityConflict` в контракте нет (он есть только в коде Serving `internal/adapters/httpapi/handler.go:464-465`). Serving меняет код в волне 1 (контракт не меняется), Warehouse — в волне 2 через DUR1, регрессию на границе (enum ошибок scoped) ведёт Gateway. Повтор команды Auth после очистки её результата — `409 CommandConflict`, `outcome: unknown`.
+Код `CommandConflict` — единственный для повторной команды с другим отпечатком при живой записи и для повтора, чей сохранённый результат уже очищен. Исходы разведены:
 
-Граница гарантии повтора (C53): после истечения 180-дневного надгробия повтор старой команды выполняется как новая команда. Результаты команд Auth хранятся 30 дней, отпечаток-надгробие — 180 дней (таблица сроков, предложение до G1).
+- другой отпечаток при живой записи: `409 CommandConflict`, `outcome: not_committed` для POST и `unavailable` для пассивного GET-чтения (backend-v2.md, serving.md); исходный результат не показывается, состояние не меняется;
+- `outcome: unknown` — только для повтора команды Auth, чей результат уже очищен (результат 30 дней, надгробие-отпечаток 180 дней, C29, C53): результат больше не известен.
+
+`CommandIdentityConflict` в контракте нет (он есть только в коде Serving `internal/adapters/httpapi/handler.go:464-465`). Serving меняет код в волне 1 (контракт не меняется), Warehouse — в волне 2 через DUR1, регрессию на границе (enum ошибок scoped) ведёт Gateway. Примеры `error-command-conflict-post`, `error-command-conflict-get` и `error-command-conflict` (unknown после очистки) лежат в `durable-v1-examples.json`.
+
+Граница гарантии повтора (C53): после истечения 180-дневного надгробия повтор старой команды выполняется как новая команда.
 
 ## 7. Допуск (C16)
 
-`429 RateLimited` несёт заголовок `Retry-After` и поле `details.retryAfterSeconds`, `outcome: not_committed`; схема `Error` это требует. Отказ хранилища допуска до отправки — `503 ServiceUnavailable`: `outcome: not_committed` для записи и `unavailable` для чтения. Нового кода `AdmissionUnavailable` нет. Сбой после отправки сохраняет прежние коды (`ServiceUnavailable`, `UpstreamTimeout`) с `outcome: unknown`. Примеры каждого случая — в `durable-v1-examples.json`.
+`429 RateLimited` несёт заголовок `Retry-After` и поле `details.retryAfterSeconds`, `outcome: not_committed`; схема `Error` это требует. Отказ хранилища допуска до отправки — `503 ServiceUnavailable`: `outcome: not_committed` для записи и `unavailable` для чтения. Нового кода `AdmissionUnavailable` нет. Сбой после отправки сохраняет прежние коды (`ServiceUnavailable`, `UpstreamTimeout`) с `outcome: unknown`. Схема `Error` требует `details.retryAfterSeconds` и `outcome: not_committed` для каждого `RateLimited`: это относится и ко всем существующим ответам `429 RateLimited` (в том числе REG1), Auth обязан довести их до этой формы. Примеры каждого случая, включая `UpstreamTimeout` с `unknown`, — в `durable-v1-examples.json`.
 
 ## 8. Лимиты (C15, C43, C53)
 
@@ -97,7 +103,7 @@ make check-contract
 `ServiceAuthorizationRequest` теперь одно из двух. Токен ресторана: `restaurantID`, `epoch` и `operation` из `expiry.due`, `runtime.register`, `runtime.close`, `order.resolve`. Токен уровня ячейки: только `operation: expiry.due`, без ресторана и эпохи. `ServiceClaims` имеет три варианта: токен ресторана, `order.resolve` и `expiry.due` уровня ячейки.
 
 - `expiry.due` уровня ячейки: в claims нет `org_id`, `tenant_id`, `runtime_epoch`, `lifecycle_version`; `sub = service:gateway`, `azp = umir-gateway`, `aud = [umir-warehouse]`, `permissions = [expiry.due]`; годен только для списка сроков.
-- `order.resolve` (Serving → Warehouse): один ресторан (`tenant_id`), `runtime_epoch` — generation склада, `sub = service:serving`, `azp = umir-serving`, `aud = [umir-warehouse]`, `permissions = [consumer.order.resolve]` (существующая возможность пассивных чтений); годен только для `GET /order-attempts` и `GET /commands`, остальные маршруты его отвергают.
+- `order.resolve` (Serving → Warehouse): один ресторан (`tenant_id`), `runtime_epoch` — generation склада, `sub = service:serving`, `azp = umir-serving`, `aud = [umir-warehouse]`, `permissions = [consumer.order.resolve]` (существующая возможность пассивных чтений); годен только для `GET /internal/warehouse/v2/r/{restaurantID}/order-attempts` и `GET /internal/warehouse/v2/r/{restaurantID}/commands`. Warehouse сверяет claim `operation = order.resolve` с маршрутом: `/orders` и все остальные маршруты токен отвергают (C11: только пассивные `/order-attempts` и `/commands`), хотя разрешение `consumer.order.resolve` само по себе открыло бы и `/orders`.
 
 Warehouse принимает оба вида. Повтор commit остаётся за клиентом. Готовность Gateway при выдаче не проверяется.
 
@@ -115,7 +121,7 @@ Warehouse принимает оба вида. Повтор commit остаётс
 
 ## 13. Квоты SSE (C36)
 
-8 потоков на сессию, 200 на организацию, 2000 на ячейку. Числа предварительные; G1 утверждает их после замера `AccessCheck` (R13). Отказ — `429 RateLimited`, `Retry-After: 1`. В схеме `LiveEvent` описано, что `epoch` — boot-nonce Gateway, а не storage generation.
+8 потоков на сессию, 200 на организацию, 2000 на ячейку. Числа предварительные; G1 утверждает их после замера `AccessCheck` (R13). Отказ — `429 RateLimited`, `Retry-After: 1`; ответ `429` с заголовком `Retry-After` (`#/components/headers/Retry-After`) добавлен к публичной операции `live` патчем. В схеме `LiveEvent` описано, что `epoch` — boot-nonce Gateway, а не storage generation и не `INSTANCE_ID`.
 
 ## 14. Прочее из сверки
 
@@ -130,11 +136,34 @@ Warehouse принимает оба вида. Повтор commit остаётс
 - `LimitExceeded`: `409` для квот, `503` для чтений страниц.
 - `registryRevision` и `aggregateRevision` Auth монотонны, но не подряд.
 
+## Числа контракта
+
+Числа предварительные до G1; таблица, `x-durable-policy` и схемы сверяются тестом `TestDurablePolicyNumbersMatchAmendmentAndSchemas`.
+
+| Ключ политики | Значение |
+| --- | --- |
+| `registry.activeRestaurantsMax` | 10000 |
+| `registry.pageLimitMax` | 1000 |
+| `registry.revisionStartsAt` | 1 |
+| `limits.orderPositionsMax` | 200 |
+| `limits.activeProposalsPerRestaurantMax` | 2000 |
+| `limits.idMaxLength` | 256 |
+| `limits.clientCommandIDMaxLength` | 256 |
+| `sseQuotas.perSession` | 8 |
+| `sseQuotas.perOrganization` | 200 |
+| `sseQuotas.perCell` | 2000 |
+| `commandConflict.authResultRetentionDays` | 30 |
+| `commandConflict.tombstoneDays` | 180 |
+| `pairRetention.warehouseAttemptReceiptsMinDays` | 35 |
+| `pairRetention.servingAutoResolveStopsAfterDays` | 30 |
+
 ## Отклонения от подспеки и открытые вопросы
 
 1. `ClientCommandID` в составном REG1 уже имеет `maxLength: 256`; DUR1 вводит границу только для `ID`, `ClientCommandID` не заменяет.
-2. Скрипт допускает не только замену схем, новые операции и флаг `deprecated`, но и точечную правку полей семи существующих операций (`x-operation-patches`). Иначе нельзя выразить `limit/after/since/ETag/304` у `GET /internal/auth/v1/registry` и описания `authorize`, `accessCheck`, `serviceToken`. Набор и допустимые поля зашиты в скрипт и тест; всё остальное в этих операциях проверяется на неизменность.
+2. Скрипт допускает не только замену схем, новые операции и флаг `deprecated`, но и точечную правку полей восьми существующих операций (`x-operation-patches`): `limit/after/since/ETag/304` у `GET /internal/auth/v1/registry`, описания `authorize`, `accessCheck`, `serviceToken` и ответ `429` с `Retry-After` у публичной `live` (квоты SSE). Набор, допустимые поля и условие «патч только добавляет» зашиты в скрипт и тест; всё остальное в этих операциях проверяется на неизменность.
 3. Описания заголовков и параметров `X-Umir-Runtime-Epoch` отдельно не заменяются: у параметров нет своего описания, они ссылаются на `Epoch`. Описания заголовков ответов в существующих операциях остаются.
 4. `LifecyclePeerReadiness` и `LifecycleResult.services` сохраняют `gateway`: до шага 3 порядка C7 Auth ещё возвращает пиров Gateway, а существующие примеры публичного профиля содержат такие записи. Сужение — предложение для `2.0.0-DUR.2`.
 5. Токен `order.resolve` несёт разрешение `consumer.order.resolve`: перечисление `Capability` не расширяется.
 6. Курсоры `after`/`nextAfter` реестра и списка сроков непрозрачны, порядок — на усмотрение владельца, но устойчив.
+7. На период моста C7 ответы deprecated-операций Gateway (`gatewayRuntime`, `gatewayRegister`, `gatewayClose`) и записи `gateway` в `LifecycleResult` лежат вне суженных схем `RuntimeStatus`, `RuntimeReadiness`, `ReadinessAck`; потребители не валидируют их по DUR1, пока `2.0.0-DUR.2` не удалит операции.
+8. `RegistryEntry` заменена ради `services.maxItems = 2` (в подспеке её нет). 404 для точечного реестра описан отдельным ответом, его `outcome` в примере — `unavailable`, как для отказа чтения.
