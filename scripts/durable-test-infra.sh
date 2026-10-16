@@ -111,7 +111,7 @@ cmd_check() {
   container_running "$mq_container" || { printf 'not running: %s\n' "$mq_container" >&2; failed=1; }
   [[ $failed == 0 ]] || return 1
   docker exec "$pg_container" pg_isready -q > /dev/null 2>&1 || { printf 'postgres does not accept connections in %s\n' "$pg_container" >&2; failed=1; }
-  docker exec "$mq_container" rabbitmq-diagnostics -q ping > /dev/null 2>&1 || { printf 'rabbitmq does not answer in %s\n' "$mq_container" >&2; failed=1; }
+  docker exec --user rabbitmq "$mq_container" rabbitmq-diagnostics -q ping > /dev/null 2>&1 || { printf 'rabbitmq does not answer in %s\n' "$mq_container" >&2; failed=1; }
   local p
   for p in "$pg_port" "$mq_port"; do
     host_port_open "$p" || { printf 'nothing listens on %s:%s\n' "$host" "$p" >&2; failed=1; }

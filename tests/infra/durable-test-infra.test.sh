@@ -92,6 +92,7 @@ printf 'PASS: unknown command rejected\n'
 # (1) check never mutates anything, and fails when a prod container is missing.
 run_case "$prod" check || { cat "$test_dir/err" >&2; fail "check with prod up"; }
 [[ -z "$(mutating)" ]] || fail "check called a mutating command: $(mutating)"
+grep -Fq 'exec --user rabbitmq umir-prod-mq rabbitmq-diagnostics -q ping' "$SHIM_LOG" || fail "RabbitMQ readiness must use the rabbitmq OS user"
 [[ ! -e "$UMIR_DURABLE_STATE_DIR" ]] || fail "check created state"
 assert_no_secret_in check "$test_dir/out" "$test_dir/err" "$SHIM_LOG"
 run_case "umir-prod-pg" check && fail "check must fail without umir-prod-mq"

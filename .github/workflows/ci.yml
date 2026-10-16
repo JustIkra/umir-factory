@@ -142,6 +142,20 @@ jobs:
         run: |
           eval "$(scripts/durable-test-infra.sh env)"
           make integration
+      - name: Diagnose durable containers on failure
+        if: failure()
+        run: |
+          set -uo pipefail
+          for container in umir-prod-pg umir-prod-mq umir-durable-redis-limiter umir-durable-redis-cache; do
+            if ! docker inspect "$container" >/dev/null 2>&1; then
+              printf 'diagnostic: %s was not created\n' "$container"
+              continue
+            fi
+            printf 'diagnostic: %s state: ' "$container"
+            docker inspect --format 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} error={{.State.Error}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' "$container" || true
+            printf 'diagnostic: %s last 100 log lines:\n' "$container"
+            docker logs --tail 100 --timestamps "$container" 2>&1 || true
+          done
       - name: Remove the Redis test containers
         if: always()
         run: scripts/durable-test-infra.sh down
