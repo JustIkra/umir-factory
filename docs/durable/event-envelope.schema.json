@@ -55,10 +55,12 @@
       "format": "date-time"
     },
     "correlationID": {
-      "$ref": "#/$defs/opaqueID"
+      "description": "Trace identifier: up to 256 code points, no control characters (C60). Warehouse puts the client commandID in causationID, so spaces and non-ASCII characters are allowed.",
+      "$ref": "#/$defs/traceID"
     },
     "causationID": {
-      "$ref": "#/$defs/opaqueID"
+      "description": "Trace identifier: up to 256 code points, no control characters (C60). Warehouse puts the client commandID in causationID, so spaces and non-ASCII characters are allowed.",
+      "$ref": "#/$defs/traceID"
     },
     "topics": {
       "description": "Live topics the event refreshes. Required for warehouse.*, not allowed for auth.*.",
@@ -96,6 +98,12 @@
       "minLength": 1,
       "maxLength": 256,
       "pattern": "^[!-~]+$"
+    },
+    "traceID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
     }
   }
 }

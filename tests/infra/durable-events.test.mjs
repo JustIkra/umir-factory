@@ -270,6 +270,20 @@ test("envelope mutations are rejected", () => {
   };
   assert.deepEqual(validate(schema, schema, goodEnvelope()), []);
 
+  // C60: trace identifiers may carry a client command ID (spaces, Unicode), but no control characters.
+  for (const field of ["causationID", "correlationID"]) {
+    for (const ok of ["expiration/batch-17", "заказ 17 / ручной ввод", "a".repeat(256)]) {
+      const value = goodEnvelope();
+      value[field] = ok;
+      assert.deepEqual(validate(schema, schema, value), [], `${field} ${ok.slice(0, 20)} must be accepted`);
+    }
+    reject((v) => { v[field] = "line\nbreak"; }, `${field} with a control character`);
+    reject((v) => { v[field] = "tab\there"; }, `${field} with a tab`);
+    reject((v) => { v[field] = "a".repeat(257); }, `${field} over 256`);
+    reject((v) => { v[field] = ""; }, `${field} empty`);
+  }
+  reject((v) => { v.eventID = "has space"; }, "eventID stays printable ASCII without a space");
+  reject((v) => { v.eventID = "событие"; }, "eventID stays ASCII");
   reject((v) => { v.extra = 1; }, "extra field");
   reject((v) => { v.email = "guest@example.org"; }, "personal data field email");
   reject((v) => { v.token = "secret"; }, "token field");
@@ -320,6 +334,11 @@ test("task message mutations are rejected", () => {
     mutate(value);
     assert.notEqual(validate(schema, schema, value).length, 0, `${label} must be rejected`);
   };
+  const spaced = good();
+  spaced.correlationID = "запрос 17";
+  assert.deepEqual(validate(schema, schema, spaced), [], "correlationID may carry spaces and Unicode");
+  reject((v) => { v.correlationID = "a\u0000b"; }, "correlationID with a control character");
+  reject((v) => { v.messageID = "has space"; }, "messageID stays printable ASCII");
   reject((v) => { v.extra = 1; }, "extra field");
   reject((v) => { v.email = "guest@example.org"; }, "email field");
   reject((v) => { v.text = "complaint text"; }, "message text field");
