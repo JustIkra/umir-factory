@@ -239,7 +239,7 @@ with open(path, "w", encoding="utf-8") as stream:
 redis_users = {
     "health": ("redis-limiter/health-password", "~*", "+ping"),
     "redis-init": ("redis-limiter/init.password", "~umir:limiter:generation ~umir:limiter:strict_since", "+ping +get +set +del"),
-    "gateway": ("redis-limiter/gateway.password", "~umir:gw:* ~umir:limiter:generation ~umir:limiter:strict_since", "+hello +client +ping +get +set +del +incr +exists +pttl +pexpire +time +zadd +zrem +zrangebyscore +zscore +zcard +hset +hget +hvals +hdel +evalsha +script|load"),
+    "gateway": ("redis-limiter/gateway.password", "~umir:gw:* ~umir:limiter:generation ~umir:limiter:strict_since", "+hello +client|setinfo +client|setname +ping +get +set +del +incr +exists +pttl +pexpire +time +zadd +zrem +zrangebyscore +zscore +zcard +hset +hget +hvals +hdel +evalsha +script|load"),
 }
 limiter = ["user default off"]
 for user, (path, keys, commands) in redis_users.items():
@@ -251,7 +251,7 @@ with open(os.path.join(root, "redis-limiter", "users.acl"), "w", encoding="utf-8
 cache_hash = hashlib.sha256(read("redis-cache/health-password").encode()).hexdigest()
 warehouse_hash = hashlib.sha256(read("redis-cache/warehouse.password").encode()).hexdigest()
 with open(os.path.join(root, "redis-cache", "users.acl"), "w", encoding="utf-8") as stream:
-    stream.write("\n".join(("user default off", f"user health on #{cache_hash} resetkeys nocommands ~* +auth +ping", f"user warehouse on #{warehouse_hash} resetkeys nocommands ~umir:wh:* +auth +hello +client +ping +get +set +del +exists +pttl +pexpire +time +zadd +zrem +zrangebyscore +zscore +zcard +hset +hget +hvals +hdel +evalsha +script|load")) + "\n")
+    stream.write("\n".join(("user default off", f"user health on #{cache_hash} resetkeys nocommands ~* +auth +ping", f"user warehouse on #{warehouse_hash} resetkeys nocommands ~umir:wh:* +auth +hello +client|setinfo +client|setname +ping +get +set +del +exists +pttl +pexpire +time +zadd +zrem +zrangebyscore +zscore +zcard +hset +hget +hvals +hdel +evalsha +script|load")) + "\n")
 
 feedback_queue = "feedback.auth"
 for suffix, args in (

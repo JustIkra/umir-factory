@@ -283,6 +283,16 @@ test("Redis topology fixes key families, markers and ACL", () => {
   }
 });
 
+test("Redis service ACLs limit CLIENT to go-redis setup subcommands", () => {
+  const generator = readFileSync(resolve(root, "scripts/durable/secrets.sh"), "utf8");
+  const runtime = readFileSync(resolve(root, "tests/infra/durable-runtime-check.sh"), "utf8");
+  assert.match(generator, /\+client\|setinfo \+client\|setname/);
+  assert.doesNotMatch(generator, /\+client(?:\s|\")/);
+  assert.match(runtime, /CLIENT SETINFO LIB-NAME/);
+  assert.match(runtime, /CLIENT SETNAME/);
+  assert.match(runtime, /CLIENT KILL ID 1/);
+});
+
 test("deployment parameters cover R11, R12 and prod TLS", () => {
   const parameters = section(readDoc(), "Параметры развёртывания");
   for (const token of ["R11", "R12", "verify-full", "amqps://", "rediss://", "C34", "UMIR_FRONT_SUBNET", "COMPLETION_NPM_ADDR"]) {

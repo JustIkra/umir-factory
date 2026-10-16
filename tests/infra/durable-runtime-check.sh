@@ -63,15 +63,21 @@ docker run --rm --network "$network" --user 65532:65532 --entrypoint /bin/bash \
   "$tools_image" -euc '
 export REDISCLI_AUTH="$(cat /run/umir-secrets/redis-limiter/gateway.password)"
 redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter ping | grep -qx PONG
+redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter CLIENT SETINFO LIB-NAME durable-runtime-check | grep -qx OK
+redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter CLIENT SETNAME durable-runtime-check | grep -qx OK
 redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter SET umir:gw:infra-check 1 EX 5 | grep -qx OK
 set -f
-for command in "SET umir:wh:infra-check 1" "FLUSHDB" "FLUSHALL" "CONFIG GET dir" "KEYS *" "DEBUG OBJECT umir:gw:infra-check" "SHUTDOWN NOSAVE"; do
+for command in "SET umir:wh:infra-check 1" "CLIENT KILL ID 1" "FLUSHDB" "FLUSHALL" "CONFIG GET dir" "KEYS *" "DEBUG OBJECT umir:gw:infra-check" "SHUTDOWN NOSAVE"; do
   response=$(redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter $command 2>&1 || true)
   if [[ $response != *NOPERM* && $response != *"ERR unknown command"* && $response != *"DEBUG command not allowed"* ]]; then
     printf "Redis limiter response did not deny %s: %s\n" "${command%% *}" "$response" >&2
     exit 1
   fi
 done
+marker_before=$(redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter GET umir:limiter:generation)
+marker_nx=$(redis-cli --no-auth-warning --raw --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter SET umir:limiter:generation invalid NX)
+marker_after=$(redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user gateway -h redis-limiter GET umir:limiter:generation)
+[[ -z $marker_nx && $marker_after == "$marker_before" ]] || { printf "%s\n" "Gateway NX write changed the existing limiter marker" >&2; exit 1; }
 export REDISCLI_AUTH="$(cat /run/umir-secrets/redis-limiter/init.password)"
 redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user redis-init -h redis-limiter GET umir:limiter:generation | grep -Eq "^[a-f0-9]{32}$"
 response=$(redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user redis-init -h redis-limiter GET umir:gw:infra-check 2>&1 || true)
@@ -80,6 +86,22 @@ if [[ $response != *NOPERM* ]]; then
   exit 1
 fi
 printf "%s\n" "Redis ACL and marker checks passed"
+'
+
+docker run --rm --network "$network" --user 65532:65532 --entrypoint /bin/bash \
+  --mount "type=volume,source=$secrets,target=/run/umir-secrets,readonly" \
+  "$tools_image" -euc '
+export REDISCLI_AUTH="$(cat /run/umir-secrets/redis-cache/warehouse.password)"
+redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user warehouse -h redis-cache CLIENT SETINFO LIB-NAME durable-runtime-check | grep -qx OK
+redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user warehouse -h redis-cache CLIENT SETNAME durable-runtime-check | grep -qx OK
+for command in "CLIENT KILL ID 1" "CONFIG GET maxmemory"; do
+  response=$(redis-cli --no-auth-warning --tls --cacert /run/umir-secrets/ca/ca.crt --user warehouse -h redis-cache $command 2>&1 || true)
+  if [[ $response != *NOPERM* ]]; then
+    printf "Redis cache response did not deny %s: %s\n" "${command%% *}" "$response" >&2
+    exit 1
+  fi
+done
+printf "%s\n" "Redis cache client ACL checks passed"
 '
 
 docker run --rm --network "$network" --user 65532:65532 --entrypoint /bin/sh \
