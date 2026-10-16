@@ -23,21 +23,27 @@ const options = Object.fromEntries(
 );
 
 async function call(origin, jar, method, path, body) {
-  const response = await fetch(origin + path, {
-    method,
-    redirect: "manual",
-    signal: AbortSignal.timeout(10000),
-    headers: {
-      Accept: "application/json",
-      Origin: origin,
-      ...(Object.keys(jar.cookies).length
-        ? { Cookie: Object.entries(jar.cookies).map(([k, v]) => `${k}=${v}`).join("; ") }
-        : {}),
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...(method !== "GET" && jar.csrf ? { "X-CSRF-Token": jar.csrf } : {}),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+  let response;
+  try {
+    response = await fetch(origin + path, {
+      method,
+      redirect: "manual",
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        Accept: "application/json",
+        Origin: origin,
+        ...(Object.keys(jar.cookies).length
+          ? { Cookie: Object.entries(jar.cookies).map(([k, v]) => `${k}=${v}`).join("; ") }
+          : {}),
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(method !== "GET" && jar.csrf ? { "X-CSRF-Token": jar.csrf } : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch (error) {
+    const code = error?.cause?.code;
+    throw new Error(`${method} ${path} could not reach ${origin}${code ? ` (${code})` : ""}`);
+  }
   for (const cookie of response.headers.getSetCookie()) {
     const pair = cookie.split(";", 1)[0];
     const at = pair.indexOf("=");

@@ -8,8 +8,11 @@ umask 077
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
 project="umir-completion-test-bk$RANDOM$RANDOM"
+restore_project="${project}-restore"
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/umir-completion-backup-test.XXXXXX")
+tmp=$(cd "$tmp" && pwd -P)
 volume="${project}_auth-state"
+restore_volume="${restore_project}_auth-state"
 alpine=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).auxiliary.alpine.ref)' "$root/scripts/completion/images.lock.json")
 
 cleanup() {
@@ -17,7 +20,7 @@ cleanup() {
   case "$project" in umir-completion-test-bk*) ;; *) echo "refusing to clean $project" >&2; exit 1 ;; esac
   ids=$(docker ps -aq --filter "label=com.docker.compose.project=$project")
   if [ -n "$ids" ]; then docker rm -f $ids >/dev/null 2>&1 || true; fi
-  docker volume rm "$volume" >/dev/null 2>&1 || true
+  docker volume rm "$volume" "$restore_volume" >/dev/null 2>&1 || true
   rm -rf "$tmp"
 }
 trap cleanup EXIT
@@ -30,15 +33,32 @@ docker version >/dev/null || fail "Docker is required"
 docker image inspect "$alpine" >/dev/null 2>&1 || docker pull -q "$alpine" >/dev/null
 
 bundle="$tmp/umir-completion-bundle"
-mkdir -m 700 "$bundle" "$bundle/keys" "$bundle/.generations"
-printf '{"binding":{"project":"%s"},"generation":3}\n' "$project" > "$bundle/bundle.json"
-printf 'COMPLETION_PRIVATE_DIR=%s\n' "$bundle" > "$bundle/compose.env"
-head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$bundle/keys/service-key"
-echo old-generation > "$bundle/.generations/old"
+restored_bundle="$tmp/umir-completion-restored-bundle"
+mail="$tmp/mail"
+node "$root/tests/examples/completion/prepare-mail.mjs" "$mail" >/dev/null
+cp "$mail/inputs.json" "$tmp/base-inputs.json"
+chmod 600 "$tmp/base-inputs.json"
+prepare=(--directory "$bundle" --inputs "$mail/inputs.json" --project "$project" --origin https://demo.invalid --cookie-mode secure)
+node "$root/scripts/completion/prepare.mjs" "${prepare[@]}" >/dev/null
+node "$root/scripts/completion/prepare.mjs" "${prepare[@]}" --rotate-leaf >/dev/null
+node - "$mail/inputs.json" <<'NODE'
+const fs=require("fs");const path=process.argv[2];
+const input=JSON.parse(fs.readFileSync(path,"utf8"));
+input.registration={enabled:true,mailLimitPer10Minutes:10,organizationsPerUser:10,organizationCreationsPerHour:10,wrongCodesPerAddressPerHour:10};
+fs.writeFileSync(path,JSON.stringify(input,null,2)+"\n",{mode:0o600});
+NODE
+node "$root/scripts/completion/prepare.mjs" "${prepare[@]}" --reconfigure >/dev/null
 key="$tmp/backup.key"
 head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$key"
 other_key="$tmp/other.key"
 head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$other_key"
+source_bundle_sha=$(tar -C "$bundle" -cf - . | sha)
+source_password_sha=$(sha < "$bundle/auth/secrets/password")
+source_server_key_sha=$(sha < "$bundle/auth/secrets/server.key")
+source_feedback_key_sha=$(sha < "$bundle/keys/feedback-auth")
+key_pattern="$tmp/private-key-pattern"
+cp "$bundle/auth/secrets/password" "$key_pattern"
+chmod 600 "$key_pattern"
 
 # The sentinel: random text in auth.json inside the volume, owned by 65532.
 sentinel=$(head -c 40 /dev/urandom | od -An -tx1 | tr -d ' \n')
@@ -68,10 +88,10 @@ process.exit(ok?0:1)' "$out" "$project" || { cat "$out/manifest.json" "$out/rece
 # The archive hides the sentinel and the bundle key.
 for f in "$out/auth-state.tar.enc" "$keys_out/bundle.tar.enc"; do
   [ "$(grep -c -a -F "$sentinel" "$f" || true)" = 0 ] || fail "plain sentinel in $f"
-  [ "$(grep -c -a -F "$(cat "$bundle/keys/service-key")" "$f" || true)" = 0 ] || fail "plain key in $f"
+  [ "$(grep -c -a -F -f "$key_pattern" "$f" || true)" = 0 ] || fail "plain key in $f"
 done
-# The old generations are not part of the key archive.
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass "file:$key" -in "$keys_out/bundle.tar.enc" | tar -t | grep -q 'generations' && fail "generations were archived"
+# Rollback history stays in the encrypted key archive.
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass "file:$key" -in "$keys_out/bundle.tar.enc" | tar -t | grep -Fq '.generations/2/meta.json' || fail "the previous generation metadata was not archived"
 
 # A bad backup key, a bad archive and a foreign project are refused before anything is created.
 refused() {
@@ -79,45 +99,85 @@ refused() {
   if "$@" >/dev/null 2>&1; then fail "$label was accepted"; fi
 }
 nothing_created() {
-  docker volume inspect "$volume" >/dev/null 2>&1 && fail "$1: a volume was created"
-  [ ! -e "$bundle" ] || fail "$1: a bundle was created"
+  docker volume inspect "$restore_volume" >/dev/null 2>&1 && fail "$1: a volume was created"
+  [ ! -e "$restored_bundle" ] || fail "$1: a bundle was created"
   return 0
 }
 docker rm -f "$project-auth-1" >/dev/null
 docker volume rm "$volume" >/dev/null
-rm -rf "$bundle"
 
-refused "wrong key" "$root/scripts/completion/restore.sh" --project "$project" --bundle-dir "$bundle" --from "$out" --keys-from "$keys_out" --key-file "$other_key"
+refused "wrong key" "$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$restored_bundle" --from "$out" --keys-from "$keys_out" --key-file "$other_key"
 nothing_created "wrong key"
 
 cp -R "$out" "$tmp/damaged"; cp -R "$keys_out" "$tmp/damaged-keys"
 printf 'X' | dd of="$tmp/damaged/auth-state.tar.enc" bs=1 seek=100 conv=notrunc 2>/dev/null
-refused "damaged archive" "$root/scripts/completion/restore.sh" --project "$project" --bundle-dir "$bundle" --from "$tmp/damaged" --keys-from "$keys_out" --key-file "$key"
+refused "damaged archive" "$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$restored_bundle" --from "$tmp/damaged" --keys-from "$keys_out" --key-file "$key"
 nothing_created "damaged archive"
 
 cp -R "$out" "$tmp/foreign"
 sed -i.bak "s/\"project\": \"$project\"/\"project\": \"umir-completion-test-other\"/" "$tmp/foreign/manifest.json"
-refused "foreign project in the manifest" "$root/scripts/completion/restore.sh" --project "$project" --bundle-dir "$bundle" --from "$tmp/foreign" --keys-from "$keys_out" --key-file "$key"
+refused "foreign project in the manifest" "$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$restored_bundle" --from "$tmp/foreign" --keys-from "$keys_out" --key-file "$key"
 nothing_created "foreign project"
 
-refused "other project name" "$root/scripts/completion/restore.sh" --project umir-completion-test-bkother --bundle-dir "$bundle" --from "$out" --keys-from "$keys_out" --key-file "$key"
-nothing_created "other project name"
-
-# The real restore.
-"$root/scripts/completion/restore.sh" --project "$project" --bundle-dir "$bundle" --from "$out" --keys-from "$keys_out" --key-file "$key" >/dev/null
-got=$(docker run --rm --network none -v "$volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json /data/owner-secrets/key' | sha)
+# Restore into a different project and package directory. The original package
+# stays in place so its byte-level snapshot can be checked after restoration.
+"$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$restored_bundle" --from "$out" --keys-from "$keys_out" --key-file "$key" >/dev/null
+got=$(docker run --rm --network none -v "$restore_volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json /data/owner-secrets/key' | sha)
 [ "$got" = "$want" ] || fail "restored data differ"
-owner=$(docker run --rm --network none -v "$volume:/data:ro" "$alpine" sh -c 'stat -c "%u:%g %a" /data/auth.json')
+owner=$(docker run --rm --network none -v "$restore_volume:/data:ro" "$alpine" sh -c 'stat -c "%u:%g %a" /data/auth.json')
 [ "$owner" = "65532:65532 600" ] || fail "owner or mode changed: $owner"
-[ "$(cat "$bundle/keys/service-key")" = "$(openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass "file:$key" -in "$keys_out/bundle.tar.enc" | tar -xO ./keys/service-key)" ] || fail "restored key differs"
-[ "$(stat -c %a "$bundle" 2>/dev/null || stat -f %Lp "$bundle")" = 700 ] || fail "bundle mode"
-[ ! -e "$bundle/.generations" ] || fail "generations restored"
+[ "$(sha < "$restored_bundle/auth/secrets/password")" = "$source_password_sha" ] || fail "Auth password changed"
+[ "$(sha < "$restored_bundle/auth/secrets/server.key")" = "$source_server_key_sha" ] || fail "server key changed"
+[ "$(sha < "$restored_bundle/keys/feedback-auth")" = "$source_feedback_key_sha" ] || fail "Feedback key changed"
+[ "$(stat -c %a "$restored_bundle" 2>/dev/null || stat -f %Lp "$restored_bundle")" = 700 ] || fail "bundle mode"
+node - "$bundle" "$restored_bundle" "$restore_project" <<'NODE'
+const fs=require("fs");const path=require("path");const [source,destination,project]=process.argv.slice(2);
+const read=(root,file)=>fs.readFileSync(path.join(root,file),"utf8");
+const fail=message=>{console.error(message);process.exit(1);};
+const sourceState=JSON.parse(read(source,"bundle.json"));
+const restoredState=JSON.parse(read(destination,"bundle.json"));
+const env=read(destination,"compose.env");
+if(restoredState.binding.project!==project||!env.includes(`COMPOSE_PROJECT_NAME=${project}\n`)||!env.includes(`COMPLETION_PRIVATE_DIR=${destination}\n`))fail("active package binding does not match destination");
+if(JSON.stringify(sourceState.previous.trees)!==JSON.stringify(restoredState.previous.trees))fail("active generation tree digests changed during restore");
+for(const target of ["auth","transport","trust","health","keys"])
+  if(read(source,`${target}/.ready`)!==read(destination,`${target}/.ready`))fail(`active ${target} tree marker changed during restore`);
+const generations=fs.readdirSync(path.join(destination,".generations")).sort();
+if(!generations.includes("2"))fail("previous generation 2 is missing after restore");
+for(const generation of generations) {
+  const relative=`.generations/${generation}/meta.json`;
+  const sourceMeta=JSON.parse(read(source,relative));
+  const meta=JSON.parse(read(destination,relative));
+  if(meta.binding.project!==project)fail("history generation project binding mismatch");
+  meta.binding.project=sourceMeta.binding.project;
+  if(JSON.stringify(meta)!==JSON.stringify(sourceMeta))fail("history metadata changed beyond its project binding");
+  for(const target of ["auth","transport","trust","health","keys"])
+    if(read(source,`.generations/${generation}/${target}/.ready`)!==read(destination,`.generations/${generation}/${target}/.ready`))fail(`history ${target} tree marker changed during restore`);
+}
+NODE
+[ "$(tar -C "$bundle" -cf - . | sha)" = "$source_bundle_sha" ] || fail "source bundle changed during restore"
+
+# Roll back the restored package, then repeat preparation and rotation under the
+# destination project. The history must keep its target tree digests and binding.
+node "$root/scripts/completion/prepare.mjs" --directory "$restored_bundle" --inputs "$mail/inputs.json" --project "$restore_project" --origin https://demo.invalid --cookie-mode secure --rollback >/dev/null
+node - "$restored_bundle" "$restore_project" <<'NODE'
+const fs=require("fs");const [bundle,project]=process.argv.slice(2);
+const state=JSON.parse(fs.readFileSync(`${bundle}/bundle.json`,`utf8`));
+const env=fs.readFileSync(`${bundle}/compose.env`,`utf8`);
+if(state.binding.project!==project||!env.includes(`COMPOSE_PROJECT_NAME=${project}\n`))process.exit(1);
+NODE
+cp "$tmp/base-inputs.json" "$mail/inputs.json"
+chmod 600 "$mail/inputs.json"
+restore_prepare=(--directory "$restored_bundle" --inputs "$mail/inputs.json" --project "$restore_project" --origin https://demo.invalid --cookie-mode secure)
+node "$root/scripts/completion/prepare.mjs" "${restore_prepare[@]}" >/dev/null
+node "$root/scripts/completion/prepare.mjs" "${restore_prepare[@]}" --rotate-leaf >/dev/null
+node "$root/scripts/completion/prepare.mjs" "${restore_prepare[@]}" >/dev/null
+[ "$(tar -C "$bundle" -cf - . | sha)" = "$source_bundle_sha" ] || fail "rollback or rotation changed the source bundle"
 
 # A second restore into the now non-empty project is refused and changes nothing.
-before=$(docker run --rm --network none -v "$volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json' | sha)
-refused "restore into a non-empty project" "$root/scripts/completion/restore.sh" --project "$project" --bundle-dir "$tmp/another" --from "$out" --keys-from "$keys_out" --key-file "$key"
+before=$(docker run --rm --network none -v "$restore_volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json' | sha)
+refused "restore into a non-empty project" "$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$tmp/another" --from "$out" --keys-from "$keys_out" --key-file "$key"
 [ ! -e "$tmp/another" ] || fail "non-empty project: a bundle was created"
-after=$(docker run --rm --network none -v "$volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json' | sha)
+after=$(docker run --rm --network none -v "$restore_volume:/data:ro" "$alpine" sh -c 'cat /data/auth.json' | sha)
 [ "$before" = "$after" ] || fail "the volume changed"
 
 # Backup input checks.

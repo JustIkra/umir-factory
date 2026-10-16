@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Restores a backup made by backup.sh into an EMPTY project.
+# Restores a backup made by backup.sh into an EMPTY completion project. The
+# destination project and private bundle path may differ from the source.
 #
 #   restore.sh --project umir-completion-<name> --bundle-dir <new dir>
 #              --from <backup dir> [--keys-from <dir>] --key-file <file>
@@ -49,7 +50,8 @@ if docker volume inspect "$volume" >/dev/null 2>&1; then die "volume $volume exi
 [ -f "$from/manifest.json" ] || die "no manifest.json in $from"
 read_manifest() { node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const v=process.argv[2].split(".").reduce((o,k)=>o?.[k],m);if(v===undefined)process.exit(3);process.stdout.write(String(v))' "$from/manifest.json" "$1"; }
 [ "$(read_manifest format)" = 1 ] || die "unknown manifest format"
-[ "$(read_manifest project)" = "$project" ] || die "the backup belongs to another project"
+source_project=$(read_manifest project)
+[[ "$source_project" =~ ^umir-completion-[a-z0-9-]{1,40}$ ]] || die "the backup has an invalid source project"
 data_file=$from/$(read_manifest data.file)
 keys_file=$keys_from/$(read_manifest keys.file)
 case "$(read_manifest data.file)$(read_manifest keys.file)" in */*|*..*) die "unsafe file name in the manifest" ;; esac
@@ -80,17 +82,88 @@ decrypt "$keys_file" "$work/bundle.tar" || die "cannot decrypt the key archive (
 [ "$(file_sha "$work/auth-state.tar")" = "$(read_manifest data.plainSha256)" ] || die "the decrypted data archive does not match the manifest"
 [ "$(file_sha "$work/bundle.tar")" = "$(read_manifest keys.plainSha256)" ] || die "the decrypted key archive does not match the manifest"
 
+# Stage and validate the package before creating destination resources. Rebind
+# only the Compose project and private directory; service URLs and certificate
+# names are service-scoped (auth/transport), not project-scoped.
+mkdir -m 700 "$work/bundle"
+tar -xpf "$work/bundle.tar" -C "$work/bundle"
+chmod 700 "$work/bundle"
+node - "$work/bundle" "$source_project" "$project" "$bundle_dir" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const crypto = require("node:crypto");
+const [directory, sourceProject, destinationProject, destinationBundle] = process.argv.slice(2);
+const fail = (message) => { throw new Error(message); };
+const sha = (body) => crypto.createHash("sha256").update(body).digest("hex");
+function inventory(root, prefix = "") {
+  return fs.readdirSync(path.join(root, prefix)).sort().flatMap((name) => {
+    if (!prefix && [".generations", ".next"].includes(name)) return [];
+    const relative = path.join(prefix, name);
+    const full = path.join(root, relative);
+    const stat = fs.lstatSync(full);
+    if (stat.isSymbolicLink()) fail("the private bundle contains a symbolic link");
+    if (stat.isDirectory()) return inventory(root, relative);
+    if (!stat.isFile() || stat.nlink !== 1 || (stat.mode & 0o777) !== 0o600)
+      fail("the private bundle has an unsafe file or mode");
+    return relative === "bundle.json" ? [] : [{ path: relative, sha256: sha(fs.readFileSync(full)) }];
+  });
+}
+const bundlePath = path.join(directory, "bundle.json");
+const envPath = path.join(directory, "compose.env");
+const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+if (!bundle.binding || bundle.binding.project !== sourceProject)
+  fail("the package project does not match the backup manifest");
+if (Number.isInteger(bundle.previous?.generation) &&
+    !fs.existsSync(path.join(directory, ".generations", String(bundle.previous.generation), "meta.json")))
+  fail("the backup is missing its referenced previous generation");
+const actualFiles = inventory(directory);
+if (!Array.isArray(bundle.files) || JSON.stringify(bundle.files) !== JSON.stringify(actualFiles))
+  fail("the private bundle does not match its integrity inventory");
+const generationsDirectory = path.join(directory, ".generations");
+if (fs.existsSync(generationsDirectory)) {
+  for (const generation of fs.readdirSync(generationsDirectory).sort()) {
+    if (!/^\d+$/.test(generation)) fail("the private bundle has an invalid generation entry");
+    const generationPath = path.join(generationsDirectory, generation);
+    const generationStat = fs.lstatSync(generationPath);
+    if (generationStat.isSymbolicLink() || !generationStat.isDirectory())
+      fail("a previous generation is not a regular directory");
+    const metaPath = path.join(generationPath, "meta.json");
+    const metaStat = fs.lstatSync(metaPath);
+    if (metaStat.isSymbolicLink() || !metaStat.isFile() || metaStat.nlink !== 1 || (metaStat.mode & 0o777) !== 0o600)
+      fail("a previous generation has unsafe metadata");
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+    if (String(meta.generation) !== generation || meta.binding?.project !== sourceProject)
+      fail("a previous generation does not match the source project");
+    meta.binding.project = destinationProject;
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), { mode: 0o600 });
+  }
+}
+let env = fs.readFileSync(envPath, "utf8");
+function envValue(name) {
+  const lines = env.split("\n").filter((line) => line.startsWith(`${name}=`));
+  if (lines.length !== 1) fail(`compose.env must contain one ${name}`);
+  return lines[0].slice(name.length + 1);
+}
+if (envValue("COMPOSE_PROJECT_NAME") !== sourceProject || !path.isAbsolute(envValue("COMPLETION_PRIVATE_DIR")))
+  fail("compose.env does not match the source package");
+if ([destinationBundle, destinationProject].some((item) => /[\r\n\0$]/.test(item)))
+  fail("destination contains characters that cannot be stored in compose.env");
+env = env.split("\n").map((line) => {
+  if (line.startsWith("COMPOSE_PROJECT_NAME=")) return `COMPOSE_PROJECT_NAME=${destinationProject}`;
+  if (line.startsWith("COMPLETION_PRIVATE_DIR=")) return `COMPLETION_PRIVATE_DIR=${destinationBundle}`;
+  return line;
+}).join("\n");
+fs.writeFileSync(envPath, env, { mode: 0o600 });
+bundle.binding.project = destinationProject;
+bundle.files = inventory(directory);
+fs.writeFileSync(bundlePath, JSON.stringify(bundle, null, 2) + "\n", { mode: 0o600 });
+NODE
+
 docker volume create --label "com.docker.compose.project=$project" --label com.docker.compose.volume=auth-state "$volume" >/dev/null
 created_volume=true
 docker run --rm --network none -v "$volume:/data" -v "$work:/in:ro" "$alpine" tar -xpf /in/auth-state.tar -C /data
 
-mkdir -m 700 "$bundle_dir"
 created_dir=true
-tar -xpf "$work/bundle.tar" -C "$bundle_dir"
-chmod 700 "$bundle_dir"
-# compose.env and the integrity list of the bundle name the directory: it must be
-# restored where it was (prepare.mjs refuses a bundle that changed).
-recorded=$(sed -n 's/^COMPLETION_PRIVATE_DIR=//p' "$bundle_dir/compose.env")
-[ "$recorded" = "$bundle_dir" ] || die "the bundle was made in $recorded; restore it to that path"
+mv "$work/bundle" "$bundle_dir"
 
-echo "restore.sh: restored $volume and $bundle_dir (backup of $(read_manifest createdAt))"
+echo "restore.sh: restored $volume and $bundle_dir (source $source_project; backup of $(read_manifest createdAt))"
