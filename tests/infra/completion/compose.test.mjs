@@ -240,3 +240,63 @@ test("compose.sh runs Compose for a bundle and refuses `config` without --quiet"
   assert.equal(spawnSync("sh", [script], { encoding: "utf8" }).status, 2);
   assert.equal(run("config", "--quiet").stdout.includes("key"), false);
 });
+
+const longLived = ["transport", "transport-ready", "auth", "auth-ready", "warehouse", "serving", "gateway", "frontend", "feedback"];
+
+test("every long-lived service is read-only, unprivileged and bounded in memory, processes and logs", (t) => {
+  const model = composeJSON(["compose.completion.yaml"], {
+    envFile: completionEnv(t),
+    profiles: ["feedback"],
+  });
+  for (const name of longLived) {
+    const service = model.services[name];
+    assert.ok(service, name);
+    assert.equal(service.read_only, true, `${name} read_only`);
+    assert.deepEqual(service.cap_drop, ["ALL"], `${name} cap_drop`);
+    assert.ok(service.security_opt.includes("no-new-privileges:true"), `${name} no-new-privileges`);
+    assert.ok(Number(service.mem_limit) > 0, `${name} mem_limit`);
+    assert.ok(Number(service.pids_limit) > 0, `${name} pids_limit`);
+    assert.equal(service.logging?.driver, "json-file", `${name} logging`);
+    assert.equal(service.logging.options["max-size"], "10m");
+    assert.equal(service.logging.options["max-file"], "3");
+    assert.match(String(service.user), /^[1-9]\d*(:[1-9]\d*)?$/, `${name} runs as a named non-root user`);
+    assert.ok(service.restart === "unless-stopped", `${name} restart`);
+  }
+  const mb = (name) => Number(model.services[name].mem_limit) / 1048576;
+  assert.deepEqual(
+    Object.fromEntries(["auth", "gateway", "warehouse", "serving", "frontend", "transport", "feedback"].map((n) => [n, mb(n)])),
+    { auth: 256, gateway: 256, warehouse: 512, serving: 256, frontend: 64, transport: 64, feedback: 128 },
+  );
+  // The one-shot job cannot be read-only-free either: no network, only the capabilities it needs.
+  const init = model.services["private-init"];
+  assert.equal(init.network_mode, "none");
+  assert.deepEqual(init.cap_drop, ["ALL"]);
+  assert.deepEqual([...init.cap_add].sort(), ["CHOWN", "DAC_OVERRIDE", "FOWNER"]);
+  assert.ok(init.security_opt.includes("no-new-privileges:true"));
+});
+
+test("the transport has a TLS health check that Auth waits for, and the front network holds only Gateway and Frontend", (t) => {
+  const model = composeJSON(["compose.completion.yaml"], {
+    envFile: completionEnv(t),
+    profiles: ["feedback"],
+  });
+  const health = model.services["transport-ready"];
+  assert.deepEqual(health.healthcheck.test.slice(0, 3), ["CMD", "node", "/transport-health.mjs"]);
+  assert.ok(health.healthcheck.test.includes("8442") && health.healthcheck.test.includes("8445"));
+  assert.equal(model.services.auth.depends_on["transport-ready"].condition, "service_healthy");
+  assert.equal(health.depends_on.transport.condition, "service_started");
+
+  const networks = (name) => Object.keys(model.services[name].networks ?? { default: null }).sort();
+  assert.deepEqual(networks("frontend"), ["edge", "front"]);
+  assert.deepEqual(networks("gateway"), ["default", "front"]);
+  for (const name of Object.keys(model.services))
+    if (!["frontend", "gateway"].includes(name))
+      assert.ok(!networks(name).includes("front"), `${name} must not join front`);
+  assert.equal(model.networks.front.internal, true);
+  const subnet = model.networks.front.ipam.config[0].subnet;
+  assert.match(subnet, /^172\.29\.16\.0\/24$/);
+  // Not ZeroTier (172.25.222.0/24) and not docker0 (172.17.0.0/16).
+  assert.ok(!subnet.startsWith("172.25.222.") && !subnet.startsWith("172.17."));
+  // The frontend is not on `default`, where Warehouse's internal listener is.
+  assert.ok(!networks("frontend").includes("default"));
+});

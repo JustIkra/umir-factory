@@ -1,10 +1,29 @@
 name: ${COMPOSE_PROJECT_NAME:?prepare a completion bundle}
 x-umir-completion-profile: FIN1
+# Limits shared by the long-lived services (README: Hardening and resource budgets).
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   private-init:
     image: alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
     user: "0:0"
     network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    # Only what copying files into the volumes as root needs: chown, chmod of
+    # files owned by others, and reading 0600 files of the host user.
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
     volumes:
       - ${COMPLETION_PRIVATE_DIR:?prepare private inputs}:/bootstrap:ro
       - auth-config:/targets/auth
@@ -142,6 +161,11 @@ services:
         done
 
   transport:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 128
+    tmpfs: [/tmp, /var/cache/nginx:mode=1777]
     image: nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:56b8272e43a0525f67aed68d1e0794a712d10e3e45a563e118e9a77c817e6f86
     user: "65532:65532"
     entrypoint: [nginx]
@@ -158,7 +182,38 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # The transport has no tools to check itself (nginx image), so this job makes a
+  # verified TLS handshake on each port; Auth waits for it. The backends behind
+  # the transport start later and are not needed for it.
+  transport-ready:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 64
+    tmpfs: [/tmp]
+    image: node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+    user: "65532:65532"
+    command: [node, -e, "setInterval(() => {}, 60000)"]
+    volumes:
+      - health-config:/run/auth-health:ro
+      - ./scripts/completion/transport-health.mjs:/transport-health.mjs:ro
+    depends_on:
+      transport:
+        condition: service_started
+    healthcheck:
+      test: [CMD, node, /transport-health.mjs, transport, "8442", "8443", "8444", "8445", --ca, /run/auth-health/ca.crt]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 3s
+    restart: unless-stopped
+
   auth:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_AUTH_IMAGE:?prepare image identities}
     environment:
       TZ: Europe/Moscow
@@ -172,11 +227,16 @@ services:
     depends_on:
       private-init:
         condition: service_completed_successfully
-      transport:
-        condition: service_started
+      transport-ready:
+        condition: service_healthy
     restart: unless-stopped
 
   auth-ready:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 64
+    tmpfs: [/tmp]
     image: node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
     user: "65532:65532"
     command: [node, -e, "setInterval(() => {}, 60000)"]
@@ -195,6 +255,11 @@ services:
     restart: unless-stopped
 
   warehouse:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 512m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_WAREHOUSE_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/warehouse.env
@@ -214,6 +279,11 @@ services:
     restart: unless-stopped
 
   serving:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_SERVING_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/serving.env
@@ -235,6 +305,11 @@ services:
     restart: unless-stopped
 
   gateway:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_GATEWAY_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/gateway.env
@@ -251,6 +326,7 @@ services:
       LISTEN_HOST: 0.0.0.0
       PRIVATE_LISTEN_HOST: 0.0.0.0
       PRIVATE_PORT: "8086"
+    networks: [default, front]
     volumes:
       - trust-config:/run/trust:ro
     depends_on:
@@ -263,16 +339,27 @@ services:
     restart: unless-stopped
 
   frontend:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    user: "101:101"
+    pids_limit: 128
+    tmpfs: [/tmp, /var/cache/nginx:mode=1777]
     image: ${COMPLETION_FRONTEND_IMAGE:?prepare image identities}
     ports:
       - "${COMPLETION_BIND:-127.0.0.1}:${COMPLETION_WEB_PORT:-8080}:8080"
-    networks: [default, edge]
+    networks: [front, edge]
     depends_on:
       gateway:
         condition: service_healthy
     restart: unless-stopped
 
   feedback:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 128m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     profiles: [feedback]
     image: ${COMPLETION_FEEDBACK_IMAGE:-}
     env_file:
@@ -300,6 +387,15 @@ services:
 networks:
   default:
     internal: true
+  # Only Gateway and Frontend: the browser-facing Nginx cannot reach the private
+  # listeners of Warehouse and the others. The subnet is fixed so that it cannot
+  # overlap the lab ZeroTier network (172.25.222.0/24) or docker0 (172.17.0.0/16);
+  # set UMIR_FRONT_SUBNET to move it.
+  front:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${UMIR_FRONT_SUBNET:-172.29.16.0/24}
   mail:
   edge:
 
