@@ -28,13 +28,33 @@ FIN1 source profile закреплён в `scripts/completion/sources.json`. `co
 
 Минимальный М6 использует фиксированное окно 7×24 часа, порог покрытия 3 дня и цель 7 дней. Рекомендации FIN1 учитывают срок, количество под риском и спрос; обе операции показывают неполную историю явно и не создают закупку. Количества сохраняют точность целых тысячных. Контракт и правила расчёта находятся в [FIN1 supplement](docs/completion-api-amendment.md).
 
-Форматы C2/UA1, прежние manifests и evidence остаются историческими артефактами своих профилей. `compose.yaml` пока закрепляет опубликованный legacy compatibility profile. Он не является новой Auth-сборкой и не доказывает её готовность. Текущий принятый FIN1 profile использует отдельный явный файл `compose.completion.yaml` и pins в `scripts/completion/sources.json`. `compose.yaml` сохраняет прежний compatibility profile со своей историей проверок.
+Форматы C2/UA1, прежние manifests и evidence остаются историческими артефактами своих профилей. `compose.yaml` пока закрепляет опубликованный legacy compatibility profile (подробнее — в разделе [Профили и контракты](#профили-и-контракты)). Он не является новой Auth-сборкой и не доказывает её готовность. Текущий принятый FIN1 profile использует отдельный явный файл `compose.completion.yaml` и pins в `scripts/completion/sources.json`. `compose.yaml` сохраняет прежний compatibility profile со своей историей проверок.
 
 ## Доставка текущей версии
 
 15.10.2026 (Europe/Moscow) по поручению пользователя опубликованы пять точных image SHA/digest и запущен FIN1 на [существующем HTTPS-стенде](https://xn----ctbhsteek4c3c.empty-lab.ru). Main CI опубликованных ревизий пяти сервисов и развёрнутого recipe Factory прошли. [Манифест доставки](docs/completion-stand.json) фиксирует исходники, registry index/platform/config digests и границы проверки. Вход с secure cookie, seed/repeat, основной бизнес-сценарий, SSE refresh/change и минутный background refetch проверены через HTTPS. Приглашение и OTP реально доставлены из production Auth с первой попытки; получатель подтвердил оба письма. Регистрация по коду завершена; свежий вход официанта, меню/рекомендации/SSE прошли, чтение склада отклонено с 403. Ранний отказ соединения при повторной проверке не воспроизвёлся; настройки сети не менялись. Доставка сохраняет private inputs и Auth volume; Warehouse/Serving reseed выполняется через публичные API. Старые backlog и отдельные проекты аналитики/observability не входят в этот пакет.
 
 Бизнес-правила исходного ядра описаны в [docs/business-core.md](docs/business-core.md), scoped wire contracts — в [docs/api](docs/api/backend-v2.md), выбранные изменения — в FIN1 supplement. При расхождении описаний приоритет имеет соответствующий контракт. Межмодульные, HTTP и браузерные проверки подтверждают разные уровни поведения; старое evidence не переименовывают в новый PASS.
+
+## Профили и контракты
+
+Здесь собраны все запуски фабрики: для каждого указан контракт, который его описывает, и кто этим контрактом пользуется. Если описания расходятся, верен канонический контракт из этой таблицы. Для развёртывания канонический контракт один: `docs/api/registration-v1-composed-public.json` и `docs/api/registration-v1-composed-private.json` (REG1). Он надстраивается над `completion-v1-composed-*` (FIN1), а тот — над `ui-amendment-v1-composed-*` (UA1) и `backend-v2-*` (C2). Эти более ранние файлы остаются историческими артефактами своих профилей и входят в состав REG1; их проверяют, но по ним не разворачивают.
+
+| Профиль | Канонический контракт | Кто потребляет |
+| --- | --- | --- |
+| `compose.completion.yaml` (выбранный запуск REG1 с политикой FIN1) | `docs/api/registration-v1-composed-public.json` и `-private.json`: канонический контракт для развёртывания | Auth, Gateway, Warehouse, Serving и Frontend выбранного стенда; контрактные проверки `tests/http` (`make check-contract`); приёмка и seed из `tests/examples/completion` |
+| `compose.completion.build.yaml` (добавляется к `compose.completion.yaml` только для `build`) | тот же контракт REG1 | разработчики, собирающие точные исходники из `--sources` |
+| `compose.yaml` (legacy-сборка с опубликованными образами) | `docs/api/openapi.yml` (`1.1.0-draft.1`, один оператор), `warehouse-public.yml`, `warehouse-internal.yml`: исторические контракты | образы legacy-сборки, `check-images`, `smoke`, `http-acceptance`, `scripts/verify-assembly.sh` |
+| `compose.dev.yaml` (добавляется к `compose.yaml`) | те же исторические контракты | разработчики с соседними checkout gateway, serving, warehouse и frontend |
+| `compose.auth.yaml` (кандидат с входом оператора, добавляется к `compose.yaml`) | `docs/api/openapi.yml`: исторический | `http-acceptance --candidate --auth` |
+| `compose.legacy-public.yaml` (открывает порт gateway legacy-сборки) | нет собственного контракта; действует `docs/api/openapi.yml` | только изолированные сети, см. раздел про настройки запуска |
+| `compose.feedback.yaml` (кандидат Feedback) | `POST /api/feedback` в `docs/api/openapi.yml`: исторический; в профиле `compose.completion.yaml` Feedback включается отдельным профилем | Gateway и umir-feedback |
+
+Безопасный путь запуска стенда — `compose.completion.yaml`. Остальные файлы нужны для проверок и для истории. `docs/observability.md` остаётся предложением и профилям не принадлежит.
+
+### Часы и одна ВМ (R12)
+
+Требование R12: все сервисы работают на одной ВМ или на машинах с синхронизированными часами, потому что допуск на расхождение `iat` (времени выпуска токена) нулевой. Если часы расходятся, запросы между сервисами могут отклоняться; допуск мы не вводим и срок токена не ослабляем. Выбранный стенд запускает все сервисы на одной ВМ.
 
 ## Бизнес-ядро и разработка
 
@@ -44,7 +64,7 @@ FIN1 source profile закреплён в `scripts/completion/sources.json`. `co
 
 | Область | Рекомендуется организаторами | Используется в проекте |
 | --- | --- | --- |
-| Backend | C#/.NET/ASP.NET, Java, Go | Go, net/http, хранилища в памяти |
+| Backend | C#/.NET/ASP.NET, Java, Go | Go, net/http; Warehouse и Serving держат данные в памяти процесса, Auth хранит своё состояние на постоянном томе |
 | Frontend | JavaScript или TypeScript со SCSS, React, Chakra | В FIN1 candidate TypeScript, React/Vite и Chakra UI с существующей темой. SCSS установлен, но не используется. |
 | Типы и тесты frontend | Конкретные инструменты не заданы | TypeScript, ESLint, dependency-cruiser, pinned Bun, генерация OpenAPI-типов и runtime-декодеры. Браузерная приёмка проходит через реальные сервисы. |
 | Проверка и сборка системы | Конкретные инструменты не заданы | Go/race и HTTP-проверки фабрики, Docker Compose, Nginx, GitHub Actions |
@@ -61,7 +81,7 @@ FIN1 source profile закреплён в `scripts/completion/sources.json`. `co
 | serving | Потребительские порты, предложения, подтверждение, меню, стоп-лист, рекомендации, in-memory ProposalStore | Собственные Go-тесты сценариев и переходов предложения. |
 | factory | Три Go-модуля: сборочный runner, совместные business-проверки и HTTP-приёмка | Сценарии двух Runtime, реальные HTTP-процессы, сетевые сбои и точные identities сборки. |
 | gateway | Proxy публичного HTTP API с конечными бюджетами и graceful shutdown | Тесты маршрутизации, таймаутов и завершения; приёмка реальной сборки через публичный gateway. |
-| frontend | Существующая точка входа; OpenAPI v1 задаёт схему API | Текущая сборка Vite; экраны и браузерные сценарии ещё впереди. |
+| frontend | Существующая точка входа и первая схема API | Сборка Vite; экраны ролей, вход через Auth и браузерная приёмка появились позже и описаны в README frontend. |
 
 Совместная проверочная сборка находится в `tests/business`; её bridge связывает публичные contract/bootstrap двух сервисов и явно переводит значения. Сервисные модули независимы; приложение serving не импортирует warehouse. Автономный модуль `tools/assembly-checks` предоставляет команды `business`, `check-images`, `smoke` и `http-acceptance` на Go. Реальный HTTP harness находится в отдельном модуле `tests/http`:
 
@@ -175,7 +195,7 @@ make check
 
 Operator routes describe frontend proxy failures as 502 `UpstreamUnavailable` and 504 `UpstreamTimeout`. GET responses use `outcome: unavailable`; modifying requests use `outcome: unknown`. A lost response does not prove that the account or session stayed unchanged. Resolve a lost display-name response with `/api/operator/me`, and a lost password response by signing in. The proxy does not retry modifying requests.
 
-[OpenAPI v1](docs/api/openapi.yml), revision `1.1.0-draft.1`, defines the public gateway contract for 15 business operations, three health routes, operator account routes and the public `POST /api/feedback` boundary. The current auth candidate serves the implemented account/session and feedback operations; the selected images retain their earlier draft.2 behavior. Revision 1.1.0-draft.1 also specifies candidate-dependent `GET /api/live`, `X-Umir-Activity` and strict SSE event/error schemas; selected images do not implement these additions. The auth service extraction remains gateway #18 owner work. Real gateway, serving and warehouse processes exchange business requests over HTTP. Business values use bounded decimal strings and Moscow `+03:00` timestamps; serving recipe/order DTOs map to wire `ingredients` and `acceptedPositions`. [The public warehouse service contract](docs/api/warehouse-public.yml) defines `POST /expiration-runs` on the private Compose listener. It has no gateway/browser route, and `/api/warehouse/expiration-runs` returns 404. [The internal warehouse contract](docs/api/warehouse-internal.yml), revision `1.0.1-draft.1`, defines the private serving-to-warehouse listener and recorded command/attempt results. It references common scalar schemas in `openapi.yml`; distribute the referenced documents or bundle them. API revisions are separate from service releases and selected image pins. These local drafts are contracts, not claims that selected images implement their candidate-only features.
+Это исторический контракт legacy-сборки `compose.yaml`: для развёртывания действует `registration-v1-composed-*` (см. [Профили и контракты](#профили-и-контракты)). [OpenAPI v1](docs/api/openapi.yml), revision `1.1.0-draft.1`, defines the historical public gateway contract of that legacy assembly for 15 business operations, three health routes, operator account routes and the public `POST /api/feedback` boundary. The current auth candidate serves the implemented account/session and feedback operations; the selected images retain their earlier draft.2 behavior. Revision 1.1.0-draft.1 also specifies candidate-dependent `GET /api/live`, `X-Umir-Activity` and strict SSE event/error schemas; selected images do not implement these additions. The auth service extraction remains gateway #18 owner work. Real gateway, serving and warehouse processes exchange business requests over HTTP. Business values use bounded decimal strings and Moscow `+03:00` timestamps; serving recipe/order DTOs map to wire `ingredients` and `acceptedPositions`. [The public warehouse service contract](docs/api/warehouse-public.yml) defines `POST /expiration-runs` on the private Compose listener. It has no gateway/browser route, and `/api/warehouse/expiration-runs` returns 404. [The internal warehouse contract](docs/api/warehouse-internal.yml), revision `1.0.1-draft.1`, defines the private serving-to-warehouse listener and recorded command/attempt results. It references common scalar schemas in `openapi.yml`; distribute the referenced documents or bundle them. API revisions are separate from service releases and selected image pins. These local drafts are contracts, not claims that selected images implement their candidate-only features.
 
 Data and confirmation attempts stay in process memory. Restarts lose the state owned by the restarted service; a missing proposal has outcome `unknown`. Resolve is passive and exact retries replay saved results. `ProposalSuperseded` is a normal HTTP 200 result; pending uses 202 and command identity conflicts use 409. Invalid read input returns `unavailable`, rejected modifying input returns `not_committed` for that input, and invalid Resolve input leaves the original confirmation `unknown`. A valid Resolve can replay a saved owner refusal as `not_committed`. Missing warehouse dishes can return a cached `DishNotFound` refusal after a warehouse memory reset. Inventory and transport failures on write paths keep outcome `unknown`. Preparation first evaluates stock through the non-mutating internal `POST /order-evaluations`; its authoritative read errors use `unavailable`, and no proposal is created. A repeated preparation creates a new proposal ID.
 
@@ -215,11 +235,80 @@ Re-running preparation validates the original bundle and preserves every credent
 
 For a target whose registry access is unavailable, pull the published `linux/amd64` images on a trusted delivery host, verify OCI source/revision and registry platform/config digests, and transfer a `docker image save --platform linux/amd64` archive over host-key-pinned SSH. Load the archive, then verify the same platform digest references and OCI labels on the target. Use a separate image env override with `ghcr.io/...@sha256:<platform-digest>` after the immutable bundle env. Start with `--pull never`; a missing exact image must fail. Keep host-path/bind overrides in another private env file. Do not replace the bundle, use local build identities as published images, or expose backend ports. Retain the deployment archive, hashes and original private files.
 
-Account creation uses invitations and email OTP. The public chain is `POST /api/v2/orgs/{orgID}/invitations`, `POST /api/v2/invitations/{invitationID}/challenges`, `POST /api/v2/challenges/{challengeID}/verify`, and `POST /api/v2/challenges/{challengeID}/complete`. The initial operator comes from private bootstrap inputs. There is no public self-signup `/register` route. Test-account passwords stay in private files and never enter this receipt or repository. SMTP must be reachable from the deployed Auth network before invitation/OTP acceptance.
+Account creation uses invitations and email OTP. The public chain is `POST /api/v2/orgs/{orgID}/invitations`, `POST /api/v2/invitations/{invitationID}/challenges`, `POST /api/v2/challenges/{challengeID}/verify`, and `POST /api/v2/challenges/{challengeID}/complete`. The initial operator comes from private bootstrap inputs. Public email registration is off by default and is enabled only by the private `registration.enabled` setting; its routes and limits are in the [REG1 supplement](docs/registration-api-amendment.md). The current stand has it enabled at the user’s request. Test-account passwords stay in private files and never enter this receipt or repository. SMTP must be reachable from the deployed Auth network before invitation/OTP acceptance.
 
-Feedback is opt-in with `--profile feedback`. Set `COMPLETION_FEEDBACK_IMAGE` to its reviewed exact image and `COMPLETION_FEEDBACK_ENV_FILE` to its existing private SMTP/Telegram configuration. Missing optional-provider inputs fail that service; the base demo has no readiness or dependency on it. With Feedback off, its endpoint reports unavailable rather than fabricated success. Auth invitation/OTP mail retains its separate SMTP configuration.
+Feedback is opt-in with `--profile feedback`. Its reviewed image pin is `optionalServices.feedback` in `scripts/completion/sources.json`; preparation writes `COMPLETION_FEEDBACK_SHA` and `COMPLETION_FEEDBACK_IMAGE` to the bundle `compose.env`, and Compose has no second copy of the pin. Set `COMPLETION_FEEDBACK_IMAGE` in the environment only to override it with another reviewed exact image. A bundle prepared before this pin existed keeps working while Feedback is off; to enable Feedback, run `prepare.mjs --update-images` once first (without it Compose reports that the Feedback service has no image). A Feedback checkout under `--sources` is verified only when its `feedback` directory exists. Set `COMPLETION_FEEDBACK_ENV_FILE` to its existing private SMTP/Telegram configuration. This profile keeps Feedback data in `feedback.json` on its own `feedback-state` volume, while the separate `compose.feedback.yaml` candidate uses `journal.jsonl` on `feedback-data`; the two volumes are never shared or mixed. Missing optional-provider inputs fail that service; the base demo has no readiness or dependency on it. With Feedback off, its endpoint reports unavailable rather than fabricated success. Auth invitation/OTP mail retains its separate SMTP configuration.
 
 The [stand receipt](docs/completion-stand.json) records the observed publication and HTTPS readback. Production invitation delivery, recipient OTP completion and a fresh Waiter login are verified. Menu, recommendations and SSE succeed; stock access returns 403. The selected FIN1 runtime profile is `compose.completion.yaml`, with exact source pins and published image digests recorded in the receipt. Historical compatibility-profile evidence remains separate from these FIN1 runtime observations.
+
+### Сертификаты, перенастройка и поколения пакета
+
+The private CA is valid for 10 years and the server certificate for 1 year, both with random serial numbers. `node scripts/completion/check-expiry.mjs --directory /absolute/private/umir-completion-stand` prints both end dates and exits with 3 when one ends within 30 days (`--warn-days` changes the limit, `--live host:port` also reads the certificate a running service shows). Changes to a prepared bundle use the same arguments as the first run plus exactly one of: `--rotate-leaf` (new server certificate under the same CA), `--rotate-ca --phase trust|serve|retire` (new CA in three steps; roll out each step to every service before the next), `--reconfigure` (after editing the private inputs: registration, SMTP files, origin and cookie mode; service keys, the first user and its password never change) and `--rollback` (a new generation with the content of the previous one). Each change is a new numbered generation, the earlier ones stay in `.generations/` inside the bundle, and a repeat without a flag changes nothing. To apply a new generation to a running stand, without removing any volume: run the change above, then
+
+```sh
+docker compose --env-file /absolute/private/umir-completion-stand/compose.env \
+  -f compose.completion.yaml up -d --force-recreate private-init
+docker compose --env-file /absolute/private/umir-completion-stand/compose.env \
+  -f compose.completion.yaml restart transport auth
+```
+
+`private-init` copies a newer generation into a staging directory of the volume, keeps the files it replaces in `.previous`, moves the new files in and writes the `.ready` marker last. It refuses a generation older than the one in the volume and the same number with other content, finishes a copy that was interrupted, and does nothing when the volume is already current. To go back, run the same command with `--rollback` and repeat the two steps above. For `--rotate-ca`, repeat the steps after each phase.
+
+### Ключи сервисов
+
+Ключи сервисов. Ключи Feedback лежат отдельными файлами (`keys/gateway-feedback`, `keys/feedback-auth`, права 0600) в томе `keys-config` и подключены к Feedback только на чтение; в `docker inspect` и `docker compose config` их нет. Ключи Warehouse, Serving и Gateway пока читаются из `env_file`: их образы ещё не умеют `*_FILE` (это делают группы этих сервисов), список записан в `tests/infra/completion/compose.test.mjs` и сокращается по мере перепина. Чтобы случайно не напечатать значения, запускайте Compose через `scripts/completion/compose.sh --bundle /absolute/private/umir-completion-stand ...`: команду `config` он принимает только с `--quiet`. Пакет, подготовленный до появления файлов ключей, продолжает работать при выключенном Feedback; чтобы включить Feedback, сделайте одну из операций (`--rotate-leaf`, `--reconfigure` или `--rollback`) и примените поколение, как описано выше: ключи переедут в `keys` с прежними значениями.
+
+### Усиление контейнеров и бюджеты ресурсов
+
+Усиление контейнеров. У всех долгоживущих сервисов `compose.completion.yaml` корневая файловая система только для чтения (для `/tmp` и кэша Nginx выделен `tmpfs`), `cap_drop: [ALL]`, `no-new-privileges`, непривилегированный пользователь, предел процессов и ротация журналов (`json-file`, 3 файла по 10 МБ). Исключений нет: все сервисы стартуют в таком виде, это проверено полным запуском. Разовое задание `private-init` работает без сети и получает только три права: `CHOWN`, `FOWNER`, `DAC_OVERRIDE` (раздать файлы пользователю 65532 и прочитать закрытые файлы пакета).
+
+| Сервис | `mem_limit` | `pids_limit` | Занято на демо-стенде (память, процессы) |
+| --- | --- | --- | --- |
+| auth | 256m | 256 | 124 МиБ, 9 |
+| gateway | 256m | 256 | 55 МиБ, 11 |
+| warehouse | 512m | 256 | 48 МиБ, 13 |
+| serving | 256m | 256 | 50 МиБ, 13 |
+| frontend | 64m | 128 | 17 МиБ, 9 |
+| transport | 64m | 128 | 16 МиБ, 9 |
+| feedback | 128m | 256 | стартовое значение, замер в артефакте CI |
+
+Замер сделан `docker stats` на пустом демо-стенде после запуска (образы amd64 на arm64 идут через эмуляцию); значения с запасом в два-четыре раза над замером. Пересмотрите их, если нагрузка выросла: цифры под нагрузкой собирает задание `completion-stand` в CI.
+
+### Границы доверия
+
+Границы доверия. Private-listener'ы Warehouse, Serving, Gateway и Feedback доступны только через `transport` по TLS, который проверяется по CA пакета; взаимный TLS (mTLS) не включён, это отдельное решение. Сеть `front` (внутренняя, подсеть `172.29.16.0/24`, меняется переменной `UMIR_FRONT_SUBNET` и не пересекается с ZeroTier `172.25.222.0/24` и docker0 `172.17.0.0/16`) объединяет только Gateway и Frontend; Frontend не видит `warehouse:8082`. Готовность транспорта проверяет задание `transport-ready` (`scripts/completion/transport-health.mjs`): рукопожатие TLS на портах 8442–8445 с проверкой имени и срока; Auth ждёт его. Бэкенды за транспортом в эту проверку не входят, функциональную проверку `/healthz` через транспорт выполняет `completion-acceptance`.
+
+### Резервная копия и восстановление
+
+Резервная копия и восстановление. Состояние Auth (`auth.json` и `owner-secrets`) и закрытый каталог пакета (ключи, сертификаты, пароль первого пользователя) копируются двумя разными зашифрованными архивами, которые нужно хранить в разных местах:
+
+```sh
+scripts/completion/backup.sh --project umir-completion-stand \
+  --bundle /absolute/private/umir-completion-stand \
+  --key-file /absolute/private/backup.key \
+  --out /absolute/backups/data --keys-out /absolute/other-place/keys
+```
+
+Скрипт останавливает только Auth на время копирования (не `down`) и запускает его снова, если он работал. Рядом с данными он пишет `manifest.json` (проект, время UTC, состояние Auth в момент копии, SHA-256 открытых и зашифрованных архивов отдельно для данных и для ключей) и `receipt.json`. В архив пакета не входит `.generations`: старые поколения повторяют старые ключи, а восстанавливается текущее поколение (откат `--rollback` после восстановления недоступен до первой новой операции). Шифрование — `openssl enc -aes-256-cbc -pbkdf2` с ключом из файла вне архива: OpenSSL есть на каждой ВМ и в образе Alpine, ничего не нужно ставить. Ограничения этого инструмента: он не проверяет подлинность сам, поэтому целостность держится на SHA-256 в манифесте (`restore.sh` сверяет их до и после расшифровки); ключ-файл (не короче 32 байт, права 0600) храните отдельно от архивов, без него данные не восстановить. Расписание: раз в сутки из cron на ВМ (рекомендация), цель восстановления — потеря не больше 24 часов (RPO), возврат за час (RTO); замер учения на копии демо-стенда делает `completion-acceptance`.
+
+Восстановление идёт только в пустой проект, в тот же путь пакета и с тем же именем проекта:
+
+```sh
+scripts/completion/restore.sh --project umir-completion-stand \
+  --bundle-dir /absolute/private/umir-completion-stand \
+  --from /absolute/backups/data --keys-from /absolute/other-place/keys \
+  --key-file /absolute/private/backup.key
+```
+
+Если том `<project>_auth-state` или контейнеры проекта уже есть, каталог пакета существует, ключ неверный, архив повреждён или манифест чужого проекта, скрипт отказывает и ничего не записывает. После него запустите стенд обычным `docker compose up`. `prepare.mjs --update-images` требует `--backup-receipt /absolute/backups/data/receipt.json`: квитанция не старше 24 часов, того же проекта, SHA-256 манифеста рядом с ней должен совпасть.
+
+### Проверка стенда целиком
+
+Проверка стенда целиком. `umir-checks completion-acceptance --factory-dir /absolute/umir-factory --evidence-dir /absolute/evidence` (сборка: `go -C tools/assembly-checks build`, `GOWORK=off`) поднимает отдельный проект `umir-completion-ci-<случайное>` и проходит весь путь: подготовка пакета, `up --wait`, демо-данные, функциональная проверка `/healthz` Warehouse и Serving через транспорт, смена серверного сертификата без удаления томов (имена и время создания `auth-state` и `auth-config` не меняются, прежняя сессия и новый вход работают), перенастройка с включением регистрации (затем сценарий регистрации проходит), откат, зашифрованная копия, удаление проекта, восстановление и вход с чтением данных. Время восстановления попадает в свидетельство `completion-acceptance-<base|feedback>.json` (без секретов). Если проект с другим префиксом, том не удаляется; после ошибки на любом шаге проект убирается. С `--feedback --feedback-source /absolute/umir-feedback` (чистый checkout на закреплённом коммите, образ собирается, потому что в реестре его нет) стенд поднимается и с Feedback. В CI это задание `completion-stand` (две записи матрицы), свидетельства сохраняются артефактами. Для Docker Desktop на arm64 образы amd64 идут через эмуляцию: на демо-стенде это занимает около трёх минут. Замер восстановления на этой машине: 41 секунда.
+
+### Образы закреплены дайджестами
+
+Every image of the profile is pinned by digest in `scripts/completion/images.lock.json`: the five services by `ghcr.io/justikra/umir-<service>:sha-<commit>@<platform digest>` and the helper images (`alpine`, `nginx-unprivileged`, `node`, `mailpit`) by `name:tag@sha256:<index digest>`, an index that serves amd64 and arm64. `go run . lock-images --factory-dir /absolute/umir-factory --verify` in `tools/assembly-checks` (with `GOWORK=off`) checks the lock against `sources.json` and the registry: the OCI `revision` label equals the source commit, the platform digest is in the index and the config digest matches. After a reviewed change of a source commit or a helper image, run it with `--write`, read the diff of the lock and commit it with the change; `check-images --lock` then confirms that every `image:` of `compose.completion.yaml` and of the test mail overlay carries a digest from the lock. Feedback is not published to the registry, so the lock records it as `unpublished` and it is run by its exact-source tag (build it from the checkout with `--sources`). A bundle prepared before the lock existed asks for a reviewed `--update-images` once.
 
 ## Опубликованный legacy compatibility profile
 
@@ -255,6 +344,8 @@ Compose наследует `HEALTHCHECK` из Dockerfile каждого серв
 | `UMIR_WEB_PORT` | `8080` |
 | `UMIR_API_PORT` | `8081` |
 
+`UMIR_BIND` задаёт адрес только для frontend. Порт gateway (`UMIR_API_PORT`) этой сборки всегда открыт на `127.0.0.1`: у неё нет входа, и бизнес-API на внешнем адресе доступен любому, кто до него дотянется. Открыть его осознанно можно только отдельным файлом, в изолированной сети: `docker compose -f compose.yaml -f compose.legacy-public.yaml up -d`. Безопасный способ запустить стенд с входом — `compose.completion.yaml`, он описан выше.
+
 ### Сборка с личным кабинетом оператора
 
 Кандидат с входом оператора собирается из исходников gateway и frontend с поддержкой кабинета: соседние checkout через `compose.dev.yaml` и `compose.auth.yaml` после него. Наружу публикуется только frontend, и только на `127.0.0.1`: `compose.auth.yaml` задаёт этот адрес сам, `UMIR_BIND` на него не влияет, а gateway всегда работает в режиме `loopback-development`. Это сборка для разработки и приёмки, её HTTP-вход не выходит за пределы машины. У gateway нет порта на хосте. Хэш пароля даёт образ gateway, пароль вводится в stdin и никуда не записывается:
@@ -273,23 +364,25 @@ docker compose -f compose.yaml -f compose.dev.yaml -f compose.auth.yaml up -d --
 
 ### Публичный контур
 
-Публичная сборка на ВМ ещё не развёрнута. Она появится вместе с переводом выбранных пинов на образы с входом оператора. Схема по gateway#8:
+Публичная сборка на ВМ развёрнута: 15.10.2026 на существующий HTTPS-стенд доставлен профиль `compose.completion.yaml` (REG1 с политикой FIN1), подробности — в [completion-stand.json](docs/completion-stand.json). Схема входа, по которой он устроен (gateway#8):
 - **HTTPS-вход.** Nginx Proxy Manager принимает HTTPS на 443 и завершает TLS. Его Proxy Host пересылает настроенный домен по сети ZeroTier на `http://<адрес ZeroTier ВМ>:8080`, то есть на frontend Nginx.
 - **Порты.** На ВМ порт хоста есть только у frontend: 8080 и только на адресе ZeroTier. У gateway, serving и warehouse портов на хосте нет.
 - **Режим gateway.** `OPERATOR_COOKIE_MODE=secure`, `OPERATOR_PUBLIC_ORIGIN=https://<домен в виде A-label>`. Cookie остаются `Secure` с префиксом `__Host-`, хотя внутренние участки идут по HTTP: защиту cookie и допустимый origin задаёт настройка, а не заголовки `X-Forwarded-*`.
 - **Повторы.** Ни NPM, ни frontend Nginx не повторяют запросы. Таймаут, разрыв или 502/504 после отправки означают неизвестный исход.
-- **Параметры.** Адрес ZeroTier и домен — параметры развёртывания, в репозитории их нет. Это переменные GitHub Actions `UMIR_BIND`, `UMIR_PUBLIC_URL`, `OPERATOR_PUBLIC_ORIGIN` и `OPERATOR_COOKIE_MODE`. `compose.auth.yaml` для ВМ не подходит: он всегда держит frontend на `127.0.0.1` в режиме `loopback-development`.
+- **Параметры.** Адрес ZeroTier и домен — параметры развёртывания, в репозитории их нет. Для `compose.completion.yaml` их задают при подготовке пакета (`--origin`) и в `COMPLETION_BIND`; legacy-сборка использует переменные GitHub Actions `UMIR_BIND`, `UMIR_PUBLIC_URL`, `OPERATOR_PUBLIC_ORIGIN` и `OPERATOR_COOKIE_MODE`. `compose.auth.yaml` для ВМ не подходит: он всегда держит frontend на `127.0.0.1` в режиме `loopback-development`.
 - **Проверка.** Локальные проверки Compose не доказывают публичный TLS и маршрут. Домен и сертификат проверяются отдельно, на самой ВМ.
 
 ## Локальная сборка исходников
 
-Из каталога, который содержит `umir-factory`, клонируйте остальные репозитории:
+Из каталога, который содержит `umir-factory`, клонируйте остальные репозитории (`umir-auth` и `umir-feedback` нужны профилю `compose.completion.yaml`, а не `compose.dev.yaml`):
 
 ```sh
 git clone https://github.com/JustIkra/umir-gateway.git
 git clone https://github.com/JustIkra/umir-serving.git
 git clone https://github.com/JustIkra/umir-warehouse.git
 git clone https://github.com/JustIkra/umir-frontend.git
+git clone https://github.com/JustIkra/umir-auth.git
+git clone https://github.com/JustIkra/umir-feedback.git
 cd umir-factory
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build --wait --wait-timeout 120
 ```
@@ -302,10 +395,12 @@ workspace/
 ├── umir-gateway/
 ├── umir-serving/
 ├── umir-warehouse/
-└── umir-frontend/
+├── umir-frontend/
+├── umir-auth/
+└── umir-feedback/
 ```
 
-Файл `compose.dev.yaml` использует соседние каталоги как контексты сборки, отдельные локальные теги `umir-<service>:dev` и pull_policy=build. Он не перезаписывает выбранные SHA-теги. Порты и сеть остаются такими же, как у опубликованной сборки.
+Файл `compose.dev.yaml` использует соседние каталоги gateway, serving, warehouse и frontend как контексты сборки, отдельные локальные теги `umir-<service>:dev` и pull_policy=build. Он не перезаписывает выбранные SHA-теги. Порты и сеть остаются такими же, как у опубликованной сборки.
 
 ## CI/CD и обновление образов
 
@@ -354,7 +449,7 @@ bash scripts/verify-assembly.sh --env-file .env.example
 | --- | --- |
 | README каждого репозитория | Используемый стек, требования и версии среды, установка, реальные команды разработки/проверок/сборки, архитектура, текущее состояние и эксплуатация. |
 | [Business core](docs/business-core.md) | Согласованные бизнес-правила, владельцы решений и приёмка. |
-| [Публичная OpenAPI](docs/api/openapi.yml), отдельный внутренний контракт в docs/api | Поля, маршруты, варианты результатов, ошибки и версии соответствующего HTTP API. Frontend использует публичную схему. |
+| Контракты в docs/api (канонические — по карте [Профили и контракты](#профили-и-контракты); `openapi.yml` и `warehouse-*.yml` — исторические контракты legacy-сборки) | Поля, маршруты, варианты результатов, ошибки и версии соответствующего HTTP API. Frontend использует публичную схему выбранного профиля. |
 | [Gateway/frontend handoff](docs/gateway-frontend-handoff.md) | Межсервисные границы, стек frontend, состояния клиента и интеграционные проверки. |
 | [Дизайн-бриф](docs/frontend-design-brief.md) | Визуальные решения, Figma, токены, доступность и критерии приёмки интерфейса. |
 | AGENTS.md | Короткие инструкции репозитория и ссылки на подробные документы. |
@@ -370,7 +465,7 @@ README и AGENTS ссылаются на канонические контрак
 
 ## Доступ и совместная работа
 
-- Все пять репозиториев публичные; issue включены.
+- Все семь репозиториев из таблицы выше публичные; issue включены.
 - Только `JustIkra` может обновлять main и объединять PR. Активный ruleset main имеет единственное исключение для его аккаунта.
 - `Kxqusos` добавлен во все репозитории с ролью write: работа в остальных ветках и PR.
 - Другие пользователи GitHub могут создать fork, рабочую ветку в нём и PR.

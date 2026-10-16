@@ -1,34 +1,179 @@
 name: ${COMPOSE_PROJECT_NAME:?prepare a completion bundle}
 x-umir-completion-profile: FIN1
+# Limits shared by the long-lived services (README: Hardening and resource budgets).
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   private-init:
-    image: alpine:3.23
+    image: alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0
     user: "0:0"
     network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    # Only what copying files into the volumes as root needs: chown, chmod of
+    # files owned by others, and reading 0600 files of the host user.
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
     volumes:
       - ${COMPLETION_PRIVATE_DIR:?prepare private inputs}:/bootstrap:ro
       - auth-config:/targets/auth
       - transport-config:/targets/transport
       - trust-config:/targets/trust
       - health-config:/targets/health
+      - keys-config:/targets/keys
+      - feedback-state:/state/feedback
     command:
       - sh
       - -ec
       - |
-        for name in auth transport trust health; do
-          if [ -e "/targets/$$name/.ready" ]; then
-            diff -rq "/bootstrap/$$name" "/targets/$$name" >/dev/null || exit 1
-          else
-            [ -z "$$(ls -A "/targets/$$name")" ] || exit 1
-            cp -R "/bootstrap/$$name/." "/targets/$$name/"
-            chown -R 65532:65532 "/targets/$$name"
-            find "/targets/$$name" -type d -exec chmod 700 {} +
-            find "/targets/$$name" -type f -exec chmod 600 {} +
+        set -u
+        B=/bootstrap
+        T=/targets
+
+        die() { echo "private-init: $$*" >&2; exit 1; }
+
+        # Files and directories of a target, relative to it, without the service
+        # directories (.previous, .previous.tmp, .next-*) that private-init keeps there.
+        list_files() {
+          ( cd "$$1" && find . \( -path ./.previous -o -path ./.previous.tmp -o -path './.next-*' \) -prune -o -type f -print | sed 's|^\./||' )
+        }
+        list_dirs() {
+          ( cd "$$1" && find . \( -path ./.previous -o -path ./.previous.tmp -o -path './.next-*' \) -prune -o -type d ! -path . -print | sed 's|^\./||' )
+        }
+
+        # SHA-256 of the listing "<sha256 of file>  <path>" over all files except the
+        # top-level .ready, sorted by path (the tree-sha256 of the .ready marker).
+        tree_sha() {
+          ( list_files "$$1" | grep -v '^[.]ready$$' | LC_ALL=C sort | { cd "$$1" && while read -r f; do sha256sum "$$f"; done; } | sha256sum | cut -d' ' -f1 )
+        }
+
+        # Reads a marker into RG (generation) and RT (tree digest, empty for the old
+        # one-line marker, which counts as generation 0). Fails on anything else.
+        read_ready() {
+          RG=
+          RT=
+          if printf 'completion-private-v1\n' | cmp -s - "$$1"; then
+            RG=0
+            return 0
           fi
+          RG=$$(sed -n 's/^completion-private-v2 generation=\([0-9]\{1,9\}\)$$/\1/p' "$$1")
+          RT=$$(sed -n 's/^tree-sha256=\([0-9a-f]\{64\}\)$$/\1/p' "$$1")
+          [ -n "$$RG" ] && [ -n "$$RT" ] && printf 'completion-private-v2 generation=%s\ntree-sha256=%s\n' "$$RG" "$$RT" | cmp -s - "$$1"
+        }
+
+        # Feedback refuses a state directory that is not 0700 and owned by its user.
+        if [ -d /state/feedback ]; then
+          chown 65532:65532 /state/feedback
+          chmod 700 /state/feedback
+        fi
+
+        for t in auth transport trust health keys; do
+          src=$$B/$$t
+          dst=$$T/$$t
+          # A bundle from before the service key files has no keys directory; it
+          # gets one with its first change (see the README), Feedback needs it.
+          if [ "$$t" = keys ] && [ ! -d "$$src" ]; then
+            echo "private-init: keys: not in the bundle, skipped"
+            continue
+          fi
+          [ -d "$$src" ] || die "$$t: no such directory in the bundle"
+          [ -d "$$dst" ] || die "$$t: no such volume"
+          [ -f "$$src/.ready" ] || die "$$t: the bundle is not complete"
+          read_ready "$$src/.ready" || die "$$t: unknown marker in the bundle"
+          bg=$$RG
+          bt=$$RT
+          actual=$$(tree_sha "$$src")
+          [ -n "$$bt" ] || bt=$$actual
+          [ "$$bt" = "$$actual" ] || die "$$t: the bundle does not match its marker"
+
+          keep=0
+          if [ -f "$$dst/.ready" ]; then
+            read_ready "$$dst/.ready" || die "$$t: unknown marker in the volume"
+            vg=$$RG
+            vt=$$RT
+            [ -n "$$vt" ] || vt=$$(tree_sha "$$dst")
+            [ "$$bg" -ge "$$vg" ] || die "$$t: the bundle generation $$bg is older than the volume generation $$vg"
+            if [ "$$bg" -eq "$$vg" ]; then
+              [ "$$bt" = "$$vt" ] || die "$$t: generation $$bg with different content in the bundle and in the volume"
+              [ "$$(tree_sha "$$dst")" = "$$vt" ] || die "$$t: the volume differs from its marker"
+              for d in "$$dst"/.next-* "$$dst/.previous.tmp"; do
+                if [ -e "$$d" ]; then rm -rf "$$d"; fi
+              done
+              echo "private-init: $$t generation $$bg is current"
+              continue
+            fi
+            keep=1
+          fi
+
+          # Stage the whole new generation inside the volume (same file system).
+          stage=$$dst/.next-$$bg
+          for d in "$$dst"/.next-* "$$dst/.previous.tmp"; do
+            if [ -e "$$d" ]; then rm -rf "$$d"; fi
+          done
+          mkdir "$$stage"
+          cp -R "$$src/." "$$stage/"
+          chown -R 65532:65532 "$$stage"
+          find "$$stage" -type d -exec chmod 700 {} +
+          find "$$stage" -type f -exec chmod 600 {} +
+          [ "$$(tree_sha "$$stage")" = "$$bt" ] || die "$$t: the staged copy does not match the bundle"
+
+          # Keep the generation being replaced for a rollback. Without a marker the
+          # volume is half-built and .previous (if any) is already the real one.
+          if [ "$$keep" = 1 ]; then
+            prev=$$dst/.previous.tmp
+            mkdir "$$prev"
+            list_dirs "$$dst" | LC_ALL=C sort | while read -r d; do mkdir "$$prev/$$d"; done
+            list_files "$$dst" | while read -r f; do cp -p "$$dst/$$f" "$$prev/$$f"; done
+            chown -R 65532:65532 "$$prev"
+            find "$$prev" -type d -exec chmod 700 {} +
+            rm -rf "$$dst/.previous"
+            mv "$$prev" "$$dst/.previous"
+          fi
+
+          # From here the volume has no marker until every file of the new generation is
+          # in place; a run that finds it this way builds it again from the bundle.
+          rm -f "$$dst/.ready"
+          chown 65532:65532 "$$dst"
+          chmod 700 "$$dst"
+          ( cd "$$stage" && find . -type d ! -path . -print | sed 's|^\./||' ) | LC_ALL=C sort | while read -r d; do
+            mkdir -p "$$dst/$$d"
+            chown 65532:65532 "$$dst/$$d"
+            chmod 700 "$$dst/$$d"
+          done
+          ( cd "$$stage" && find . -type f ! -path ./.ready -print | sed 's|^\./||' ) | LC_ALL=C sort | while read -r f; do
+            mv "$$stage/$$f" "$$dst/$$f"
+          done
+          # Drop what the new generation does not have.
+          list_files "$$dst" | while read -r f; do
+            if [ ! -f "$$src/$$f" ]; then rm -f "$$dst/$$f"; fi
+          done
+          list_dirs "$$dst" | LC_ALL=C sort -r | while read -r d; do
+            if [ ! -d "$$src/$$d" ]; then rmdir "$$dst/$$d" 2>/dev/null || true; fi
+          done
+          [ "$$(tree_sha "$$dst")" = "$$bt" ] || die "$$t: the volume does not match the bundle after copying"
+          sync
+          mv "$$stage/.ready" "$$dst/.ready"
+          rm -rf "$$stage"
+          echo "private-init: $$t generation $$bg applied"
         done
 
   transport:
-    image: nginxinc/nginx-unprivileged:1.30.5-alpine
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 128
+    tmpfs: [/tmp, /var/cache/nginx:mode=1777]
+    image: nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:56b8272e43a0525f67aed68d1e0794a712d10e3e45a563e118e9a77c817e6f86
     user: "65532:65532"
     entrypoint: [nginx]
     command: [-g, "daemon off;"]
@@ -44,7 +189,38 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # The transport has no tools to check itself (nginx image), so this job makes a
+  # verified TLS handshake on each port; Auth waits for it. The backends behind
+  # the transport start later and are not needed for it.
+  transport-ready:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 64
+    tmpfs: [/tmp]
+    image: node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
+    user: "65532:65532"
+    command: [node, -e, "setInterval(() => {}, 60000)"]
+    volumes:
+      - health-config:/run/auth-health:ro
+      - ./scripts/completion/transport-health.mjs:/transport-health.mjs:ro
+    depends_on:
+      transport:
+        condition: service_started
+    healthcheck:
+      test: [CMD, node, /transport-health.mjs, transport, "8442", "8443", "8444", "8445", --ca, /run/auth-health/ca.crt]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 3s
+    restart: unless-stopped
+
   auth:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_AUTH_IMAGE:?prepare image identities}
     environment:
       TZ: Europe/Moscow
@@ -58,12 +234,17 @@ services:
     depends_on:
       private-init:
         condition: service_completed_successfully
-      transport:
-        condition: service_started
+      transport-ready:
+        condition: service_healthy
     restart: unless-stopped
 
   auth-ready:
-    image: node:24.21.0-alpine
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    pids_limit: 64
+    tmpfs: [/tmp]
+    image: node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
     user: "65532:65532"
     command: [node, -e, "setInterval(() => {}, 60000)"]
     volumes:
@@ -81,6 +262,11 @@ services:
     restart: unless-stopped
 
   warehouse:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 512m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_WAREHOUSE_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/warehouse.env
@@ -100,6 +286,11 @@ services:
     restart: unless-stopped
 
   serving:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_SERVING_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/serving.env
@@ -121,6 +312,11 @@ services:
     restart: unless-stopped
 
   gateway:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 256m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     image: ${COMPLETION_GATEWAY_IMAGE:?prepare image identities}
     env_file:
       - path: ${COMPLETION_PRIVATE_DIR}/env/gateway.env
@@ -137,6 +333,7 @@ services:
       LISTEN_HOST: 0.0.0.0
       PRIVATE_LISTEN_HOST: 0.0.0.0
       PRIVATE_PORT: "8086"
+    networks: [default, front]
     volumes:
       - trust-config:/run/trust:ro
     depends_on:
@@ -149,32 +346,44 @@ services:
     restart: unless-stopped
 
   frontend:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 64m
+    user: "101:101"
+    pids_limit: 128
+    tmpfs: [/tmp, /var/cache/nginx:mode=1777]
     image: ${COMPLETION_FRONTEND_IMAGE:?prepare image identities}
     ports:
       - "${COMPLETION_BIND:-127.0.0.1}:${COMPLETION_WEB_PORT:-8080}:8080"
-    networks: [default, edge]
+    networks: [front, edge]
     depends_on:
       gateway:
         condition: service_healthy
     restart: unless-stopped
 
   feedback:
+    <<: *hardening
+    logging: *logging
+    mem_limit: 128m
+    user: "65532:65532"
+    tmpfs: [/tmp]
     profiles: [feedback]
-    image: ${COMPLETION_FEEDBACK_IMAGE:-ghcr.io/justikra/umir-feedback:sha-136a88a96a80eee3b5553cecf5b305bcd8d0e851}
+    image: ${COMPLETION_FEEDBACK_IMAGE:-}
     env_file:
-      - path: ${COMPLETION_PRIVATE_DIR}/env/feedback.env
-        format: raw
       - path: ${COMPLETION_FEEDBACK_ENV_FILE:-.completion-feedback.env}
         required: false
         format: raw
     environment:
       TZ: Europe/Moscow
       FEEDBACK_AUTH_URL: https://auth:8085
+      FEEDBACK_GATEWAY_KEY_FILE: /run/umir-keys/gateway-feedback
+      FEEDBACK_AUTH_DISCOVERY_KEY_FILE: /run/umir-keys/feedback-auth
       SSL_CERT_FILE: /run/trust/ca.crt
       FEEDBACK_LISTEN_ADDRESS: 0.0.0.0:8084
       FEEDBACK_STORE_PATH: /var/lib/umir-feedback/feedback.json
     volumes:
       - trust-config:/run/trust:ro
+      - keys-config:/run/umir-keys:ro
       - feedback-state:/var/lib/umir-feedback
     networks: [default, mail]
     depends_on:
@@ -185,6 +394,15 @@ services:
 networks:
   default:
     internal: true
+  # Only Gateway and Frontend: the browser-facing Nginx cannot reach the private
+  # listeners of Warehouse and the others. The subnet is fixed so that it cannot
+  # overlap the lab ZeroTier network (172.25.222.0/24) or docker0 (172.17.0.0/16);
+  # set UMIR_FRONT_SUBNET to move it.
+  front:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${UMIR_FRONT_SUBNET:-172.29.16.0/24}
   mail:
   edge:
 
@@ -193,5 +411,6 @@ volumes:
   transport-config:
   trust-config:
   health-config:
+  keys-config:
   auth-state:
   feedback-state:

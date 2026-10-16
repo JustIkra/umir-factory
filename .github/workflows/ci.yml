@@ -79,6 +79,25 @@ jobs:
       - name: Check pinned image identities
         run: |
           "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE"
+      - name: Check the completion image lock against sources.json and the registry
+        run: |
+          "$RUNNER_TEMP/umir-checks/umir-checks" lock-images --factory-dir "$GITHUB_WORKSPACE" --verify
+      - name: Check that every completion image is pinned by digest
+        run: |
+          "$RUNNER_TEMP/umir-checks/umir-checks" check-images --factory-dir "$GITHUB_WORKSPACE" --lock
+      - name: Validate completion Compose
+        run: |
+          node tests/examples/completion/prepare-mail.mjs "$RUNNER_TEMP/umir-completion-mail"
+          node scripts/completion/prepare.mjs \
+            --directory "$RUNNER_TEMP/umir-completion-bundle" \
+            --inputs "$RUNNER_TEMP/umir-completion-mail/inputs.json" \
+            --project umir-completion-ci-check \
+            --origin http://127.0.0.1:18580 --cookie-mode loopback-development
+          sh scripts/completion/compose.sh --bundle "$RUNNER_TEMP/umir-completion-bundle" config --quiet
+      - name: Test the completion profile (preparation, private-init, Compose model, backup)
+        run: |
+          node --test tests/infra/completion/*.test.mjs tests/infra/docs.test.mjs
+          bash tests/infra/completion-backup.test.sh
       - name: Test image verification
         run: bash tests/infra/image-checks.sh
       - name: Test assembly verification isolation and failures
@@ -92,6 +111,58 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           UMIR_CHECKS_BIN: ${{ runner.temp }}/umir-checks/umir-checks
         run: bash scripts/verify-assembly.sh --env-file .env.example
+
+  completion-stand:
+    name: Completion stand (${{ matrix.feedback && 'with Feedback' || 'base' }})
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        feedback: [false, true]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.9'
+          check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
+      - name: Build assembly checks
+        env:
+          GOWORK: 'off'
+        run: |
+          mkdir -p "$RUNNER_TEMP/umir-checks"
+          go -C tools/assembly-checks build -o "$RUNNER_TEMP/umir-checks/umir-checks"
+      - name: Read the reviewed Feedback pin
+        id: feedback
+        if: matrix.feedback
+        run: echo "sha=$(node -p "require('./scripts/completion/sources.json').optionalServices.feedback")" >> "$GITHUB_OUTPUT"
+      - name: Check out Feedback at the pin (it is not published as an image)
+        if: matrix.feedback
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: JustIkra/umir-feedback
+          ref: ${{ steps.feedback.outputs.sha }}
+          path: feedback-source
+          persist-credentials: false
+      - name: Run the completion stand on a disposable project
+        run: >-
+          "$RUNNER_TEMP/umir-checks/umir-checks" completion-acceptance
+          --factory-dir "$GITHUB_WORKSPACE"
+          --evidence-dir "$RUNNER_TEMP/completion-evidence"
+          ${{ matrix.feedback && '--feedback --feedback-source "$GITHUB_WORKSPACE/feedback-source"' || '' }}
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: completion-acceptance-${{ matrix.feedback && 'feedback' || 'base' }}
+          path: ${{ runner.temp }}/completion-evidence
+          if-no-files-found: warn
 
   business-core:
     name: Cross-service business suite

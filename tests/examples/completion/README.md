@@ -25,7 +25,7 @@ COMPLETION_TEST_MAIL_DIR=/absolute/private/umir-completion-mail \
   up -d --wait --wait-timeout 120
 ```
 
-The source directory contains the five service directories named in `scripts/completion/sources.json`. Preparation verifies every clean exact commit before it enables the build override. Registry publication is a separate delivery step. The Mailpit UI uses loopback port 19125 only in this test recipe; the base assembly publishes only frontend.
+The source directory contains the five service directories named in `scripts/completion/sources.json`; an optional `feedback` directory is verified against its pin only when present. Preparation verifies every clean exact commit before it enables the build override. Registry publication is a separate delivery step. The Mailpit UI uses loopback port 19125 only in this test recipe; the base assembly publishes only frontend.
 
 Run the fixed seed explicitly after the application becomes healthy:
 

@@ -1,0 +1,70 @@
+{
+  "profile": "REG1",
+  "platform": "linux/amd64",
+  "services": {
+    "auth": {
+      "sourceSHA": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b",
+      "indexDigest": "sha256:26b403aa39530b0ccd9a35b6d4daf706c3d57f2226b3607f3558dfdfaa28f151",
+      "platformDigest": "sha256:0a1d6b4ded50daa05b97b1167fb8b65ee460d0e4ea44e15f7563be15ffff7247",
+      "configDigest": "sha256:15eabaa3dcd58a723e4bacfca93b4c7bc455ebdc1a97ea6ba3b164554e911be3",
+      "revision": "79188bff239d5b4c69ea6c8db0cece4ef7d61d1b"
+    },
+    "frontend": {
+      "sourceSHA": "4a6452f56850c02dad83981e1b26770a35d0bd44",
+      "indexDigest": "sha256:5354eb2cddc8234a36cca02414dd314092e9b7a061a966ebb3bf0eb42b3f1477",
+      "platformDigest": "sha256:7d5c1b97ddccaad33b303b2ded019465cdda7c19694c0313f7ebebcfa3b09190",
+      "configDigest": "sha256:27365d4ae43939e6643ea0109ce5e6aff7a33e9d2358476732ac04b65f3888ce",
+      "revision": "4a6452f56850c02dad83981e1b26770a35d0bd44"
+    },
+    "gateway": {
+      "sourceSHA": "1c8604dc72bb2aefee22e82e7586943770e7ffdc",
+      "indexDigest": "sha256:66b27525b6eb6245aa83733eb1cfa038be6ac1fae303a601b2fcb83b324c256e",
+      "platformDigest": "sha256:79df495bbd10b63894b07caf483da3ed922854cac78fe7837e4d8716dea17aec",
+      "configDigest": "sha256:7752763635f9fa9715d18a8b3623cbb96f35b4516cf9cbf5aadfa79d3e6d29fb",
+      "revision": "1c8604dc72bb2aefee22e82e7586943770e7ffdc"
+    },
+    "serving": {
+      "sourceSHA": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5",
+      "indexDigest": "sha256:a69ba05247b212aa67c46dcad9758cd57d7f96646845d9072bc44c4a3da5a871",
+      "platformDigest": "sha256:ee1e5a55ad4b03482341d0abaeede37dcb9f61805985e05767cf2ff957bfe015",
+      "configDigest": "sha256:848c0e83d379f80b02d80a4a96bb1075b8f64310c1e82517b302626c83529d33",
+      "revision": "196ccc6b60f0d46e80f03cdd0b5281521f04b8c5"
+    },
+    "warehouse": {
+      "sourceSHA": "52aae498e0d5501323849910013ac1a076cd159d",
+      "indexDigest": "sha256:f56905ce1e7eab0b99c1cd77403d38fe296ba543588cfb0e7807fa686bb1e3c5",
+      "platformDigest": "sha256:deb6dcd51869c0cd73892f60092e128d03a3c55301b8bf35dfe315ff993cb0d6",
+      "configDigest": "sha256:53e2ad0aa5e0573a9e288aca08a7940dc0399f74f98853454acec18d530870a4",
+      "revision": "52aae498e0d5501323849910013ac1a076cd159d"
+    }
+  },
+  "auxiliary": {
+    "alpine": {
+      "image": "alpine:3.23",
+      "ref": "alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0",
+      "indexDigest": "sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0",
+      "platformDigest": "sha256:1f3591b8a02ea153f41c5bba878ad477f63ab3d19349762cb77504db02a23e15"
+    },
+    "mailpit": {
+      "image": "axllent/mailpit:v1.31.5",
+      "ref": "axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea",
+      "indexDigest": "sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea",
+      "platformDigest": "sha256:eee7db19e7518ffe47d9b38e46fab655a4edf7e6cb5e664d1b5fde6c9dc49010"
+    },
+    "nginx": {
+      "image": "nginxinc/nginx-unprivileged:1.30.5-alpine",
+      "ref": "nginxinc/nginx-unprivileged:1.30.5-alpine@sha256:56b8272e43a0525f67aed68d1e0794a712d10e3e45a563e118e9a77c817e6f86",
+      "indexDigest": "sha256:56b8272e43a0525f67aed68d1e0794a712d10e3e45a563e118e9a77c817e6f86",
+      "platformDigest": "sha256:0f5f7068c5f5bf7046dbf649a08810ec1693967a9f488b8ff3998be6dd34bf6c"
+    },
+    "node": {
+      "image": "node:24.21.0-alpine",
+      "ref": "node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
+      "indexDigest": "sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1",
+      "platformDigest": "sha256:83f1c388c31fb2e51f7cbd4dea949b96260798c98f206e8e4696bc93bd964e3a"
+    }
+  },
+  "unpublished": {
+    "feedback": "136a88a96a80eee3b5553cecf5b305bcd8d0e851"
+  }
+}

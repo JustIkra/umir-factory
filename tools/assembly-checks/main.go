@@ -50,11 +50,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Writer, executor commandExecutor) int {
 	if len(args) == 0 {
-		writeFailure(stderr, "expected business, check-images, http-acceptance, or smoke command\n")
+		writeFailure(stderr, "expected business, check-images, lock-images, completion-acceptance, http-acceptance, or smoke command\n")
 		return 2
 	}
 	command := args[0]
-	if command != "business" && command != "check-images" && command != "http-acceptance" && command != "smoke" {
+	if command != "business" && command != "check-images" && command != "lock-images" && command != "completion-acceptance" && command != "http-acceptance" && command != "smoke" {
 		writeFailure(stderr, "unknown command %q\n", command)
 		return 2
 	}
@@ -74,7 +74,21 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 	switch command {
 	case "business":
 		return runBusiness(ctx, factoryDir, options, executor, stdout, stderr)
+	case "completion-acceptance":
+		return runCompletionAcceptance(ctx, factoryDir, options, executor, defaultAcceptanceDeps(), stdout, stderr)
+	case "lock-images":
+		return runLockImages(ctx, factoryDir, options, executor, stdout, stderr)
 	case "check-images":
+		if options.lock {
+			if err := checkImagesLock(ctx, factoryDir, executor); err != nil {
+				writeFailure(stderr, "image lock check failed:\n%v\n", err)
+				return 1
+			}
+			if err := writeMessage(stdout, "All completion images are pinned by digest and match the lock\n"); err != nil {
+				return 1
+			}
+			return 0
+		}
 		images, err := checkImages(ctx, factoryDir, executor)
 		if err != nil {
 			writeFailure(stderr, "%v\n", err)
@@ -135,6 +149,15 @@ type cliOptions struct {
 	backendHarness     string
 	backendHarnessSHA  string
 	backendEvidenceDir string
+	// lock makes check-images verify the completion profile against the image lock.
+	lock bool
+	// verify and write select the lock-images mode.
+	verify bool
+	write  bool
+	// completion-acceptance options.
+	feedback       bool
+	feedbackSource string
+	evidenceDir    string
 }
 
 func parseOptions(command string, args []string) (cliOptions, error) {
@@ -149,6 +172,16 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	}
 	if command == "check-images" {
 		flags.StringVar(&options.githubOutput, "github-output", "", "append selected service refs to a GitHub Actions output file")
+		flags.BoolVar(&options.lock, "lock", false, "check the completion profile against scripts/completion/images.lock.json")
+	}
+	if command == "completion-acceptance" {
+		flags.BoolVar(&options.feedback, "feedback", false, "also run the optional Feedback profile")
+		flags.StringVar(&options.feedbackSource, "feedback-source", "", "absolute path of a clean Feedback checkout at the pinned commit (builds the image)")
+		flags.StringVar(&options.evidenceDir, "evidence-dir", "", "absolute directory for the JSON evidence")
+	}
+	if command == "lock-images" {
+		flags.BoolVar(&options.verify, "verify", false, "check the lock against sources.json and the registry")
+		flags.BoolVar(&options.write, "write", false, "resolve the pins in the registry and write the lock")
 	}
 	if command == "http-acceptance" {
 		flags.BoolVar(&options.backendOnly, "backend-only", false, "run the isolated five-service backend candidate")
@@ -185,6 +218,22 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	}
 	if !filepath.IsAbs(options.factoryDir) {
 		return options, errors.New("--factory-dir must be an absolute path")
+	}
+	if command == "completion-acceptance" {
+		if options.feedback != (options.feedbackSource != "") {
+			return options, errors.New("--feedback and --feedback-source go together")
+		}
+		for _, path := range []string{options.feedbackSource, options.evidenceDir} {
+			if path != "" && !filepath.IsAbs(path) {
+				return options, errors.New("--feedback-source and --evidence-dir must be absolute paths")
+			}
+		}
+	}
+	if command == "lock-images" && options.verify == options.write {
+		return options, errors.New("choose exactly one of --verify or --write")
+	}
+	if command == "check-images" && options.lock && options.githubOutput != "" {
+		return options, errors.New("--lock does not write a GitHub output")
 	}
 	if command == "business" {
 		if options.local {

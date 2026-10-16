@@ -14,5 +14,5 @@ fmt-check build lint arch test check check-tools check-business check-http:
 
 .PHONY: check-contract
 check-contract:
-	node --test tests/infra/completion/prepare.test.mjs
-	cd tests/http && GOWORK=off go test ./cmd/acceptance -run 'Test(Registration|Completion)' -count=1
+	node --test tests/infra/completion/prepare.test.mjs tests/infra/completion/compose.test.mjs tests/infra/completion/expiry.test.mjs tests/infra/completion/private-init.test.mjs tests/infra/completion/transport-health.test.mjs tests/infra/docs.test.mjs
+	cd tests/http && GOWORK=off go test ./cmd/acceptance -run 'Test(Registration|Completion|UIAmendment)' -count=1
