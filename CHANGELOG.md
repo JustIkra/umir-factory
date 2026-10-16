@@ -2,6 +2,10 @@
 
 ## Не выпущено
 
+- Wait for the second ownership qualification before measuring concurrent public HTTP probes. Preserve the existing 250 ms overlap window and two-second request guard; the test no longer mistakes qualification work for serialized responses.
+
+- Check the types of the G1 policy status fields in contract tests, so the full pinned lint gate accepts them. Correct the README status to the approved G1 decisions.
+
 - Add `umir-checks completion-acceptance` and a CI job `completion-stand` that runs the deployed profile `compose.completion.yaml` on a disposable project `umir-completion-ci-<random>`: prepare, `up --wait`, demo seed, a transport `/healthz` check, a leaf-certificate rotation without removing any volume (the volumes `auth-state` and `auth-config` keep their identity and the earlier session still works), a reconfiguration that turns on registration (the registration scenario then passes), a rollback, an encrypted backup, removal of the project and a restore with sign-in and read, and writes a JSON evidence file without secrets. A second matrix entry also starts Feedback, built from the checkout at the reviewed pin. Cleanup removes volumes only for the `umir-completion-ci-` prefix, also after a failure at any step. The `check` job now verifies the image lock, requires a digest on every completion image, validates the completion Compose, and runs all completion Node tests and the backup test.
 
 - Fix the Feedback state volume of `compose.completion.yaml`: Feedback refuses a state directory that is not mode 0700, so with the profile `feedback` it stopped with `RuntimeUnavailable`; `private-init` now sets owner and mode of the volume.
