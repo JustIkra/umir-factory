@@ -597,8 +597,8 @@ func TestRetryChainEndsInDLQOnFifthAttempt(t *testing.T) {
 	if d.MessageId != "task-dead" || d.Type != "auth.mail" {
 		t.Fatalf("dlq message identity: %q %q", d.MessageId, d.Type)
 	}
-	if d.Headers["x-umir-attempt"] == nil || fmt.Sprint(d.Headers["x-umir-attempt"]) != "5" {
-		t.Fatalf("x-umir-attempt: %v", d.Headers["x-umir-attempt"])
+	if fmt.Sprint(d.Headers["x-umir-failed-attempts"]) != "5" || d.Headers["x-umir-attempt"] != nil {
+		t.Fatalf("dlq headers: %v", d.Headers)
 	}
 	if d.Headers["x-umir-source-queue"] != "auth.mail" || d.Headers["x-umir-error-class"] == nil {
 		t.Fatalf("dlq metadata: %v", d.Headers)
@@ -641,7 +641,7 @@ func TestMessageWithSpentAttemptsGoesToDLQWithoutCallingHandler(t *testing.T) {
 		t.Fatalf("handler was called %d times for an exhausted message", n)
 	}
 	d, ok, gerr := adminChannel(t, amqpURL).Get("auth.mail.dlq", true)
-	if gerr != nil || !ok || d.MessageId != "task-spent" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "5" || d.Headers["x-umir-error-class"] != "attempts_exceeded" {
+	if gerr != nil || !ok || d.MessageId != "task-spent" || fmt.Sprint(d.Headers["x-umir-failed-attempts"]) != "5" || d.Headers["x-umir-attempt"] != nil || d.Headers["x-umir-error-class"] != "attempts_exceeded" {
 		t.Fatalf("dlq copy: ok=%v err=%v id=%q headers=%v", ok, gerr, d.MessageId, d.Headers)
 	}
 }
@@ -921,7 +921,7 @@ func TestDLQUnavailableThenRepaired(t *testing.T) {
 		t.Fatalf("the Handler ran %d times", n)
 	}
 	d, ok, err := adminChannel(t, amqpURL).Get("auth.mail.dlq", true)
-	if err != nil || !ok || d.MessageId != "task-last" || fmt.Sprint(d.Headers["x-umir-attempt"]) != "1" {
+	if err != nil || !ok || d.MessageId != "task-last" || fmt.Sprint(d.Headers["x-umir-failed-attempts"]) != "1" {
 		t.Fatalf("dlq copy: ok=%v err=%v id=%q headers=%v", ok, err, d.MessageId, d.Headers)
 	}
 }

@@ -22,6 +22,9 @@ const (
 	// attemptHeader counts the failed Handler attempts of a message. Only the
 	// consumer sets it, on the copy it publishes to <q>.retry and <q>.dlq.
 	attemptHeader = "x-umir-attempt"
+	// failedAttemptsHeader carries the failure count on a .dlq copy; it is not
+	// read back, so a message returned from .dlq counts from zero.
+	failedAttemptsHeader = "x-umir-failed-attempts"
 )
 
 // consumerSeq makes consumer tags unique within the process.
@@ -142,7 +145,8 @@ func (c *Connector) Consume(ctx context.Context, queue string, prefetch int, h H
 //     publish: it sends a copy to umir.dlx with the key <queue>.retry (after the
 //     pause the broker returns it to <queue>), waits for the broker's confirm
 //     and only then acknowledges the original. The copy carries x-umir-attempt,
-//     the number of failures so far.
+//     the number of failures so far (on the .dlq copy x-umir-failed-attempts
+//     instead, so that putting the message back resets the count).
 //   - When attempt number maxAttempts fails, the copy goes to <queue>.dlq in
 //     the same way.
 //   - If the broker does not confirm the copy (no binding, a full queue), the
@@ -330,11 +334,16 @@ func buildCopy(raw amqp.Delivery, queue string, failed int, suffix, class string
 			headers[k] = v
 		}
 	}
-	headers[attemptHeader] = int32(failed)
 	if suffix == ".dlq" {
+		// The dead-letter copy records the failures under another name, so a
+		// message put back from .dlq by an operator starts again at attempt 1.
+		delete(headers, attemptHeader)
+		headers[failedAttemptsHeader] = int32(failed)
 		headers["x-umir-error-class"] = class
 		headers["x-umir-source-queue"] = queue
 	} else {
+		headers[attemptHeader] = int32(failed)
+		delete(headers, failedAttemptsHeader)
 		delete(headers, "x-umir-error-class")
 		delete(headers, "x-umir-source-queue")
 	}

@@ -55,7 +55,7 @@ func TestBuildCopy(t *testing.T) {
 		t.Fatalf("retry identity: %+v", retry)
 	}
 	dead := buildCopy(raw, "auth.mail", 5, ".dlq", "boom")
-	if dead.Headers["x-umir-attempt"] != int32(5) || dead.Headers["x-umir-error-class"] != "boom" || dead.Headers["x-umir-source-queue"] != "auth.mail" {
+	if dead.Headers["x-umir-failed-attempts"] != int32(5) || dead.Headers["x-umir-attempt"] != nil || dead.Headers["x-umir-error-class"] != "boom" || dead.Headers["x-umir-source-queue"] != "auth.mail" {
 		t.Fatalf("dlq headers: %v", dead.Headers)
 	}
 	if _, ok := dead.Headers["x-death"]; ok {
