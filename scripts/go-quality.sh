@@ -32,6 +32,7 @@ module_root() {
     tools) printf '%s\n' "$root/tools/assembly-checks" ;;
     business) printf '%s\n' "$root/tests/business" ;;
     http) printf '%s\n' "$root/tests/http" ;;
+    durable) printf '%s\n' "$root/reference/durable" ;;
     *) printf 'Unknown factory module: %s\n' "$1" >&2; return 2 ;;
   esac
 }
@@ -62,6 +63,9 @@ run_module() {
   elif [[ "$name" == http ]]; then
     arch_file="$root/.go-arch-http.yml"
     export GOWORK=off
+  elif [[ "$name" == durable ]]; then
+    arch_file="$root/.go-arch-durable.yml"
+    export GOWORK=off
   else
     export GOWORK=off
   fi
@@ -89,6 +93,9 @@ run_module() {
       if [[ "$name" == business ]]; then
         mkdir -p "$scratch/$name-build"
         (cd "$dir" && go test -c -o "$scratch/$name-build/" ./...)
+      elif [[ "$name" == durable ]]; then
+        # A library module has no main packages; -o would fail with "no main packages to build".
+        (cd "$dir" && go build ./...)
       else
         mkdir -p "$scratch/$name-build"
         (cd "$dir" && go build -o "$scratch/$name-build/" ./...)
@@ -119,11 +126,16 @@ run_http() {
   local operation="$1"
   run_module http "$operation" "${@:2}"
 }
+run_durable() {
+  local operation="$1"
+  run_module durable "$operation" "${@:2}"
+}
 run_named_module() {
   case "$1" in
     tools) run_tools "$2" "${@:3}" ;;
     business) run_business "$2" "${@:3}" ;;
     http) run_http "$2" "${@:3}" ;;
+    durable) run_durable "$2" "${@:3}" ;;
   esac
 }
 case "$action" in
@@ -132,7 +144,8 @@ case "$action" in
       tools) run_tools fmt "$@" ;;
       business) run_business fmt "$@" ;;
       http) run_http fmt "$@" ;;
-      *) printf 'Set QUALITY_MODULE=tools, business, or http to select module-relative formatter paths\n' >&2; exit 2 ;;
+      durable) run_durable fmt "$@" ;;
+      *) printf 'Set QUALITY_MODULE=tools, business, http, or durable to select module-relative formatter paths\n' >&2; exit 2 ;;
     esac
     ;;
   fmt-all|fmt-check|build|lint|arch|test)
@@ -143,16 +156,19 @@ case "$action" in
         run_tools "$action" "$@"
         run_business "$action" "$@"
         run_http "$action" "$@"
+        run_durable "$action" "$@"
         ;;
       http) run_http "$action" "$@" ;;
-      *) printf 'QUALITY_MODULE must be tools, business, http, or all\n' >&2; exit 2 ;;
+      durable) run_durable "$action" "$@" ;;
+      *) printf 'QUALITY_MODULE must be tools, business, http, durable, or all\n' >&2; exit 2 ;;
     esac
     ;;
-  check-tools|check-business|check-http)
+  check-tools|check-business|check-http|check-durable)
     case "$action" in
       check-tools) module=tools ;;
       check-business) module=business ;;
       check-http) module=http ;;
+      check-durable) module=durable ;;
     esac
     for step in fmt-check build lint arch test; do run_named_module "$module" "$step"; done
     ;;
@@ -161,6 +177,7 @@ case "$action" in
       run_tools "$step"
       run_business "$step"
       run_http "$step"
+      run_durable "$step"
     done
     ;;
   *) printf 'Unknown quality command: %s\n' "$action" >&2; exit 1 ;;

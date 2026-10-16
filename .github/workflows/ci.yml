@@ -93,6 +93,59 @@ jobs:
           UMIR_CHECKS_BIN: ${{ runner.temp }}/umir-checks/umir-checks
         run: bash scripts/verify-assembly.sh --env-file .env.example
 
+  durable-reference:
+    name: Durable reference adapters
+    needs: check
+    runs-on: ubuntu-24.04
+    env:
+      UMIR_DURABLE_REDIS_IMAGE: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: '1.26.9'
+          check-latest: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.21.0
+      - name: Install pinned Go quality tools
+        run: make tools
+      - name: Check the reference module and its scripts
+        run: |
+          make check-durable
+          make check-infra
+      - name: Start PostgreSQL and RabbitMQ under the names the test infrastructure expects
+        run: |
+          set -euo pipefail
+          pg_password="$(openssl rand -hex 16)"
+          mq_password="$(openssl rand -hex 16)"
+          echo "::add-mask::$pg_password"
+          echo "::add-mask::$mq_password"
+          docker run -d --name umir-prod-pg -p 127.0.0.1:55432:5432 \
+            -e POSTGRES_USER=umir -e POSTGRES_DB=umir -e POSTGRES_PASSWORD="$pg_password" \
+            postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+          docker run -d --name umir-prod-mq -p 127.0.0.1:55672:5672 -p 127.0.0.1:55673:15672 \
+            -e RABBITMQ_DEFAULT_USER=umir -e RABBITMQ_DEFAULT_PASS="$mq_password" \
+            rabbitmq:4-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95
+      - name: Start the Redis test containers and wait for the infrastructure
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if scripts/durable-test-infra.sh check >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          scripts/durable-test-infra.sh check
+          scripts/durable-test-infra.sh up
+      - name: Run the integration suites
+        run: |
+          eval "$(scripts/durable-test-infra.sh env)"
+          make integration
+      - name: Remove the Redis test containers
+        if: always()
+        run: scripts/durable-test-infra.sh down
+
   business-core:
     name: Cross-service business suite
     needs: check
