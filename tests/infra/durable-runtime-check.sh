@@ -7,11 +7,40 @@ tools_image=${DURABLE_TOOLS_IMAGE:-umir-durable-tools:local}
 network="${project}_data"
 secrets="${project}_umir-secrets"
 pgdata="${project}_pg-data"
+ownerkeys="${project}_auth-owner-secrets"
 
 docker run --rm --network "$network" --user 65532:65532 --entrypoint /bin/bash \
   --mount "type=volume,source=$secrets,target=/run/umir-secrets,readonly" \
   --mount "type=volume,source=$pgdata,target=/run/pg-data,readonly" \
+  --mount "type=volume,source=$ownerkeys,target=/run/auth-owner-secrets,readonly" \
   "$tools_image" -euc '
+python3 - <<"PY"
+import base64
+import json
+import os
+import uuid
+
+path = "/run/auth-owner-secrets/owner.json"
+info = os.stat(path, follow_symlinks=False)
+assert os.path.isfile(path) and info.st_uid == os.geteuid() == 65532 and info.st_gid == os.getegid() == 65532
+assert info.st_mode & 0o777 == 0o600 and info.st_size <= 16384
+with open(path, encoding="utf-8") as stream:
+    value = json.load(stream)
+assert set(value) == {"version", "signing", "resultsKeys", "challengeKey", "challengePepper"} and value["version"] == 2
+assert set(value["signing"]) == {"kid", "seed"}
+keys = [value["signing"]["seed"], value["challengeKey"], value["challengePepper"]]
+ids = [value["signing"]["kid"]]
+assert 1 <= len(value["resultsKeys"]) <= 8
+for entry in value["resultsKeys"]:
+    assert set(entry) == {"kid", "key"}
+    keys.append(entry["key"])
+    ids.append(entry["kid"])
+for kid in ids:
+    parsed = uuid.UUID(kid)
+    assert str(parsed) == kid and parsed.version == 4
+decoded = [base64.b64decode(key, validate=True) for key in keys]
+assert all(len(key) == 32 for key in decoded) and len(set(decoded)) == len(decoded) and len(set(ids)) == len(ids)
+PY
 for service in auth warehouse serving feedback; do
   export PGHOST=postgres PGPORT=5432 PGDATABASE="umir_$service" PGUSER="umir_$service"
   export PGPASSFILE="/run/umir-secrets/db/$service.pgpass"
