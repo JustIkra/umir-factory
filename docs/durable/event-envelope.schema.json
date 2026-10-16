@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://umir.local/schemas/durable/event-envelope.schema.json",
+  "title": "Event envelope",
+  "description": "Body of every message published to umir.events and umir.auth. The event type is not in the body: it travels in the AMQP property type (<owner>.<eventType>). The object is closed, so personal data, one-time codes, tokens and message texts cannot be added by accident.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventID",
+    "owner",
+    "schemaVersion",
+    "orgID",
+    "aggregateID",
+    "aggregateRevision",
+    "generation",
+    "occurredAt"
+  ],
+  "properties": {
+    "eventID": {
+      "description": "Opaque string, at most 256 characters, unique within the owner. A UUID is not required. It is not outbox.id, which is the UUID of the outbox row.",
+      "$ref": "#/$defs/opaqueID"
+    },
+    "owner": {
+      "description": "Service that produced the event. Serving and Feedback publish no events.",
+      "enum": ["warehouse", "auth"]
+    },
+    "schemaVersion": {
+      "description": "Version of this envelope and of the event type.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "orgID": {
+      "$ref": "#/$defs/opaqueID"
+    },
+    "restaurantID": {
+      "description": "Required for warehouse.*; absent in organization-level auth events.",
+      "$ref": "#/$defs/opaqueID"
+    },
+    "aggregateID": {
+      "$ref": "#/$defs/opaqueID"
+    },
+    "aggregateRevision": {
+      "description": "warehouse.*: version of the restaurant stream, gap-free within a generation. auth.*: monotonic but not gap-free.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "generation": {
+      "description": "Storage generation of the owner at the time of the event.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "occurredAt": {
+      "description": "RFC 3339 date-time.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "correlationID": {
+      "description": "Trace identifier: up to 256 code points, no control characters (C60). Warehouse puts the client commandID in causationID, so spaces and non-ASCII characters are allowed.",
+      "$ref": "#/$defs/traceID"
+    },
+    "causationID": {
+      "description": "Trace identifier: up to 256 code points, no control characters (C60). Warehouse puts the client commandID in causationID, so spaces and non-ASCII characters are allowed.",
+      "$ref": "#/$defs/traceID"
+    },
+    "topics": {
+      "description": "Live topics the event refreshes. Required for warehouse.*, not allowed for auth.*.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["catalog", "stock", "menu", "orders", "analytics"]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["owner"],
+        "properties": { "owner": { "const": "warehouse" } }
+      },
+      "then": {
+        "required": ["topics", "restaurantID"]
+      }
+    },
+    {
+      "if": {
+        "required": ["owner"],
+        "properties": { "owner": { "const": "auth" } }
+      },
+      "then": {
+        "not": { "required": ["topics"] }
+      }
+    }
+  ],
+  "$defs": {
+    "opaqueID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[!-~]+$"
+    },
+    "traceID": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+$"
+    }
+  }
+}

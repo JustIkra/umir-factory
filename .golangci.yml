@@ -2,6 +2,8 @@ version: "2"
 run:
   tests: true
   relative-path-mode: cfg
+  build-tags:
+    - integration
 linters:
   default: none
   enable:
@@ -63,7 +65,7 @@ linters:
     warn-unused: true
     rules:
       - linters: [forbidigo]
-        path: '^(tools/assembly-checks/|tests/business/|tests/http/)'
+        path: '^(tools/assembly-checks/|tests/business/|tests/http/|reference/durable/)'
       - linters: [forbidigo]
         path: '_test\.go$'
 formatters:

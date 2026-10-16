@@ -37,18 +37,35 @@ func TestIndependentPublicProbesCanOverlap(t *testing.T) {
 	c.run.GatewayURL = server.URL
 	c.run.Origin = server.URL
 	b := newBackendSession(server.URL, server.URL)
-	b.probe = c.publicProbe
+	qualified := make(chan struct{}, 2)
+	b.probe = func(ctx context.Context) (func(), error) {
+		release, err := c.publicProbe(ctx)
+		if err == nil {
+			qualified <- struct{}{}
+		}
+		return release, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	done := make(chan error, 2)
 	go func() { _, err := b.call(ctx, "csrf", nil, nil, nil, 200); done <- err }()
 	select {
 	case <-entered:
+		<-qualified
 	case <-ctx.Done():
 		close(releaseHTTP)
 		t.Fatal("first request did not reach handler")
 	}
 	go func() { _, err := b.call(ctx, "csrf", nil, nil, nil, 200); done <- err }()
+	select {
+	case <-qualified:
+	case <-ctx.Done():
+		close(releaseHTTP)
+		for range 2 {
+			<-done
+		}
+		t.Fatal("second request did not qualify while the first response was in flight")
+	}
 	overlap := false
 	select {
 	case <-entered:

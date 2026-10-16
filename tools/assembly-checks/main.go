@@ -50,11 +50,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Writer, executor commandExecutor) int {
 	if len(args) == 0 {
-		writeFailure(stderr, "expected business, check-images, lock-images, completion-acceptance, http-acceptance, or smoke command\n")
+		writeFailure(stderr, "expected business, check-images, lock-images, completion-acceptance, contract-sync, http-acceptance, or smoke command\n")
 		return 2
 	}
 	command := args[0]
-	if command != "business" && command != "check-images" && command != "lock-images" && command != "completion-acceptance" && command != "http-acceptance" && command != "smoke" {
+	if command != "business" && command != "check-images" && command != "lock-images" && command != "completion-acceptance" && command != "contract-sync" && command != "http-acceptance" && command != "smoke" {
 		writeFailure(stderr, "unknown command %q\n", command)
 		return 2
 	}
@@ -62,6 +62,9 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 	if err != nil {
 		writeFailure(stderr, "%v\n", err)
 		return 2
+	}
+	if command == "contract-sync" {
+		return runContractSync(options.factoryDir, options.workspace, options.profile, stdout, stderr)
 	}
 	if command == "http-acceptance" && options.backendOnly {
 		return runBackendAcceptance(ctx, options.factoryDir, options, executor, stdout, stderr)
@@ -126,6 +129,8 @@ func runWithExecutor(ctx context.Context, args []string, stdout, stderr io.Write
 
 type cliOptions struct {
 	factoryDir string
+	workspace  string
+	profile    string
 	envFile    string
 	webURL     string
 	apiURL     string
@@ -170,6 +175,10 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 		flags.StringVar(&options.warehouse, "warehouse-ref", "", "full warehouse commit SHA")
 		flags.StringVar(&options.serving, "serving-ref", "", "full serving commit SHA")
 	}
+	if command == "contract-sync" {
+		flags.StringVar(&options.workspace, "workspace", "", "absolute directory holding the umir-auth, umir-gateway and umir-frontend checkouts")
+		flags.StringVar(&options.profile, "profile", "durable", "composed contract to compare: durable or registration")
+	}
 	if command == "check-images" {
 		flags.StringVar(&options.githubOutput, "github-output", "", "append selected service refs to a GitHub Actions output file")
 		flags.BoolVar(&options.lock, "lock", false, "check the completion profile against scripts/completion/images.lock.json")
@@ -212,6 +221,9 @@ func parseOptions(command string, args []string) (cliOptions, error) {
 	}
 	if flags.NArg() != 0 {
 		return options, fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
+	}
+	if command == "contract-sync" {
+		return options, validateContractSyncOptions(options)
 	}
 	if options.factoryDir == "" {
 		return options, errors.New("--factory-dir is required")

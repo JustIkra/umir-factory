@@ -31,6 +31,7 @@
 - Add a reproducibility test for the composed UA1 contract profiles, matching the FIN1 and REG1 gates: it recomposes them in a temporary directory, compares the bytes with the committed files and checks that the inputs stay unchanged. `make check-contract` runs it.
 
 - Set `WAREHOUSE_API_MODE=legacy` explicitly for Warehouse in `compose.yaml` and `compose.dev.yaml`, so the legacy profiles keep starting once Warehouse refuses an empty mode. The completion profile already sets `v2`. A Compose test now checks every profile that runs Warehouse.
+- Add wave 0 of the durable-stack transition: DUR1 contract profile `2.0.0-DUR.1` (overlays, examples, composed profiles, reproducibility tests, amendment), ADR 0002, event catalog, configuration contract and proposed retention and admission tables in `docs/durable`, the `reference/durable` adapter module (PostgreSQL, RabbitMQ, Redis, outbox relay) with integration tests and its quality gates, `scripts/durable-test-infra.sh` and `umir-checks contract-sync`. The durable Compose profile and deployment are not part of this change.
 
 - Deploy the selected REG1 sources and merged Frontend PR12/13 on the existing stand. Retain both users, memberships, credentials, owner keys, sessions and business processes through the schema3 upgrade; archive the FIN1 receipt. Enable registration by a separately backed-up policy-only change at the user’s request.
 
