@@ -19,6 +19,7 @@ check-contract:
 
 check-infra:
 	bash tests/infra/durable-test-infra.test.sh
+	bash tests/infra/durable-copy.test.sh
 	node --test tests/infra/durable-*.test.mjs
 
 integration:
