@@ -75,7 +75,6 @@ type acceptanceRun struct {
 	tmp      string
 	bundle   string
 	mail     string
-	inputs   string
 	keyFile  string
 	session  string
 	seed     string
