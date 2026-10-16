@@ -263,6 +263,33 @@ test("retention.md describes Redis windows, key format, limiter marker, strict m
   assert.ok(keys.rows.every((r) => ["gw", "wh", "limiter"].includes(r[owner])));
 });
 
+test("retention.md matches the redis reference package: counters, admission records, slots, leases, marker modes", () => {
+  const text = read(retentionPath);
+  const keys = findTable(text, ["Вид ключа", "Владелец", "TTL", "Статус"]);
+  for (const name of [
+    "umir:gw:admid:<политика>:<sha256(ID)>",
+    "umir:gw:expiry:lease",
+    "umir:gw:expiry:fence",
+    "umir:wh:capslots:",
+    "umir:wh:capbytes:",
+    "umir:wh:caprows:",
+  ]) {
+    assert.ok(keys.rows.some((r) => r[0].includes(name)), `key row missing: ${name}`);
+  }
+  assert.ok(!text.includes("ZSET отпечатков"), "admission keys are counters and records, not a ZSET of fingerprints");
+  for (const needle of [
+    "sha256(отпечаток)",
+    "самое долгое окно запроса",
+    "marker_missing",
+    "marker_mismatch",
+    "ничего не пишет",
+    "синхронизированы",
+    "MaxRetries = -1",
+  ]) {
+    assert.ok(text.includes(needle), `retention.md misses: ${needle}`);
+  }
+});
+
 test("admission.md carries the budget table with the added columns and all 8 rows", () => {
   const table = findTable(read(admissionPath), ["Операция", "По клиенту", "Статус"]);
   assert.deepEqual(table.header, budgetColumns);
@@ -347,6 +374,10 @@ test("admission.md has the contract, client key, SSE quotas, order limits and st
   for (const needle of mustHave) {
     assert.ok(text.includes(needle), `admission.md misses: ${needle}`);
   }
+  for (const needle of ["umir:gw:admid:", "sha256(отпечаток)", "limit_exceeded", "replay", "marker_mismatch", "marker_missing", "синхронизированы"]) {
+    assert.ok(text.includes(needle), `admission.md misses: ${needle}`);
+  }
+  assert.ok(!text.includes("ZSET отпечатков и ID допуска"), "no ZSET of fingerprints");
   const strict = findTable(text, ["Квота", "Обычно", "Строгий режим", "Статус"]);
   assert.ok(strict.rows.length >= 7);
   const normal = column(strict, "Обычно");
