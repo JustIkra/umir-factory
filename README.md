@@ -262,6 +262,28 @@ docker compose --env-file /absolute/private/umir-completion-stand/compose.env \
 
 Границы доверия. Private-listener'ы Warehouse, Serving, Gateway и Feedback доступны только через `transport` по TLS, который проверяется по CA пакета; взаимный TLS (mTLS) не включён, это отдельное решение. Сеть `front` (внутренняя, подсеть `172.29.16.0/24`, меняется переменной `UMIR_FRONT_SUBNET` и не пересекается с ZeroTier `172.25.222.0/24` и docker0 `172.17.0.0/16`) объединяет только Gateway и Frontend; Frontend не видит `warehouse:8082`. Готовность транспорта проверяет задание `transport-ready` (`scripts/completion/transport-health.mjs`): рукопожатие TLS на портах 8442–8445 с проверкой имени и срока; Auth ждёт его. Бэкенды за транспортом в эту проверку не входят, функциональную проверку `/healthz` через транспорт выполняет `completion-acceptance`.
 
+Резервная копия и восстановление. Состояние Auth (`auth.json` и `owner-secrets`) и закрытый каталог пакета (ключи, сертификаты, пароль первого пользователя) копируются двумя разными зашифрованными архивами, которые нужно хранить в разных местах:
+
+```sh
+scripts/completion/backup.sh --project umir-completion-stand \
+  --bundle /absolute/private/umir-completion-stand \
+  --key-file /absolute/private/backup.key \
+  --out /absolute/backups/data --keys-out /absolute/other-place/keys
+```
+
+Скрипт останавливает только Auth на время копирования (не `down`) и запускает его снова, если он работал. Рядом с данными он пишет `manifest.json` (проект, время UTC, состояние Auth в момент копии, SHA-256 открытых и зашифрованных архивов отдельно для данных и для ключей) и `receipt.json`. В архив пакета не входит `.generations`: старые поколения повторяют старые ключи, а восстанавливается текущее поколение (откат `--rollback` после восстановления недоступен до первой новой операции). Шифрование — `openssl enc -aes-256-cbc -pbkdf2` с ключом из файла вне архива: OpenSSL есть на каждой ВМ и в образе Alpine, ничего не нужно ставить. Ограничения этого инструмента: он не проверяет подлинность сам, поэтому целостность держится на SHA-256 в манифесте (`restore.sh` сверяет их до и после расшифровки); ключ-файл (не короче 32 байт, права 0600) храните отдельно от архивов, без него данные не восстановить. Расписание: раз в сутки из cron на ВМ (рекомендация), цель восстановления — потеря не больше 24 часов (RPO), возврат за час (RTO); замер учения на копии демо-стенда делает `completion-acceptance`.
+
+Восстановление идёт только в пустой проект, в тот же путь пакета и с тем же именем проекта:
+
+```sh
+scripts/completion/restore.sh --project umir-completion-stand \
+  --bundle-dir /absolute/private/umir-completion-stand \
+  --from /absolute/backups/data --keys-from /absolute/other-place/keys \
+  --key-file /absolute/private/backup.key
+```
+
+Если том `<project>_auth-state` или контейнеры проекта уже есть, каталог пакета существует, ключ неверный, архив повреждён или манифест чужого проекта, скрипт отказывает и ничего не записывает. После него запустите стенд обычным `docker compose up`. `prepare.mjs --update-images` требует `--backup-receipt /absolute/backups/data/receipt.json`: квитанция не старше 24 часов, того же проекта, SHA-256 манифеста рядом с ней должен совпасть.
+
 Every image of the profile is pinned by digest in `scripts/completion/images.lock.json`: the five services by `ghcr.io/justikra/umir-<service>:sha-<commit>@<platform digest>` and the helper images (`alpine`, `nginx-unprivileged`, `node`, `mailpit`) by `name:tag@sha256:<index digest>`, an index that serves amd64 and arm64. `go run . lock-images --factory-dir /absolute/umir-factory --verify` in `tools/assembly-checks` (with `GOWORK=off`) checks the lock against `sources.json` and the registry: the OCI `revision` label equals the source commit, the platform digest is in the index and the config digest matches. After a reviewed change of a source commit or a helper image, run it with `--write`, read the diff of the lock and commit it with the change; `check-images --lock` then confirms that every `image:` of `compose.completion.yaml` and of the test mail overlay carries a digest from the lock. Feedback is not published to the registry, so the lock records it as `unpublished` and it is run by its exact-source tag (build it from the checkout with `--sources`). A bundle prepared before the lock existed asks for a reviewed `--update-images` once.
 
 For a target whose registry access is unavailable, pull the published `linux/amd64` images on a trusted delivery host, verify OCI source/revision and registry platform/config digests, and transfer a `docker image save --platform linux/amd64` archive over host-key-pinned SSH. Load the archive, then verify the same platform digest references and OCI labels on the target. Use a separate image env override with `ghcr.io/...@sha256:<platform-digest>` after the immutable bundle env. Start with `--pull never`; a missing exact image must fail. Keep host-path/bind overrides in another private env file. Do not replace the bundle, use local build identities as published images, or expose backend ports. Retain the deployment archive, hashes and original private files.

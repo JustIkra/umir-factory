@@ -171,6 +171,58 @@ test("base Compose has one edge, verified TLS and no dependency on optional Feed
 
 const lockURL = new URL("../../../scripts/completion/images.lock.json", import.meta.url);
 
+// A backup receipt as scripts/completion/backup.sh writes it, with a manifest beside it.
+function receipt(root, { project = "umir-completion-test", createdAt = new Date().toISOString(), manifestText = '{"format":1}\n', sha } = {}) {
+  const directory = join(root, "backup-" + Math.random().toString(16).slice(2));
+  mkdirSync(directory);
+  writeFileSync(join(directory, "manifest.json"), manifestText);
+  const path = join(directory, "receipt.json");
+  writeFileSync(
+    path,
+    JSON.stringify({
+      format: 1,
+      project,
+      createdAt,
+      manifestSha256: sha ?? createHash("sha256").update(manifestText).digest("hex"),
+    }),
+  );
+  return path;
+}
+
+test("--update-images needs a fresh backup receipt of the same project", async (t) => {
+  const { options, root } = fixture(t);
+  const script = join(root, "prepare.mjs");
+  writeFileSync(script, readFileSync(new URL("../../../scripts/completion/prepare.mjs", import.meta.url)));
+  const sources = JSON.parse(readFileSync(sourcesURL, "utf8"));
+  const lock = JSON.parse(readFileSync(lockURL, "utf8"));
+  writeFileSync(join(root, "sources.json"), JSON.stringify(sources));
+  writeFileSync(join(root, "images.lock.json"), JSON.stringify(lock));
+  const runtime = await import(pathToFileURL(script).href);
+  runtime.prepare(options);
+  sources.services.frontend = "b".repeat(40);
+  lock.services.frontend = { ...lock.services.frontend, sourceSHA: "b".repeat(40), revision: "b".repeat(40) };
+  writeFileSync(join(root, "sources.json"), JSON.stringify(sources));
+  writeFileSync(join(root, "images.lock.json"), JSON.stringify(lock));
+  const now = Date.now();
+  const refused = (extra, pattern) =>
+    assert.throws(() => runtime.prepare({ ...options, updateImages: true, now, ...extra }), pattern);
+  refused({}, /backup-receipt/);
+  refused({ backupReceipt: "relative.json" }, /backup-receipt/);
+  refused({ backupReceipt: join(root, "missing.json") }, /cannot be read/);
+  refused({ backupReceipt: receipt(root, { createdAt: new Date(now - 25 * 3600 * 1000).toISOString() }) }, /older than 24 hours/);
+  refused({ backupReceipt: receipt(root, { createdAt: new Date(now + 3600 * 1000).toISOString() }) }, /older than 24 hours/);
+  refused({ backupReceipt: receipt(root, { project: "umir-completion-other" }) }, /another project/);
+  refused({ backupReceipt: receipt(root, { sha: "0".repeat(64) }) }, /does not match the manifest/);
+  const updated = runtime.prepare({
+    ...options,
+    updateImages: true,
+    now,
+    backupReceipt: receipt(root, { createdAt: new Date(now - 23 * 3600 * 1000).toISOString() }),
+  });
+  assert.equal(updated.reused, true);
+  assert.ok(readFileSync(join(updated.directory, "compose.env"), "utf8").includes("COMPLETION_FRONTEND_SHA=" + "b".repeat(40)));
+});
+
 test("reviewed image updates preserve the existing private authority inputs", async (t) => {
   const { options, root } = fixture(t);
   const script = join(root, "prepare.mjs");
@@ -200,8 +252,9 @@ test("reviewed image updates preserve the existing private authority inputs", as
   writeFileSync(sourcePath, JSON.stringify(sources));
   assert.throws(() => runtime.prepare(options), /source|image/i);
   // The new source must be in the image lock too, or the update is refused.
+  const backupReceipt = receipt(root);
   assert.throws(
-    () => runtime.prepare({ ...options, updateImages: true }),
+    () => runtime.prepare({ ...options, updateImages: true, backupReceipt }),
     /lock/i,
   );
   lock.services.frontend = {
@@ -211,7 +264,7 @@ test("reviewed image updates preserve the existing private authority inputs", as
     platformDigest: "sha256:" + "d".repeat(64),
   };
   writeFileSync(lockPath, JSON.stringify(lock));
-  const updated = runtime.prepare({ ...options, updateImages: true });
+  const updated = runtime.prepare({ ...options, updateImages: true, backupReceipt });
   assert.equal(updated.reused, true);
   assert.deepEqual([digest(key), digest(config)], before);
   assert.ok(

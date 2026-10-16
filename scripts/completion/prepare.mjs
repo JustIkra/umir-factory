@@ -882,6 +882,32 @@ function reconfigureBundle(
   });
 }
 
+const RECEIPT_MAX_AGE = 24 * 3600 * 1000;
+// An image update needs a backup of the Auth state made by scripts/completion/
+// backup.sh in the last 24 hours, for this project. The receipt names the
+// manifest next to it by SHA-256.
+function checkBackupReceipt(path, project, timestamp) {
+  if (typeof path !== "string" || !isAbsolute(path))
+    throw new Error(
+      "--update-images needs --backup-receipt <absolute receipt.json> from scripts/completion/backup.sh",
+    );
+  let receipt, manifest;
+  try {
+    receipt = JSON.parse(readFileSync(path, "utf8"));
+    manifest = readFileSync(join(dirname(path), "manifest.json"));
+  } catch {
+    throw new Error("backup receipt or the manifest next to it cannot be read");
+  }
+  if (receipt?.format !== 1 || receipt.project !== project)
+    throw new Error("backup receipt belongs to another project");
+  if (receipt.manifestSha256 !== sha(manifest))
+    throw new Error("backup receipt does not match the manifest next to it");
+  const made = Date.parse(receipt.createdAt);
+  const now = Date.parse(timestamp);
+  if (!Number.isFinite(made) || made > now + 5 * 60000 || now - made > RECEIPT_MAX_AGE)
+    throw new Error("backup receipt is older than 24 hours: make a new backup");
+}
+
 export function prepare({
   directory,
   inputs,
@@ -890,6 +916,7 @@ export function prepare({
   cookieMode = "secure",
   sources,
   updateImages = false,
+  backupReceipt,
   rotateLeaf: leaf = false,
   rotateCA,
   reconfigure = false,
@@ -920,6 +947,7 @@ export function prepare({
     afterStep,
   };
   if (rollback) return rollbackBundle({ directory, project, ...options });
+  if (updateImages) checkBackupReceipt(backupReceipt, project, options.timestamp);
   validateOrigin(origin, cookieMode);
   if (typeof inputs !== "string") throw new Error("private inputs are required");
   inputs = resolve(inputs);
@@ -1159,6 +1187,7 @@ if (
       ["--cookie-mode", "cookieMode"],
       ["--sources", "sources"],
       ["--phase", "phase"],
+      ["--backup-receipt", "backupReceipt"],
     ]);
     const flags = new Map([
       ["--update-images", "updateImages"],
