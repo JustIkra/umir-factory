@@ -1,0 +1,16 @@
+# CR 06 (factory-w0): уточнения DUR1 относительно подспеки (`docs/durable-api-amendment.md`)
+
+Что: при сборке DUR1 (`docs/durable-api-amendment.md`, схемы `docs/api/durable-v1-*.json`) пять мест расходятся с текстом подспек или уточняют его:
+1. `ClientCommandID`: в REG1 у схемы уже есть `maxLength: 256`, DUR1 её не заменяет. C43 («`maxLength: 256` для обеих схем») по факту касается только схемы `ID`; уточнить формулировку C43. Владельцы по-прежнему проверяют длину обеих величин до записи, превышение — `400 InvalidArgument`, `not_committed`.
+2. `CommandConflict`, исходы разведены. Другой отпечаток при живой записи: `409 CommandConflict`, `outcome: not_committed` для POST и `unavailable` для пассивного GET-чтения, исходный результат не показывается. `outcome: unknown` — только для повтора команды Auth, чей сохранённый результат очищен (30 дней результат, 180 дней отпечаток, C29, C53). Прежняя формулировка («единственный код для повторной команды с другим телом и для повтора после очистки», оба `unknown`) этого не различала.
+3. `LifecyclePeerReadiness` и `LifecycleResult.services` сохраняют `gateway` до `2.0.0-DUR.2`: до шага 3 порядка C7 Auth ещё возвращает пиров Gateway, примеры публичного профиля содержат такие записи. На период моста ответы deprecated-операций Gateway (`gatewayRuntime`, `gatewayRegister`, `gatewayClose`) лежат вне суженных схем `RuntimeStatus`, `RuntimeReadiness`, `ReadinessAck`; потребители их по DUR1 не проверяют. Сужение — в `2.0.0-DUR.2`.
+4. Форма `Registry`: поля `registryRevision`, `complete`, `entries` (`maxItems` 1000), `tombstones`, `nextAfter` (непрозрачный курсор, есть ровно при `complete = false`); `limit` 1–1000. Схема `RegistryEntry` заменена ради `services.maxItems = 2` (`warehouse`, `serving`, не больше одной записи на сервис). Ревизия реестра — положительный счётчик, первая равна 1; `registryRevision` точечного чтения — глобальная ревизия реестра, `304` означает «реестр не менялся», а не «запись не менялась».
+5. `ID`: `maxLength: 256` (кодовые точки), поле `description` схемы требует проверки длины до записи. Заодно `RateLimited` везде требует `details.retryAfterSeconds` и `outcome: not_committed`, включая существующие 429 в REG1.
+
+Зачем: подспеки (`auth.md`, `gateway.md`, `warehouse.md`, `serving.md`) писались до сборки схем; владельцы реализуют по тексту подспек и получат расхождение с контрактом, который проверяет приёмка Factory.
+
+Кого затрагивает: Auth (реестр, `CommandConflict` с `unknown` после очистки, форма 429, пиры Gateway в `LifecycleResult` до DUR.2), Gateway (потребитель реестра: курсоры, `304`, сохранение deprecated-ответов до DUR.2; сопоставление ошибок), Warehouse (`CommandConflict` с `not_committed`/`unavailable`, проверка длины `ID`, `ClientCommandID`), Serving (то же; код `CommandIdentityConflict` в `internal/adapters/httpapi/handler.go` заменить на `CommandConflict`).
+
+Предложение: оркестратор подтверждает пункты 1–5 как решение и обновляет текст подспек и C43 (пункт 1), либо возвращает DUR1 к тексту подспеки; в первом случае сообщает затронутым группам. Числа остаются предварительными до G1 (таблица «Числа контракта» в `docs/durable-api-amendment.md`).
+
+**Решение оркестратора (16.10):** см. раздел 10 главной спеки, «Решения по CR волн 0 и 1» (C56–C63).
