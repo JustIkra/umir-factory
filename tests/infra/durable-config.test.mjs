@@ -326,3 +326,13 @@ test("document carries no secret-looking values", () => {
   assert.doesNotMatch(text, /rediss?:\/\/[^\s`]*:[^\s`@]+@/);
   assert.doesNotMatch(text, /\b[0-9a-f]{64}\b/);
 });
+
+test("general rules keep the no-memory-mode and time zone rules, decisions sit in section 8", () => {
+  const text = readDoc();
+  const rules = text.slice(0, text.indexOf("\n## 2."));
+  assert.match(rules, /^4\. Режима `memory` в боевых бинарниках нет.*ALLOW_MEMORY/m, "general rule 4 (no memory mode) is missing");
+  assert.match(rules, /^9\. Все контейнеры работают в зоне `Europe\/Moscow`/m, "general rule 9 (time zone) is missing");
+  const open = section(text, "Расхождения и открытые вопросы");
+  assert.match(open, /^4\. `maxmemory` у `redis-cache`\. Решено \(C62\)/m, "section 8 item 4 must carry C62");
+  assert.match(open, /^9\. Секреты Feedback.*Решено \(C63\)/m, "section 8 item 9 must carry C63");
+});

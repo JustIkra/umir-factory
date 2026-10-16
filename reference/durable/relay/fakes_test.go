@@ -38,8 +38,11 @@ type fakeStore struct {
 	markErr  func(markCall) error
 	relErr   error
 	claimErr error
-	backlog  relay.Backlog
-	statsErr error
+	// emptyClaims is the number of next Claim calls that find nothing, as if the
+	// pending rows were held back by not_before.
+	emptyClaims int
+	backlog     relay.Backlog
+	statsErr    error
 }
 
 func newFakeStore(rows ...relay.Row) *fakeStore {
@@ -59,6 +62,10 @@ func (s *fakeStore) Claim(_ context.Context, _ string, limit int, _ time.Duratio
 	s.claims++
 	if s.claimErr != nil {
 		return nil, 0, s.claimErr
+	}
+	if s.emptyClaims > 0 {
+		s.emptyClaims--
+		return nil, 0, nil
 	}
 	var out []relay.Row
 	for i := range s.rows {

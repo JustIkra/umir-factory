@@ -509,6 +509,38 @@ func TestBrokerFailuresBackOffUpToFiveSeconds(t *testing.T) {
 	}
 }
 
+// An empty claim between two broker failures does not reset the pause: only a
+// confirmed row does.
+func TestEmptyClaimDoesNotResetTheBrokerPause(t *testing.T) {
+	store := newFakeStore(eventRow(1))
+	pub := &fakePub{script: func(int, context.Context, relay.Message) (relay.Outcome, error) {
+		return relay.Nacked, nil
+	}}
+	r := newRelay(store, pub)
+	var waits []time.Duration
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	r.Sleep = func(ctx context.Context, d time.Duration) error {
+		waits = append(waits, d)
+		switch len(waits) {
+		case 1:
+			store.mu.Lock()
+			store.emptyClaims = 1 // the next cycle claims nothing
+			store.mu.Unlock()
+		case 3:
+			cancel()
+		}
+		return ctx.Err()
+	}
+	if err := r.Run(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Run = %v", err)
+	}
+	// nack (200 ms), empty claim (plain poll), nack again: the pause must be longer than after the first nack.
+	if len(waits) < 3 || waits[2] <= waits[0] {
+		t.Fatalf("waits = %v: the second broker failure must wait longer than the first", waits)
+	}
+}
+
 func TestStatsMergeBacklogAndCounters(t *testing.T) {
 	store := newFakeStore()
 	store.backlog = relay.Backlog{Pending: 7, OldestAge: 3 * time.Second}

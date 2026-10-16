@@ -352,7 +352,9 @@ func (r *Relay) Run(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		before := r.published.Load()
 		drained, err := r.cycle(ctx)
+		confirmed := r.published.Load() > before
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -373,7 +375,11 @@ func (r *Relay) Run(ctx context.Context) error {
 			failures = 0
 			continue
 		default:
-			failures = 0
+			// Only a confirmed row ends a run of failures: an empty claim says
+			// nothing about the broker.
+			if confirmed {
+				failures = 0
+			}
 		}
 		if err := r.wait(ctx, delay); err != nil && ctx.Err() != nil {
 			return ctx.Err()
