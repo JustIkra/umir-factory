@@ -110,7 +110,10 @@ refused "wrong key" "$root/scripts/completion/restore.sh" --project "$restore_pr
 nothing_created "wrong key"
 
 cp -R "$out" "$tmp/damaged"; cp -R "$keys_out" "$tmp/damaged-keys"
-printf 'X' | dd of="$tmp/damaged/auth-state.tar.enc" bs=1 seek=100 conv=notrunc 2>/dev/null
+node - "$tmp/damaged/auth-state.tar.enc" <<'JS'
+const fs=require('fs');const path=process.argv[2];
+const bytes=fs.readFileSync(path);bytes[100]^=0xff;fs.writeFileSync(path,bytes);
+JS
 refused "damaged archive" "$root/scripts/completion/restore.sh" --project "$restore_project" --bundle-dir "$restored_bundle" --from "$tmp/damaged" --keys-from "$keys_out" --key-file "$key"
 nothing_created "damaged archive"
 
