@@ -30,6 +30,35 @@ func (d *acceptanceDouble) Run(_ context.Context, _ string, env []string, name s
 			return nil, nil, err
 		}
 	}
+	if name == "node" && len(args) > 0 && strings.HasSuffix(args[0], "scripts/completion/prepare.mjs") {
+		for i := 1; i+1 < len(args); i++ {
+			if args[i] == "--directory" {
+				if err := os.MkdirAll(args[i+1], 0o700); err != nil {
+					return nil, nil, err
+				}
+				if err := os.WriteFile(filepath.Join(args[i+1], "bundle.json"), []byte("{}\n"), 0o600); err != nil {
+					return nil, nil, err
+				}
+				if err := os.WriteFile(filepath.Join(args[i+1], "compose.env"), []byte("COMPOSE_PROJECT_NAME=umir-completion-ci-abcdef12\n"), 0o600); err != nil {
+					return nil, nil, err
+				}
+				break
+			}
+		}
+	}
+	if name == "bash" && len(args) > 0 && strings.HasSuffix(args[0], "scripts/completion/restore.sh") {
+		for i := 1; i+1 < len(args); i++ {
+			if args[i] == "--bundle-dir" {
+				if err := os.MkdirAll(args[i+1], 0o700); err != nil {
+					return nil, nil, err
+				}
+				if err := os.WriteFile(filepath.Join(args[i+1], "compose.env"), []byte("COMPOSE_PROJECT_NAME=umir-completion-ci-abcdef12-restore\n"), 0o600); err != nil {
+					return nil, nil, err
+				}
+				break
+			}
+		}
+	}
 	if d.failAt == len(d.calls) {
 		return nil, []byte("boom"), errors.New("exit status 1")
 	}
@@ -85,6 +114,7 @@ func TestCompletionAcceptanceRunsTheStepsInOrder(t *testing.T) {
 		t.Fatalf("stdout = %q", stdout)
 	}
 	project := "umir-completion-ci-abcdef12"
+	restoreProject := project + "-restore"
 	steps := [][]string{
 		{"prepare-mail.mjs"},
 		{"scripts/completion/prepare.mjs", "--project " + project, "--cookie-mode loopback-development"},
@@ -109,11 +139,12 @@ func TestCompletionAcceptanceRunsTheStepsInOrder(t *testing.T) {
 		{"up -d --force-recreate private-init"},
 		{"session-check.mjs signin"},
 		{"backup.sh", "--project " + project},
-		{"compose -p " + project + " down --volumes"},
-		{"restore.sh", "--project " + project},
-		{"up -d --wait"},
-		{"session-check.mjs signin"},
-		{"compose -p " + project + " down --volumes"},
+		{"compose -p " + project, " -f compose.completion.yaml", "down --volumes"},
+		{"restore.sh", "--project " + restoreProject, "umir-completion-restore-bundle"},
+		{"--env-file", "umir-completion-restore-bundle/compose.env", "up -d --wait"},
+		{"session-check.mjs signin", "umir-completion-restore-bundle"},
+		{"compose -p " + project, " -f compose.completion.yaml", "down --volumes"},
+		{"compose -p " + restoreProject, " -f compose.completion.yaml", "down --volumes"},
 	}
 	at := 0
 	for _, needles := range steps {
@@ -130,6 +161,7 @@ func TestCompletionAcceptanceCleansUpAfterAnErrorAtEveryStep(t *testing.T) {
 		t.Fatalf("baseline failed: %s", stderr)
 	}
 	total := len(full.calls)
+	restoreCall := indexOfCall(t, full.calls, 0, "scripts/completion/restore.sh") + 1
 	for failAt := 1; failAt < total; failAt++ {
 		double := &acceptanceDouble{failAt: failAt}
 		dir := t.TempDir()
@@ -138,10 +170,17 @@ func TestCompletionAcceptanceCleansUpAfterAnErrorAtEveryStep(t *testing.T) {
 			t.Fatalf("fail at #%d: success reported", failAt)
 		}
 		last := double.calls[len(double.calls)-1]
-		want := "docker compose -p umir-completion-ci-abcdef12 down --volumes --remove-orphans"
-		// An error in the cleanup command itself is the last command by definition.
-		if last != want {
-			t.Fatalf("fail at #%d: last command %q, want the cleanup", failAt, last)
+		wantProject := "docker compose -p umir-completion-ci-abcdef12-restore"
+		if failAt < restoreCall {
+			wantProject = "docker compose -p umir-completion-ci-abcdef12"
+		}
+		if failAt == 1 {
+			if strings.Contains(strings.Join(double.calls, "\n"), " down --volumes") {
+				t.Fatalf("fail at #%d: cleanup ran before a Compose bundle existed: %v", failAt, double.calls)
+			}
+		} else if !strings.HasPrefix(last, wantProject) || !strings.Contains(last, "down --volumes --remove-orphans") {
+			// An error in the cleanup command itself is the last command by definition.
+			t.Fatalf("fail at #%d: last command %q, want destination-project cleanup", failAt, last)
 		}
 		raw, err := os.ReadFile(filepath.Join(dir, "completion-acceptance-base.json"))
 		if err != nil {
@@ -166,12 +205,26 @@ func TestCompletionAcceptanceRemovesVolumesOnlyOfItsOwnPrefix(t *testing.T) {
 		}
 	}
 	double := &acceptanceDouble{}
-	run := &acceptanceRun{ctx: context.Background(), executor: double, project: "umir-completion-ci-1a2b3c", factoryDir: t.TempDir()}
+	bundle := t.TempDir()
+	restored := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bundle, "compose.env"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(restored, "compose.env"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run := &acceptanceRun{ctx: context.Background(), executor: double, project: "umir-completion-ci-1a2b3c", restoreProject: "umir-completion-ci-1a2b3c-restore", bundle: bundle, restoredBundle: restored, factoryDir: t.TempDir()}
 	if err := run.down(); err != nil {
 		t.Fatal(err)
 	}
-	if len(double.calls) != 1 || !strings.Contains(double.calls[0], "-p umir-completion-ci-1a2b3c down --volumes") {
+	if len(double.calls) != 2 || !strings.Contains(double.calls[0], "-p umir-completion-ci-1a2b3c --env-file") || !strings.Contains(double.calls[1], "-p umir-completion-ci-1a2b3c-restore --env-file") {
 		t.Fatalf("calls = %v", double.calls)
+	}
+	if err := run.downProject("umir-completion-ci-1a2b3c-restore"); err != nil {
+		t.Fatal(err)
+	}
+	if len(double.calls) != 3 || !strings.Contains(double.calls[2], "-p umir-completion-ci-1a2b3c-restore --env-file") {
+		t.Fatalf("destination cleanup calls = %v", double.calls)
 	}
 }
 
@@ -189,7 +242,7 @@ func TestCompletionAcceptanceEvidenceHoldsNoSecrets(t *testing.T) {
 	if err := json.Unmarshal(raw, &evidence); err != nil {
 		t.Fatal(err)
 	}
-	if !evidence.Passed || evidence.Variant != "base" || evidence.Project != "umir-completion-ci-abcdef12" || evidence.Cleanup != "removed" {
+	if !evidence.Passed || evidence.Variant != "base" || evidence.Project != "umir-completion-ci-abcdef12" || evidence.RestoreProject != "umir-completion-ci-abcdef12-restore" || !evidence.SourceBundleUnchanged || evidence.Cleanup != "removed" {
 		t.Fatalf("evidence = %s", raw)
 	}
 	names := map[string]bool{}

@@ -7,9 +7,8 @@
 # Makes two encrypted archives that are stored apart from each other:
 #   auth-state.tar.enc  the Docker volume <project>_auth-state (auth.json and
 #                       owner-secrets together), written to --out
-#   bundle.tar.enc      the private bundle directory without .generations and
-#                       .next (the older generations only repeat old key
-#                       material; a restore brings back the current one),
+#   bundle.tar.enc      the private bundle directory without .next (generation
+#                       history is retained so a restored package can roll back),
 #                       written to --keys-out (default: --out)
 # plus manifest.json (in --out) and receipt.json (in --out), which
 # `prepare.mjs --update-images --backup-receipt` accepts for 24 hours.
@@ -108,7 +107,7 @@ encrypt "$out/auth-state.tar.enc" < "$work/auth-state.tar"
 rm -f "$work/auth-state.tar"
 
 # Keys: the bundle directory.
-tar -C "$bundle" --exclude=./.generations --exclude=./.next -cf "$work/bundle.tar" .
+tar -C "$bundle" --exclude=./.next -cf "$work/bundle.tar" .
 file_sha "$work/bundle.tar" > "$work/keys.plain.sha"
 encrypt "$keys_out/bundle.tar.enc" < "$work/bundle.tar"
 rm -f "$work/bundle.tar"

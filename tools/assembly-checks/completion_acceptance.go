@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -52,15 +53,17 @@ type acceptanceStep struct {
 }
 
 type acceptanceEvidence struct {
-	Variant        string           `json:"variant"`
-	Project        string           `json:"project"`
-	StartedAt      string           `json:"startedAt"`
-	FinishedAt     string           `json:"finishedAt"`
-	Passed         bool             `json:"passed"`
-	RestoreSeconds float64          `json:"restoreSeconds,omitempty"`
-	Volumes        map[string]any   `json:"volumes,omitempty"`
-	Steps          []acceptanceStep `json:"steps"`
-	Cleanup        string           `json:"cleanup"`
+	Variant               string           `json:"variant"`
+	Project               string           `json:"project"`
+	RestoreProject        string           `json:"restoreProject"`
+	StartedAt             string           `json:"startedAt"`
+	FinishedAt            string           `json:"finishedAt"`
+	Passed                bool             `json:"passed"`
+	RestoreSeconds        float64          `json:"restoreSeconds,omitempty"`
+	SourceBundleUnchanged bool             `json:"sourceBundleUnchanged"`
+	Volumes               map[string]any   `json:"volumes,omitempty"`
+	Steps                 []acceptanceStep `json:"steps"`
+	Cleanup               string           `json:"cleanup"`
 }
 
 type acceptanceRun struct {
@@ -71,18 +74,22 @@ type acceptanceRun struct {
 	feedback    bool
 	feedbackSrc string
 
-	project  string
-	tmp      string
-	bundle   string
-	mail     string
-	keyFile  string
-	session  string
-	seed     string
-	data     string
-	keys     string
-	extraEnv []string
-	evidence acceptanceEvidence
-	failed   bool
+	project            string
+	restoreProject     string
+	tmp                string
+	bundle             string
+	restoredBundle     string
+	activeBundle       string
+	sourceBundleDigest string
+	mail               string
+	keyFile            string
+	session            string
+	seed               string
+	data               string
+	keys               string
+	extraEnv           []string
+	evidence           acceptanceEvidence
+	failed             bool
 }
 
 func (r *acceptanceRun) env() []string {
@@ -119,7 +126,11 @@ func (r *acceptanceRun) node(script string, args ...string) (string, error) {
 
 // compose runs Docker Compose for the stand with the bundle environment.
 func (r *acceptanceRun) compose(args ...string) (string, error) {
-	base := []string{"compose", "--env-file", filepath.Join(r.bundle, "compose.env"), "-f", composeFile, "-f", composeMailFile}
+	bundle := r.bundle
+	if r.activeBundle != "" {
+		bundle = r.activeBundle
+	}
+	base := []string{"compose", "--env-file", filepath.Join(bundle, "compose.env"), "-f", composeFile, "-f", composeMailFile}
 	if r.feedback {
 		base = append(base, "--profile", "feedback")
 	}
@@ -291,26 +302,37 @@ func (r *acceptanceRun) steps() []namedStep {
 			return r.sessionCheck("signin", "--directory", r.bundle)
 		}},
 		namedStep{"backup", func() error {
-			_, err := r.run("bash", "scripts/completion/backup.sh", "--project", r.project, "--bundle", r.bundle, "--key-file", r.keyFile, "--out", r.data, "--keys-out", r.keys)
+			var err error
+			r.sourceBundleDigest, err = snapshotPrivateBundle(r.bundle)
+			if err != nil {
+				return fmt.Errorf("snapshot source private bundle: %w", err)
+			}
+			_, err = r.run("bash", "scripts/completion/backup.sh", "--project", r.project, "--bundle", r.bundle, "--key-file", r.keyFile, "--out", r.data, "--keys-out", r.keys)
 			return err
 		}},
 		namedStep{"destroy", func() error {
-			if err := r.down(); err != nil {
-				return err
-			}
-			return os.RemoveAll(r.bundle)
+			return r.downProject(r.project)
 		}},
 		namedStep{"restore", func() error {
 			restoreStart = r.deps.now()
-			if _, err := r.run("bash", "scripts/completion/restore.sh", "--project", r.project, "--bundle-dir", r.bundle, "--from", r.data, "--keys-from", r.keys, "--key-file", r.keyFile); err != nil {
+			if _, err := r.run("bash", "scripts/completion/restore.sh", "--project", r.restoreProject, "--bundle-dir", r.restoredBundle, "--from", r.data, "--keys-from", r.keys, "--key-file", r.keyFile); err != nil {
 				return err
 			}
+			r.activeBundle = r.restoredBundle
 			if _, err := r.compose("up", "-d", "--wait", "--wait-timeout", "240"); err != nil {
 				return err
 			}
-			if err := r.sessionCheck("signin", "--directory", r.bundle); err != nil {
+			if err := r.sessionCheck("signin", "--directory", r.restoredBundle); err != nil {
 				return fmt.Errorf("sign-in after restore: %w", err)
 			}
+			current, err := snapshotPrivateBundle(r.bundle)
+			if err != nil {
+				return fmt.Errorf("recheck source private bundle: %w", err)
+			}
+			if current != r.sourceBundleDigest {
+				return errors.New("restore changed the source private bundle")
+			}
+			r.evidence.SourceBundleUnchanged = true
 			r.evidence.RestoreSeconds = r.deps.now().Sub(restoreStart).Seconds()
 			return nil
 		}},
@@ -318,13 +340,78 @@ func (r *acceptanceRun) steps() []namedStep {
 	return script
 }
 
-// down removes the containers, networks and, for a project this run owns, the volumes.
-func (r *acceptanceRun) down() error {
-	if !strings.HasPrefix(r.project, acceptanceProjectPrefix) || len(r.project) <= len(acceptanceProjectPrefix) {
-		return fmt.Errorf("refusing to remove volumes of project %q: only %s* is owned by this command", r.project, acceptanceProjectPrefix)
+// downProject removes only the explicitly owned completion project and its volumes.
+func (r *acceptanceRun) downProject(project string) error {
+	if !strings.HasPrefix(project, acceptanceProjectPrefix) || len(project) <= len(acceptanceProjectPrefix) {
+		return fmt.Errorf("refusing to remove volumes of project %q: only %s* is owned by this command", project, acceptanceProjectPrefix)
 	}
-	_, err := r.run("docker", "compose", "-p", r.project, "down", "--volumes", "--remove-orphans")
+	args := []string{"compose", "-p", project}
+	bundle := r.bundle
+	if project == r.restoreProject && r.restoredBundle != "" {
+		bundle = r.restoredBundle
+	}
+	envFile := filepath.Join(bundle, "compose.env")
+	if _, err := os.Stat(envFile); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("inspect private Compose environment for %q: %w", project, err)
+	}
+	args = append(args, "--env-file", envFile, "-f", composeFile, "-f", composeMailFile)
+	if r.feedback {
+		args = append(args, "--profile", "feedback")
+	}
+	args = append(args, "down", "--volumes", "--remove-orphans")
+	_, err := r.run("docker", args...)
 	return err
+}
+
+func (r *acceptanceRun) down() error {
+	return errors.Join(r.downProject(r.project), r.downProject(r.restoreProject))
+}
+
+func snapshotPrivateBundle(directory string) (string, error) {
+	hash := sha256.New()
+	err := filepath.WalkDir(directory, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) {
+			return fmt.Errorf("unsupported private bundle entry %s", path)
+		}
+		relative, err := filepath.Rel(directory, path)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(hash, "%s\x00%o\x00", filepath.ToSlash(relative), info.Mode().Perm()); err != nil {
+			return err
+		}
+		if info.Mode().IsRegular() {
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(hash, file)
+			closeErr := file.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+			if _, err := io.WriteString(hash, "\x00"); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func (r *acceptanceRun) execute() {
@@ -371,13 +458,15 @@ func runCompletionAcceptance(ctx context.Context, factoryDir string, options cli
 		project: acceptanceProjectPrefix + suffix, tmp: tmp,
 	}
 	run.bundle = filepath.Join(tmp, "umir-completion-bundle")
+	run.restoreProject = run.project + "-restore"
+	run.restoredBundle = filepath.Join(tmp, "umir-completion-restore-bundle")
 	run.mail = filepath.Join(tmp, "umir-completion-mail")
 	run.session = filepath.Join(tmp, "session.json")
 	run.seed = filepath.Join(tmp, "seed.json")
 	run.data = filepath.Join(tmp, "backup-data")
 	run.keys = filepath.Join(tmp, "backup-keys")
 	run.keyFile = filepath.Join(tmp, "backup.key")
-	run.evidence = acceptanceEvidence{Variant: variantName(options.feedback), Project: run.project, StartedAt: deps.now().UTC().Format(time.RFC3339)}
+	run.evidence = acceptanceEvidence{Variant: variantName(options.feedback), Project: run.project, RestoreProject: run.restoreProject, StartedAt: deps.now().UTC().Format(time.RFC3339)}
 
 	// The temporary directory and the stand are removed on every exit path.
 	defer func() {
