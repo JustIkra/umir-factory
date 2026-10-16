@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
   mkdtempSync,
+  readFileSync,
   writeFileSync,
   rmSync,
   realpathSync,
@@ -147,4 +148,48 @@ test("legacy Gateway stays on loopback unless the public overlay is added", () =
   assert.equal(open.services.gateway.ports[0].published, "8081");
   const defaults = composeJSON(["compose.yaml", "compose.legacy-public.yaml"]);
   assert.deepEqual(hostIP(defaults, "gateway"), ["127.0.0.1"]);
+});
+
+test("every completion image carries a digest, except an unpublished optional one", (t) => {
+  const envFile = completionEnv(t);
+  const lock = JSON.parse(
+    readFileSync(
+      new URL("../../../scripts/completion/images.lock.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const mailDirectory = realpathSync(
+    mkdtempSync(join(tmpdir(), "umir-completion-mail-")),
+  );
+  t.after(() => rmSync(mailDirectory, { recursive: true, force: true }));
+  const model = composeJSON(
+    ["compose.completion.yaml", "tests/examples/completion/compose.mail.yaml"],
+    {
+      envFile,
+      profiles: ["feedback"],
+      env: { COMPLETION_TEST_MAIL_DIR: mailDirectory },
+    },
+  );
+  const unpublished = Object.keys(lock.unpublished ?? {});
+  const untagged = [];
+  for (const [name, service] of Object.entries(model.services)) {
+    if (/@sha256:[0-9a-f]{64}$/.test(service.image)) continue;
+    untagged.push(name);
+  }
+  assert.deepEqual(untagged, unpublished.length === 0 ? [] : ["feedback"]);
+  assert.ok(Object.keys(model.services).length >= 10, "all services were checked");
+  // Every digest in Compose is the one in the lock.
+  const locked = new Set([
+    ...Object.values(lock.auxiliary).map((aux) => aux.ref),
+    ...Object.entries(lock.services).map(
+      ([service, entry]) =>
+        `ghcr.io/justikra/umir-${service}:sha-${entry.sourceSHA}@${entry.platformDigest}`,
+    ),
+    ...unpublished.map(
+      (service) =>
+        `ghcr.io/justikra/umir-${service}:sha-${lock.unpublished[service]}`,
+    ),
+  ]);
+  for (const [name, service] of Object.entries(model.services))
+    assert.ok(locked.has(service.image), `${name}: ${service.image} is not in the lock`);
 });

@@ -169,6 +169,8 @@ test("base Compose has one edge, verified TLS and no dependency on optional Feed
   assert.ok(!("feedback" in optional.services.gateway.depends_on));
 });
 
+const lockURL = new URL("../../../scripts/completion/images.lock.json", import.meta.url);
+
 test("reviewed image updates preserve the existing private authority inputs", async (t) => {
   const { options, root } = fixture(t);
   const script = join(root, "prepare.mjs");
@@ -179,13 +181,16 @@ test("reviewed image updates preserve the existing private authority inputs", as
     ),
   );
   const sourcePath = join(root, "sources.json");
+  const lockPath = join(root, "images.lock.json");
   const sources = JSON.parse(
     readFileSync(
       new URL("../../../scripts/completion/sources.json", import.meta.url),
       "utf8",
     ),
   );
+  const lock = JSON.parse(readFileSync(lockURL, "utf8"));
   writeFileSync(sourcePath, JSON.stringify(sources));
+  writeFileSync(lockPath, JSON.stringify(lock));
   const runtime = await import(pathToFileURL(script).href);
   const original = runtime.prepare(options);
   const key = join(original.directory, "auth/secrets/gateway-auth");
@@ -194,6 +199,18 @@ test("reviewed image updates preserve the existing private authority inputs", as
   sources.services.frontend = "b".repeat(40);
   writeFileSync(sourcePath, JSON.stringify(sources));
   assert.throws(() => runtime.prepare(options), /source|image/i);
+  // The new source must be in the image lock too, or the update is refused.
+  assert.throws(
+    () => runtime.prepare({ ...options, updateImages: true }),
+    /lock/i,
+  );
+  lock.services.frontend = {
+    ...lock.services.frontend,
+    sourceSHA: "b".repeat(40),
+    revision: "b".repeat(40),
+    platformDigest: "sha256:" + "d".repeat(64),
+  };
+  writeFileSync(lockPath, JSON.stringify(lock));
   const updated = runtime.prepare({ ...options, updateImages: true });
   assert.equal(updated.reused, true);
   assert.deepEqual([digest(key), digest(config)], before);
@@ -255,6 +272,7 @@ test("registration limits are bounded integers and retained in private config", 
 });
 
 const feedbackSHA = /^[a-f0-9]{40}$/;
+
 const sourcesURL = new URL("../../../scripts/completion/sources.json", import.meta.url);
 
 test("the optional Feedback pin lives in sources.json and reaches the Compose environment", (t) => {
@@ -328,6 +346,29 @@ test("the optional Feedback pin lives in sources.json and reaches the Compose en
   assert.ok(!("feedback" in legacy.services));
 });
 
+// An image lock for synthetic source pins: every service has a made-up digest.
+function syntheticLock(manifest) {
+  const digestFor = (value) => "sha256:" + createHash("sha256").update(value).digest("hex");
+  return JSON.stringify({
+    profile: manifest.profile ?? "REG1",
+    platform: "linux/amd64",
+    services: Object.fromEntries(
+      Object.entries(manifest.services).map(([service, sha]) => [
+        service,
+        {
+          sourceSHA: sha,
+          indexDigest: digestFor("i" + sha),
+          platformDigest: digestFor("p" + sha),
+          configDigest: digestFor("c" + sha),
+          revision: sha,
+        },
+      ]),
+    ),
+    auxiliary: {},
+    unpublished: manifest.optionalServices ?? {},
+  });
+}
+
 test("an exact clean Feedback checkout is required only when one exists", async (t) => {
   const { options, root } = fixture(t);
   const git = (cwd, ...args) =>
@@ -364,6 +405,7 @@ test("an exact clean Feedback checkout is required only when one exists", async 
     readFileSync(new URL("../../../scripts/completion/prepare.mjs", import.meta.url)),
   );
   writeFileSync(join(run, "sources.json"), JSON.stringify(manifest));
+  writeFileSync(join(run, "images.lock.json"), syntheticLock(manifest));
   const runtime = await import(pathToFileURL(join(run, "prepare.mjs")).href);
   const at = (name) => ({ ...options, directory: join(root, name), sources });
   runtime.prepare(at("without"));
@@ -372,6 +414,7 @@ test("an exact clean Feedback checkout is required only when one exists", async 
   assert.throws(() => runtime.prepare(at("stale")), /feedback/i);
   manifest.optionalServices = { feedback: head };
   writeFileSync(join(run, "sources.json"), JSON.stringify(manifest));
+  writeFileSync(join(run, "images.lock.json"), syntheticLock(manifest));
   runtime.prepare(at("exact"));
   writeFileSync(join(sources, "feedback", "dirty"), "x");
   assert.throws(() => runtime.prepare(at("dirty")), /feedback/i);
@@ -824,4 +867,41 @@ test("the command line exposes the rotation, reconfiguration and rollback operat
   assert.equal(fails("--phase", "trust"), 1);
   assert.equal(fails("--rotate-ca", "--phase", "never"), 1);
   assert.equal(fails("--rotate-leaf", "--reconfigure"), 1);
+});
+
+test("compose.env pins every locked service by digest and refuses a service missing from the lock", async (t) => {
+  const lock = JSON.parse(readFileSync(lockURL, "utf8"));
+  const manifest = JSON.parse(readFileSync(sourcesURL, "utf8"));
+  const { options } = fixture(t);
+  const result = prepare(options);
+  const env = readFileSync(join(result.directory, "compose.env"), "utf8");
+  for (const service of Object.keys(manifest.services)) {
+    const locked = lock.services[service];
+    assert.equal(locked.sourceSHA, manifest.services[service]);
+    assert.ok(
+      env.includes(
+        `COMPLETION_${service.toUpperCase()}_IMAGE=ghcr.io/justikra/umir-${service}:sha-${locked.sourceSHA}@${locked.platformDigest}\n`,
+      ),
+      service,
+    );
+    assert.ok(env.includes(`COMPLETION_${service.toUpperCase()}_SHA=${locked.sourceSHA}\n`));
+  }
+  // Feedback is not published to the registry: the lock records it as such and
+  // the bundle keeps the exact-source tag.
+  assert.equal(lock.unpublished.feedback, manifest.optionalServices.feedback);
+  assert.ok(
+    env.includes(
+      `COMPLETION_FEEDBACK_IMAGE=ghcr.io/justikra/umir-feedback:sha-${lock.unpublished.feedback}\n`,
+    ),
+  );
+
+  const { options: other, root } = fixture(t);
+  const script = join(root, "prepare.mjs");
+  writeFileSync(script, readFileSync(new URL("../../../scripts/completion/prepare.mjs", import.meta.url)));
+  writeFileSync(join(root, "sources.json"), readFileSync(sourcesURL));
+  delete lock.services.gateway;
+  writeFileSync(join(root, "images.lock.json"), JSON.stringify(lock));
+  const runtime = await import(pathToFileURL(script).href);
+  assert.throws(() => runtime.prepare(other), /gateway.*lock|lock.*gateway/i);
+  assert.equal(existsSync(other.directory), false, "nothing is created when the lock is incomplete");
 });

@@ -20,6 +20,16 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sourceFile = fileURLToPath(new URL("./sources.json", import.meta.url));
+const lockFile = fileURLToPath(
+  new URL("./images.lock.json", import.meta.url),
+);
+// What a bundle is bound to: the reviewed source pins and the image identities
+// locked for them (scripts/completion/images.lock.json, made by `umir-checks
+// lock-images`).
+const sourceDigest = () =>
+  sha(
+    Buffer.concat([readFileSync(sourceFile), Buffer.from("\0"), readFileSync(lockFile)]),
+  );
 const sha = (body) => createHash("sha256").update(body).digest("hex");
 const noControls = (value) =>
   typeof value === "string" && value !== "" && !/[\r\n\0$]/.test(value);
@@ -256,6 +266,31 @@ function patchOrigin(text, origin, cookieMode) {
   }
   return patched;
 }
+// Image of a service: the exact source tag plus the locked digest of its
+// linux/amd64 manifest. A service the lock does not know is refused; an optional
+// service the registry does not publish (Feedback) keeps its exact-source tag.
+function imageReference(service, revision) {
+  let lock;
+  try {
+    lock = JSON.parse(readFileSync(lockFile, "utf8"));
+  } catch {
+    throw new Error("cannot read scripts/completion/images.lock.json (image lock)");
+  }
+  const repository = `ghcr.io/justikra/umir-${service}`;
+  const locked = lock.services?.[service];
+  if (locked !== undefined) {
+    if (locked.sourceSHA !== revision || !/^sha256:[0-9a-f]{64}$/.test(locked.platformDigest ?? ""))
+      throw new Error(
+        `image lock does not match the ${service} source ${revision}: run umir-checks lock-images --write and review the result`,
+      );
+    return `${repository}:sha-${revision}@${locked.platformDigest}`;
+  }
+  if (lock.unpublished?.[service] === revision)
+    return `${repository}:sha-${revision}`;
+  throw new Error(
+    `no image lock entry for ${service} at ${revision}: run umir-checks lock-images --write and review the result`,
+  );
+}
 function composeEnvironment(
   { directory, project, origin, cookieMode, sources },
   manifest,
@@ -267,7 +302,7 @@ function composeEnvironment(
     ...Object.fromEntries(
       Object.entries(pins(manifest)).map(([service, revision]) => [
         `COMPLETION_${service.toUpperCase()}_IMAGE`,
-        `ghcr.io/justikra/umir-${service}:sha-${revision}`,
+        imageReference(service, revision),
       ]),
     ),
     ...Object.fromEntries(
@@ -914,7 +949,7 @@ export function prepare({
     if (rotateCA !== undefined)
       return rotateAuthority(directory, current, rotateCA, options);
     if (
-      current.sources !== sha(readFileSync(sourceFile)) ||
+      current.sources !== sourceDigest() ||
       current.sourceRoot !== (sources ?? null)
     ) {
       if (!updateImages)
@@ -929,7 +964,7 @@ export function prepare({
           manifest,
         ),
       );
-      current.sources = sha(readFileSync(sourceFile));
+      current.sources = sourceDigest();
       current.sourceRoot = sources ?? null;
       current.files = inventory(directory);
       replacePrivate(
@@ -948,6 +983,9 @@ export function prepare({
   }
   if (operations.length > 0)
     throw new Error(`${operations[0]} needs an existing private bundle`);
+  // Refuse before creating anything when the image lock lacks a pinned service.
+  for (const [service, revision] of Object.entries(pins(manifest)))
+    imageReference(service, revision);
   mkdirSync(directory, { mode: 0o700 });
   tls(directory);
   const keys = Object.fromEntries(
@@ -1052,7 +1090,7 @@ export function prepare({
     JSON.stringify(
       {
         binding,
-        sources: sha(readFileSync(sourceFile)),
+        sources: sourceDigest(),
         sourceRoot: sources ?? null,
         generation: 1,
         tls: tlsMetadata(readTree(join(directory, "tls"))),
