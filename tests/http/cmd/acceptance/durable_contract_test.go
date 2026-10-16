@@ -954,6 +954,13 @@ func TestDurablePolicyNumbersMatchAmendmentAndSchemas(t *testing.T) {
 				t.Fatalf("%s policy %s = %v, want %v", visibility, key, got, want)
 			}
 		}
+		// G1 (16.10.2026) approved the numbers; the SSE quotas are a ceiling reviewed at G2.
+		if got, _ := durableMember(t, document["x-durable-policy"], "status").(string); !strings.Contains(got, "Approved at G1 on 2026-10-16") {
+			t.Fatalf("%s policy status = %q, want the G1 approval", visibility, got)
+		}
+		if got, _ := durableMember(t, document["x-durable-policy"], "sseQuotas", "status").(string); !strings.Contains(got, "ceiling") || !strings.Contains(got, "G2") {
+			t.Fatalf("%s SSE status = %q, want a ceiling reviewed at G2", visibility, got)
+		}
 		schemas := durableSchemas(t, document)
 		checks := []struct {
 			name string

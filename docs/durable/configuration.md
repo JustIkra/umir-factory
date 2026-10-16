@@ -1,6 +1,6 @@
 # Конфигурация durable-стека: контракт имён, команд и здоровья
 
-Статус: контракт волны 0 (решение C10). Документ обязателен для групп Auth, Gateway, Warehouse, Serving, Feedback, Frontend и для сборки Factory (`compose.durable.yaml`, `scripts/durable/secrets.sh`, `scripts/durable/stack.sh`). Если группа выбрала иное имя, она оформляет CR, а не меняет контракт молча. Числа сроков и бюджетов здесь не фиксируются: они в [retention.md](retention.md) и [admission.md](admission.md) со статусом «предложение до G1».
+Статус: контракт волны 0 (решение C10). Документ обязателен для групп Auth, Gateway, Warehouse, Serving, Feedback, Frontend и для сборки Factory (`compose.durable.yaml`, `scripts/durable/secrets.sh`, `scripts/durable/stack.sh`). Если группа выбрала иное имя, она оформляет CR, а не меняет контракт молча. Числа сроков и бюджетов здесь не фиксируются: они в [retention.md](retention.md) и [admission.md](admission.md) со статусом «утверждено G1 16.10.2026».
 
 Связанные документы: каталог событий и права RabbitMQ — [events.md](events.md); смысл `runtimeEpoch`, форма `/readyz` и коды ошибок на проводе — [durable-api-amendment.md](../durable-api-amendment.md); обоснование выбора хранилищ — [ADR 0002](../adr/0002-postgres-rabbitmq-redis.md); тестовая инфраструктура — `scripts/durable-test-infra.sh`.
 
@@ -101,7 +101,7 @@ Redis limiter Warehouse не нужен (warehouse.md 5.8): переменной
 | `FEEDBACK_AUTH_DISCOVERY_KEY` | Feedback | да | сервисный ключ Feedback для Auth (`serviceKeyFiles.feedback`); им же читается приватный реестр (C50); `_FILE`-вариант вводит Feedback в волне 2 (C63), см. раздел 8 | Factory (`secrets.sh`) |
 | `FEEDBACK_GATEWAY_KEY` | Feedback | да | ключ, которым Gateway обращается к Feedback; `_FILE`-вариант вводит Feedback в волне 2 (C63), см. раздел 8 | Factory (`secrets.sh`) |
 | `FEEDBACK_DB_MAX_CONNS`, `FEEDBACK_LEASE_DURATION`, `FEEDBACK_AUTH_KEYS_MAX_STALE`, `FEEDBACK_WORKER_POLL_INTERVAL`, `FEEDBACK_RETRY_*` | Feedback | нет | значения по умолчанию в коде | группа Feedback |
-| `FEEDBACK_RETENTION_ANONYMOUS_DAYS`, `FEEDBACK_RETENTION_RESTAURANT_DAYS`, `FEEDBACK_RETENTION_DELETED_SCOPE_DAYS`, `FEEDBACK_TOMBSTONE_DAYS`, `FEEDBACK_QUOTA_ANONYMOUS_ROWS`, `FEEDBACK_QUOTA_RESTAURANT_ROWS` | Feedback | да, без умолчаний до G1 | числа утверждает G1 ([retention.md](retention.md)) | Factory (Compose), после G1 |
+| `FEEDBACK_RETENTION_ANONYMOUS_DAYS`, `FEEDBACK_RETENTION_RESTAURANT_DAYS`, `FEEDBACK_RETENTION_DELETED_SCOPE_DAYS`, `FEEDBACK_TOMBSTONE_DAYS`, `FEEDBACK_QUOTA_ANONYMOUS_ROWS`, `FEEDBACK_QUOTA_RESTAURANT_ROWS` | Feedback | да, без умолчаний | числа утверждены G1 (G1-2): 30 / 180 / 180 дней, квоты 150 000 / 5 000 ([retention.md](retention.md)) | Factory (Compose) |
 | `FEEDBACK_SMTP_*`, `FEEDBACK_TELEGRAM_*`, `FEEDBACK_MAIL_*` | Feedback | по каналам | провайдеры доставки; секретные значения должны идти файлами, см. раздел 8 | Factory (`secrets.sh`) |
 
 ### 2.5 Gateway
@@ -314,5 +314,5 @@ ACL (W2.1). Пользователь получает только свои кл
 17. CA для `amqps://` и `rediss://`. Только Auth имеет поле для CA брокера. Для остальных сервисов способ не определён; предложение: `SSL_CERT_FILE` на общий CA, как во FIN1, и `sslrootcert` в DSN Postgres.
 18. `UMIR_SMTP_*_FILE`. factory.md W2.1 называет `UMIR_SMTP_USERNAME_FILE` и `UMIR_SMTP_PASSWORD_FILE`, а Auth читает `smtpUsernameFile` и `smtpPasswordFile` из JSON. Контракт: `UMIR_SMTP_*_FILE` — входы `secrets.sh`, не переменные сервиса.
 19. `peerKeyFiles.gateway`. factory.md убирает `peerURLs.gateway` (R3); `peerKeyFiles.gateway` в подспеках не упомянут, контракт убирает его тоже. Auth подтверждает.
-20. Числовые настройки Feedback (сроки, квоты) обязательны без умолчаний до G1; до решения G1 сборка не может задать значения.
+20. Числовые настройки Feedback (сроки, квоты) обязательны без умолчаний. Решено G1-2: 30 / 180 / надгробие 180 дней, квоты 150 000 анонимных и 5 000 на ресторан; сборка задаёт эти значения.
 21. Конфликт имён ключей. Имена `AUTH_SERVICE_KEY_FILE` и `SERVING_SERVICE_KEY_FILE` встречаются у Warehouse и у Gateway с разным смыслом («ключ этого сервиса для вызова Auth» и «ключ Gateway для вызова Serving»); различие — файл, который Factory монтирует каждому. Контракт не меняет имён (по подспекам), но `secrets.sh` ведёт мапу «имя → файл» на сервис.

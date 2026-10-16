@@ -87,7 +87,7 @@ ADR 0001 оставлял RLS «следующим шагом». Теперь э
 - **Обменники.** `umir.events` (topic, единственный производитель — Warehouse, C38), `umir.auth` (topic, уведомления жизненного цикла Auth, C1), `umir.tasks` (direct: `auth.mail`, `feedback.smtp`, `feedback.telegram`), `umir.dlx`. Вместо одного `umir.events` из ADR 0001.
 - **Очереди.** Задачи — quorum, retry-очередь с TTL 30 с, `x-delivery-limit` 5, затем `.dlq`. Fan-out: exclusive auto-delete `gateway.live.<instance>`, `gateway.auth.<instance>`, `serving.auth.<instance>`; durable quorum `feedback.auth` (только при включённом профиле Feedback). Gateway привязывается к `warehouse.#`.
 - **Конверт и политика `mandatory`** (C3, C30, C45) описаны в [docs/durable/events.md](../durable/events.md). Для `umir.events` и всех ключей `umir.auth` неотмаршрутизированное сообщение считается опубликованным (accept, растёт метрика), для ключей `umir.tasks` — ошибка конфигурации и повтор (retry). События Auth — только подсказки, они не дают прав.
-- **Outbox и inbox** (C4): единая форма `outbox(id uuid PK, position bigserial UNIQUE, exchange, routing_key, headers jsonb, body jsonb, org_id, restaurant_id, created_at, not_before, published_at, routed, attempts, claimed_by, claim_fence, claim_expires_at)` и `inbox(consumer, message_id, received_at, PK(consumer, message_id))`. Срок опубликованного outbox 7 дней, inbox 14 дней (R9, предложение до G1). Цель задержки relay: p95 не больше 1 с.
+- **Outbox и inbox** (C4): единая форма `outbox(id uuid PK, position bigserial UNIQUE, exchange, routing_key, headers jsonb, body jsonb, org_id, restaurant_id, created_at, not_before, published_at, routed, attempts, claimed_by, claim_fence, claim_expires_at)` и `inbox(consumer, message_id, received_at, PK(consumer, message_id))`. Срок опубликованного outbox 7 дней, inbox 14 дней (R9, утверждено G1 16.10.2026). Цель задержки relay: p95 не больше 1 с.
 - **Без брокера** сервис стартует, `readyz` показывает деградацию возможности `events`, outbox копится и уходит после восстановления.
 - **Доставка писем и обращений** (R18): строка задания в Postgres (аренда, попытки, исход) — источник истины, RabbitMQ — транспорт-будильник с повторами и DLQ; внешняя доставка остаётся at-least-once.
 
@@ -132,8 +132,8 @@ ADR 0001 предусматривал `server import-json`. Теперь дан�
 | Просрочку запускает Gateway, один планировщик по аренде Redis с fencing | R6 | п. 2.2 |
 | Маркер непрерывности limiter, строгий режим | R7 | п. 2.1 |
 | RLS обязателен, две роли, контекст в транзакции | R8 | п. 2.6 |
-| Сроки хранения (предложение до G1) | R9 | п. 2.8, [retention.md](../durable/retention.md) |
-| Бюджеты допуска в Redis, процессных лимитеров нет (предложение до G1) | R10 | п. 2.1, [admission.md](../durable/admission.md) |
+| Сроки хранения (утверждено G1 16.10.2026) | R9 | п. 2.8, [retention.md](../durable/retention.md) |
+| Бюджеты допуска в Redis, процессных лимитеров нет (утверждено G1 16.10.2026) | R10 | п. 2.1, [admission.md](../durable/admission.md) |
 | Доверенный прокси и IP клиента | R11 | п. 2.4 (переменные C34 в [configuration.md](../durable/configuration.md)) |
 | Одна ВМ, нулевой допуск часов | R12 | п. 2.12 |
 | Нагрузочная приёмка, кеш чтений по замерам | R13 | п. 2.1 |
@@ -176,7 +176,7 @@ ADR 0001 предусматривал `server import-json`. Теперь дан�
 - Потеря RabbitMQ не теряет бизнес-факты: они в outbox. Потеря `redis-limiter` не закрывает вход, а включает строгий режим на окно не более 1 ч.
 - Копирование эталона даёт независимые релизы сервисов, но требует `copy.sh --check`, чтобы расхождения с `reference/durable` были видны.
 - Контракт DUR1 меняет смысл `runtimeEpoch`, вводит ревизию реестра, статус попытки `Interrupted`, `CommandConflict` и лимиты; фронтенд и все потребители перепиниваются на составной контракт по SHA.
-- Числа сроков и бюджетов, лимиты SSE и заказа, нагрузочные пороги остаются предложением до G1. Выкат и слияние в `main` — только по отдельному поручению (U5).
+- Числа сроков и бюджетов, лимиты SSE и заказа, нагрузочные пороги утверждены G1 16.10.2026 (лимиты SSE, пороги R13 и срок журнала склада — потолок, пересмотр на G2). Выкат и слияние в `main` — только по отдельному поручению (U5).
 - Перенос данных не делается: до принятия записей в новый стек остаётся откат на старые образы и тома.
 
 Связанные документы:

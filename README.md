@@ -359,7 +359,7 @@ bash scripts/verify-assembly.sh --env-file .env.example
 | [Публичная OpenAPI](docs/api/openapi.yml), отдельный внутренний контракт в docs/api | Поля, маршруты, варианты результатов, ошибки и версии соответствующего HTTP API. Frontend использует публичную схему. |
 | [Gateway/frontend handoff](docs/gateway-frontend-handoff.md) | Межсервисные границы, стек frontend, состояния клиента и интеграционные проверки. |
 | [Дизайн-бриф](docs/frontend-design-brief.md) | Визуальные решения, Figma, токены, доступность и критерии приёмки интерфейса. |
-| [DUR1](docs/durable-api-amendment.md), [ADR 0002](docs/adr/0002-postgres-rabbitmq-redis.md), [docs/durable](docs/durable/events.md) | Контракт durable-стека, решение по Postgres/RabbitMQ/Redis, каталог событий, конфигурация, сроки хранения и бюджеты допуска (числа — предложение до G1). |
+| [DUR1](docs/durable-api-amendment.md), [ADR 0002](docs/adr/0002-postgres-rabbitmq-redis.md), [docs/durable](docs/durable/events.md) | Контракт durable-стека, решение по Postgres/RabbitMQ/Redis, каталог событий, конфигурация, сроки хранения и бюджеты допуска (числа утверждены G1 16.10.2026; SSE, журнал склада и пороги R13 — потолок до G2). |
 | AGENTS.md | Короткие инструкции репозитория и ссылки на подробные документы. |
 | CHANGELOG.md | Изменения поведения, контрактов, проверок и эксплуатационных процедур под «Не выпущено» до релиза. |
 

@@ -7646,7 +7646,7 @@
       },
       "PrepareOrderRequest": {
         "type": "object",
-        "description": "Process positions in source order. An empty list produces an empty proposal. Do not send lineNo or an accepted composition. At most 200 positions; more is 400 InvalidArgument with outcome not_committed (C15). At most 2000 active proposals exist per restaurant; creating one more is 409 LimitExceeded with outcome not_committed. The numbers are confirmed at G1.",
+        "description": "Process positions in source order. An empty list produces an empty proposal. Do not send lineNo or an accepted composition. At most 200 positions; more is 400 InvalidArgument with outcome not_committed (C15). At most 2000 active proposals exist per restaurant; creating one more is 409 LimitExceeded with outcome not_committed. The numbers were approved at G1 on 2026-10-16 (G1-5).",
         "additionalProperties": false,
         "required": [
           "positions"
@@ -15073,13 +15073,13 @@
   },
   "x-durable-source": {
     "registration-v1-composed-public.json": "2be37f544a1ababa92cf16a4652826281db7f9b0e3d64bf1b389be2af0e0c873",
-    "durable-v1-public.json": "170947d10e96bf6107e0c2e7658e8eef4d86877dc7d1fe5d5c9a212d757fd9d1",
+    "durable-v1-public.json": "1c84cddb02d18b61360e706e1ae86672cf940088d847acaba9dcc48b139f2622",
     "registration-v1-composed-private.json": "2d21db8cd51085196b8294615b7db2afd68b540fcd4cbf90d0e67e4fb50a45d3",
-    "durable-v1-private.json": "1726f5346cf40d2ece34a039dfd31b5008df0fb7bb82fd0e05921cb02f32e393"
+    "durable-v1-private.json": "c75ea15e514762055266e68bf9ab3169b45c5870c77b0dde129bda9303e0c697"
   },
   "x-durable-policy": {
     "profile": "DUR1",
-    "status": "Numbers are proposals until G1 unless marked fixed.",
+    "status": "Approved at G1 on 2026-10-16 (section 11 of the main spec); numbers marked as a ceiling are reviewed at G2.",
     "epoch": {
       "meaning": "storage generation",
       "changesOnlyOn": [
@@ -15253,7 +15253,7 @@
         "code": "RateLimited",
         "retryAfter": 1
       },
-      "status": "preliminary; G1 confirms after the AccessCheck measurement (R13)"
+      "status": "Approved at G1 on 2026-10-16 as a ceiling; reviewed at G2 after the AccessCheck measurement (R13)"
     },
     "pairRetention": {
       "warehouseAttemptReceiptsMinDays": 35,

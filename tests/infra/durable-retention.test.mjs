@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const retentionPath = resolve(root, "docs/durable/retention.md");
 const admissionPath = resolve(root, "docs/durable/admission.md");
-const STATUS = "предложение до G1";
+const STATUS = "утверждено G1 16.10.2026";
+// G1 left these numbers open for G2: the SSE quotas (ceiling) and the warehouse journal term.
+const CEILING = "утверждено как потолок, пересмотр на G2";
+const CEILING_ROWS = [/^Журнал событий склада/, /^Потоки SSE$/, /^SSE на /, /^На (сессию|организацию|ячейку)$/];
 
 function read(path) {
   assert.ok(existsSync(path), `${path} must exist`);
@@ -187,7 +190,7 @@ const budgetNumbers = [
   ["Неверные коды", "300"],
 ];
 
-test("every table in retention.md and admission.md has the status column and every row says the proposal status", () => {
+test("every table in retention.md and admission.md has the status column and every row says the G1 status", () => {
   for (const path of [retentionPath, admissionPath]) {
     const tables = parseTables(read(path));
     assert.ok(tables.length > 0, `${path} has no tables`);
@@ -197,7 +200,8 @@ test("every table in retention.md and admission.md has the status column and eve
       assert.ok(table.rows.length > 0, `${path}:${table.line} table without rows`);
       for (const row of table.rows) {
         assert.equal(row.length, table.header.length, `${path}:${table.line} row width: ${row[0]}`);
-        assert.equal(row[index], STATUS, `${path}:${table.line} status of ${row[0]}`);
+        const expected = CEILING_ROWS.some((pattern) => pattern.test(row[0])) ? CEILING : STATUS;
+        assert.equal(row[index], expected, `${path}:${table.line} status of ${row[0]}`);
       }
     }
   }

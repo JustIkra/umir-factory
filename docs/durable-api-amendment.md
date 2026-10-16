@@ -15,10 +15,10 @@ make check-contract
 
 | Файл | SHA-256 |
 | --- | --- |
-| `docs/api/durable-v1-composed-public.json` | `614580ad7dd5aa3b299948852e0308cc0601ca00e9cb21f2df8526450322ed1e` |
-| `docs/api/durable-v1-composed-private.json` | `d070d324d86a26d69dd13304ff878e96a89b42510ca1cf1c31b9a2b0e7207b4f` |
-| `docs/api/durable-v1-public.json` (оверлей) | `170947d10e96bf6107e0c2e7658e8eef4d86877dc7d1fe5d5c9a212d757fd9d1` |
-| `docs/api/durable-v1-private.json` (оверлей) | `1726f5346cf40d2ece34a039dfd31b5008df0fb7bb82fd0e05921cb02f32e393` |
+| `docs/api/durable-v1-composed-public.json` | `7fb4ad1ae8ea8826dac532c0e60715e78c4dcea3e87c9b819cd5339ec7447a5d` |
+| `docs/api/durable-v1-composed-private.json` | `dc01196ae0b287bfeb596f56d75dc747818f7dc50774fd2874679741e333459d` |
+| `docs/api/durable-v1-public.json` (оверлей) | `1c84cddb02d18b61360e706e1ae86672cf940088d847acaba9dcc48b139f2622` |
+| `docs/api/durable-v1-private.json` (оверлей) | `c75ea15e514762055266e68bf9ab3169b45c5870c77b0dde129bda9303e0c697` |
 | `docs/api/durable-v1-examples.json` | `4e74ca65e394c564c95185f4e0fa6843e50e62b77471a34df6bcb71924273ffe` |
 | `docs/api/registration-v1-composed-public.json` (предшественник) | `2be37f544a1ababa92cf16a4652826281db7f9b0e3d64bf1b389be2af0e0c873` |
 | `docs/api/registration-v1-composed-private.json` (предшественник) | `2d21db8cd51085196b8294615b7db2afd68b540fcd4cbf90d0e67e4fb50a45d3` |
@@ -50,7 +50,7 @@ make check-contract
 
 Порядок слияния строго такой:
 
-1. DUR1 помечает операции Gateway как `deprecated`.
+1. DUR1 помечает операции Gateway как `deprecated` (этот шаг выполнен в `2.0.0-DUR.1`; порядок из пяти шагов утверждён G1-7).
 2. Gateway, PR-1: сам читает реестр по ревизии, готовность от планировщика не зависит, старые маршруты пока работают.
 3. Auth, PR: убирает Gateway из пиров.
 4. Gateway, PR-2: убирает маршруты `runtime|registry` и JWKS-проверку для Auth без `sync-contract`.
@@ -64,7 +64,7 @@ make check-contract
 
 `GET /internal/auth/v1/registry/{restaurantID}` возвращает `RegistryPoint`: `registryRevision` — глобальная ревизия реестра на момент чтения (тот же счётчик, что в списке, а не версия ресторана) — и либо запись (`state: live`), либо надгробие (`state: tombstone`), с `ETag` (квотированная `registryRevision`) и `If-None-Match`: `304` означает, что реестр не менялся с этой ревизии, а значит запись прежняя; изменившийся реестр может ответить `200` с той же записью (`304` и `200` не различают, менялась ли именно эта запись). Ресторан, которого не было, — `404 NotFound` (в операции описан явно). Ревизия реестра — положительный счётчик, первая ревизия равна 1 (`since=0` — всё записанное). `RegistryEntry.services` содержит не больше двух записей (`warehouse`, `serving`). Надгробия хранятся бессрочно, без ПДн, читаются через `since` и точечное чтение. Записи реестра отражают подтверждённую готовность, живых `Status` пира в чтении нет. Ни один бизнес-запрос не читает весь реестр; сверка вызывает статус пира один раз на сервис за проход.
 
-Квота: 10 000 активных ресторанов, удалённые не считаются. Превышение при создании ресторана — `409 LimitExceeded`, `outcome: not_committed`. Число подтверждает G1.
+Квота: 10 000 активных ресторанов, удалённые не считаются. Превышение при создании ресторана — `409 LimitExceeded`, `outcome: not_committed`. Число утверждено G1 16.10.2026 (G1-5).
 
 ## 4. Попытка заказа на складе (FIN-04, C21)
 
@@ -96,7 +96,7 @@ make check-contract
 - Схема `ID` получает `maxLength: 256` (кодовые точки). У `ClientCommandID` та же граница уже введена REG1 (`maxLength: 256`), поэтому DUR1 её не заменяет (отклонение от текста подспеки). Владельцы проверяют длину до записи; превышение — `400 InvalidArgument`, `not_committed`.
 - `LimitExceeded` зависит от операции: `409` для квот (активные рестораны, активные предложения) и `503` для существующих чтений страниц (`outcome: unavailable`). Оба примера есть.
 
-Числа подтверждает G1.
+Числа утверждены G1 16.10.2026 (G1-5).
 
 ## 9. Сервисные токены (C11)
 
@@ -121,7 +121,7 @@ Warehouse принимает оба вида. Повтор commit остаётс
 
 ## 13. Квоты SSE (C36)
 
-8 потоков на сессию, 200 на организацию, 2000 на ячейку. Числа предварительные; G1 утверждает их после замера `AccessCheck` (R13). Отказ — `429 RateLimited`, `Retry-After: 1`; ответ `429` с заголовком `Retry-After` (`#/components/headers/Retry-After`) добавлен к публичной операции `live` патчем. В схеме `LiveEvent` описано, что `epoch` — boot-nonce Gateway, а не storage generation и не `INSTANCE_ID`.
+8 потоков на сессию, 200 на организацию, 2000 на ячейку. G1 утвердил их 16.10.2026 как потолок (G1-4); числа пересматриваются на G2 после замера `AccessCheck` (R13). Отказ — `429 RateLimited`, `Retry-After: 1`; ответ `429` с заголовком `Retry-After` (`#/components/headers/Retry-After`) добавлен к публичной операции `live` патчем. В схеме `LiveEvent` описано, что `epoch` — boot-nonce Gateway, а не storage generation и не `INSTANCE_ID`.
 
 ## 14. Прочее из сверки
 
@@ -131,14 +131,14 @@ Warehouse принимает оба вида. Повтор commit остаётс
 
 ## Границы гарантий (C53)
 
-- Повтор команды с тем же `commandID` и тем же телом возвращает исходный результат, пока жива запись: 30 дней для результата, 180 дней для надгробия-отпечатка (предложение до G1). Между этими сроками повтор получает `409 CommandConflict`, `outcome: unknown`. После надгробия команда выполняется как новая.
+- Повтор команды с тем же `commandID` и тем же телом возвращает исходный результат, пока жива запись: 30 дней для результата, 180 дней для надгробия-отпечатка (утверждено G1 16.10.2026, G1-8). Между этими сроками повтор получает `409 CommandConflict`, `outcome: unknown`. После надгробия команда выполняется как новая.
 - `outcome: not_committed` даёт только отказ до отправки владельцу (допуск, лимиты, проверка входа). Сбой после отправки всегда `unknown`.
 - `LimitExceeded`: `409` для квот, `503` для чтений страниц.
 - `registryRevision` и `aggregateRevision` Auth монотонны, но не подряд.
 
 ## Числа контракта
 
-Числа предварительные до G1; таблица, `x-durable-policy` и схемы сверяются тестом `TestDurablePolicyNumbersMatchAmendmentAndSchemas`.
+Числа утверждены G1 16.10.2026 (SSE — потолок, пересмотр на G2); таблица, `x-durable-policy` и схемы сверяются тестом `TestDurablePolicyNumbersMatchAmendmentAndSchemas`.
 
 | Ключ политики | Значение |
 | --- | --- |
