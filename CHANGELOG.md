@@ -2,6 +2,8 @@
 
 ## Не выпущено
 
+- Add the infrastructure-only W2 durable Compose base: PostgreSQL 17 with TLS and separate owner/runtime roles, RabbitMQ 4 with TLS and `mq-init` topology, and separate Redis limiter/cache services with TLS and ACLs. Add secure file-secret preparation, the continuity-marker init job, pinned registry identities, and isolated infrastructure checks. Owner services, stack control, encrypted backup/restore and W3 acceptance remain incomplete.
+
 - Wait for the second ownership qualification before measuring concurrent public HTTP probes. Preserve the existing 250 ms overlap window and two-second request guard; the test no longer mistakes qualification work for serialized responses.
 
 - Check the types of the G1 policy status fields in contract tests, so the full pinned lint gate accepts them. Correct the README status to the approved G1 decisions.

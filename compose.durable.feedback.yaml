@@ -1,0 +1,3 @@
+services:
+  mq-init:
+    command: ["/var/lib/rabbitmq/runtime/definitions-feedback.json"]

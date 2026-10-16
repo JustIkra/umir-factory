@@ -1,0 +1,9 @@
+services:
+  rabbitmq:
+    volumes:
+      - ./scripts/durable/enabled_plugins.ops:/etc/rabbitmq/enabled_plugins:ro
+    ports:
+      - target: 15672
+        published: ${DURABLE_RABBITMQ_MANAGEMENT_PORT:-15673}
+        host_ip: 127.0.0.1
+        protocol: tcp

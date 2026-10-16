@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-16",
+  "registryEvidence": "docker buildx imagetools inspect against Docker Hub registry manifests",
+  "images": {
+    "postgres": {
+      "ref": "docker.io/library/postgres:17.11-bookworm",
+      "index": "sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826",
+      "platforms": {
+        "linux/amd64": "sha256:66aafa11cf15800a3c94763f7e11d1e7b2e37e5e84bc4ce027cb6e1e4bfaf4df",
+        "linux/arm64/v8": "sha256:a85953d6f830fd55a12929df3b7a4fa94dc96d652de62d2d714e0867ccb3670d"
+      }
+    },
+    "rabbitmq": {
+      "ref": "docker.io/library/rabbitmq:4.3.6-management",
+      "index": "sha256:8d0592c8f13b9ca76d844aa269f54461503223f36d0bf955859608d78baaf8fb",
+      "platforms": {
+        "linux/amd64": "sha256:508ce93e08d981c6377b84dbc99ba1278e8c8ffd8803178a0ab56d679935571b",
+        "linux/arm64/v8": "sha256:ab142d7664d978084bf9156d0cd80d5851510a420314001549ad6113b06070c6"
+      }
+    },
+    "redis": {
+      "ref": "docker.io/library/redis:7.4.7-bookworm",
+      "index": "sha256:976ab0f0939b78c06d802bcd3bea44c5142ea9a756a57b861e08819817f768c8",
+      "platforms": {
+        "linux/amd64": "sha256:28bd5e15c3674c48a472a3dd475ba446d0a3cd876e7addb988b5840a286b2256",
+        "linux/arm64/v8": "sha256:4bc4e13b4582612f4805bb415dcec80e267b110bf62924307009fedcc31d2b21"
+      }
+    },
+    "toolsBase": {
+      "ref": "docker.io/library/alpine:3.23.3",
+      "index": "sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659",
+      "platforms": {
+        "linux/amd64": "sha256:59855d3dceb3ae53991193bd03301e082b2a7faa56a514b03527ae0ec2ce3a95",
+        "linux/arm64/v8": "sha256:1529d13528ed05668b2038ffab807ac8633ad6adfe6be8901adda62411f70d29"
+      },
+      "build": "scripts/durable/Dockerfile"
+    }
+  }
+}
